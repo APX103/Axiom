@@ -416,37 +416,52 @@ function replaceBraced(s: string, cmd: string, replacer: (inner: string) => stri
   return result;
 }
 
-/** 剥离未知命令 \xxx{content} → content (保留内容,去掉命令名和花括号)。 */
+/** 剥离未知命令 \xxx{content} → content (保留内容,去掉命令名和花括号)。
+ * 支持多参数命令: \xxx{a}{b} → "a b" (连续花括号组的内容用空格拼接)。
+ */
 function stripUnknownCommands(s: string): string {
-  // 多次扫描处理嵌套
   for (let pass = 0; pass < 5; pass++) {
     const before = s;
-    s = s.replace(/\\([a-zA-Z]+)\s*\{/, (whole, _cmd, _offset) => whole); // 先标记
-    // 用手动平衡括号
     let out = "";
     let i = 0;
-    const knownFmt = new Set(["textbf", "textit", "emph", "texttt", "cite", "citep", "citet", "citeauthor", "citealp", "ref", "url", "href"]);
+    const knownFmt = new Set([
+      "textbf", "textit", "emph", "texttt", "underline",
+      "cite", "citep", "citet", "citeauthor", "citealp",
+      "ref", "url", "href", "label",
+    ]);
     while (i < s.length) {
-      const m = /^\\([a-zA-Z@]+)\s*\{/.exec(s.slice(i));
+      const m = /^\\([a-zA-Z@]+)\s*(?=\{)/.exec(s.slice(i));
       if (m) {
         const cmd = m[1];
-        const cmdLen = m[0].length;
-        let j = i + cmdLen;
-        let depth = 1;
-        while (j < s.length && depth > 0) {
-          if (s[j] === "{") depth++;
-          else if (s[j] === "}") depth--;
-          if (depth === 0) break;
-          j++;
+        // m[0] 不含 {, 所以 pos 指向第一个 {
+        let pos = i + m[0].length;
+
+        // 收集所有连续的 {..} 参数组
+        const args: string[] = [];
+        while (pos < s.length && s[pos] === "{") {
+          // 平衡括号提取一组
+          let depth = 1;
+          let j = pos + 1;
+          while (j < s.length && depth > 0) {
+            if (s[j] === "{") depth++;
+            else if (s[j] === "}") depth--;
+            if (depth === 0) break;
+            j++;
+          }
+          args.push(s.slice(pos + 1, j));
+          pos = j + 1;
+          // 跳过参数间的空白 (LaTeX 允许 \SI{1}{2} 或 \SI{1} {2})
+          while (pos < s.length && s[pos] === " ") pos++;
         }
-        const inner = s.slice(i + cmdLen, j);
-        // 已知格式命令已处理,跳过; 未知命令保留 inner
+
         if (knownFmt.has(cmd)) {
-          out += s.slice(i, i + cmdLen) + inner + "}";
+          // 已知格式命令: 保留原样 (第一个参数)
+          out += `\\${cmd}{${args[0]}}`;
         } else {
-          out += inner;
+          // 未知命令: 保留所有参数内容, 空格拼接
+          out += args.join(" ");
         }
-        i = j + 1;
+        i = pos;
       } else {
         out += s[i];
         i++;
