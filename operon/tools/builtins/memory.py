@@ -1,6 +1,6 @@
 """记忆工具: read_memory / write_memory / search_memory。
 
-对应原版: 0808.js:225-313 + 0865.js:2465-2919。
+
 简化: 去掉 PI classifier, categories, supersede chain repair。
 """
 

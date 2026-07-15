@@ -1,6 +1,6 @@
 """工作区隔离 venv 管理 + install_packages 工具。
 
-对应原版: 0247.js:144 manage_packages (additive-only)。
+
 本阶段用 uv 在 workspace 内建隔离 venv,解决可复现性:
 - agent 装的依赖留在 workspace/.venv,产物自带环境
 - python 工具注入该 venv 的 site-packages
@@ -69,7 +69,7 @@ async def ensure_venv(ctx: ToolContext) -> Path:
 async def install_packages(ctx: ToolContext, packages: str | list[str]) -> str:
     """在工作区 venv 里装包。
 
-    对应原版 manage_packages (0247.js:144): additive-only。
+
     用 uv pip install (快); 回退到 venv 的 pip。
     同时写入 requirements.txt 保证可复现。
     """

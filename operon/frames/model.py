@@ -1,6 +1,6 @@
 """Frame 内存模型。
 
-对应原版: 0110.js:51-133 的 frames 表 + 0877.js:207 FrameService 的运行时对象。
+
 Frame = 一次 agent 调用的执行单元 (不是单条消息)。一个会话是一棵 frame 树。
 
 本模块是运行时内存态,持久化由 FrameService 负责 (写 DB schema.py::Frame)。
@@ -28,7 +28,7 @@ def _uuid() -> str:
 
 @dataclass
 class Frame:
-    """运行时 Frame。对应原版 FrameService 持有的对象。
+    """运行时 Frame。
 
     根 frame: parent_frame_id=None, root_frame_id=self.id
     子 frame: parent_frame_id + root_frame_id 都指向父/根
@@ -47,7 +47,7 @@ class Frame:
     conversation_type: str = "agent"
     is_hidden: bool = False
 
-    # 对话历史 (内存态,对应原版 frame_messages)
+    # 对话历史 (内存态,
     messages: list[Message] = field(default_factory=list)
     # 运行时上下文: plan_mode/verifier_mode/ultra_mode 等会话级标志
     context: dict[str, Any] = field(default_factory=dict)
@@ -73,7 +73,7 @@ class Frame:
         return self.parent_frame_id is None
 
     def add_usage(self, usage: TokenUsage) -> None:
-        """累计 token 用量。对应原版 frames 表的 input_tokens/output_tokens 累计。"""
+        """累计 token 用量。"""
         self.input_tokens += usage.input_tokens
         self.output_tokens += usage.output_tokens
 

@@ -1,6 +1,6 @@
 """OpenAlex 学术论文检索工具。
 
-对应原版: 0802.js fetch_article_fulltext 的学术检索部分。
+
 OpenAlex 是开放的学术图谱 API (免 mailto 即可用,有 api_key 更稳)。
 
 提供:

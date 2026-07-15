@@ -1,6 +1,6 @@
 """OpenAI 兼容 LLM adapter。
 
-对应原版: 0202.js:501 A3 类。
+
 重设计 (divergences §1): 适配国内模型 (DeepSeek/通义/智谱/Moonshot 等),
 全部通过 base_url 切换。
 

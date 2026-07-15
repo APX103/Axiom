@@ -1,6 +1,6 @@
 """记忆存储层: CRUD + BM25 搜索。
 
-对应原版: MemoryRepository (0851.js:166-503)。
+
 简化: 去掉 supersede chain (用 replace 直接更新), 去掉 categories, 去掉 user_id (单用户)。
 保留: entity 分层 + evidence + origin + last_surfaced_at。
 """

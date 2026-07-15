@@ -1,6 +1,6 @@
 """System prompt 拼装。
 
-对应原版: 0195.js 提示词宝库 + 0198.js 注册表 + 0200.js/0201.js floor + 0860.js stable/dynamic。
+
 原版把 system prompt 分三段: floor (所有人必有) + stable (按角色/工具条件) + dynamic (每轮变化)。
 
 本实现迁移原版 Claude Science 的学术规则体系,适配 Axiom 的工具集:
@@ -401,7 +401,7 @@ first.**"""
 
 
 def build_system_prompt(ctx: ToolContext, *, plan_mode: bool) -> str:
-    """构建 system prompt。对应原版 0860.js 的 floor+stable+dynamic 拼装。
+    """构建 system prompt。
 
     Args:
         ctx: 工具上下文 (提供 plan 状态等)

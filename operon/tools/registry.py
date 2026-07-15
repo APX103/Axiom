@@ -1,7 +1,7 @@
 """工具注册表。
 
-对应原版: 0861.js:21-47 的 YEz 工具注册集。
-每个工具是 {name, description, parameters, handler},对应原版工具对象。
+
+每个工具是 {name, description, parameters, handler},
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ ToolHandler = Callable[..., Awaitable[Any]]
 
 
 class ToolSpec(BaseModel):
-    """工具规格。对应原版工具定义的 schema 部分 (给 LLM 看的)。"""
+    """工具规格。"""
 
     name: str
     description: str
@@ -29,7 +29,7 @@ class ToolSpec(BaseModel):
 
 
 class RegisteredTool:
-    """一个已注册的工具 = 规格 + handler。对应原版工具对象。"""
+    """一个已注册的工具 = 规格 + handler。"""
 
     def __init__(self, spec: ToolSpec, handler: ToolHandler):
         self.spec = spec
@@ -49,7 +49,7 @@ class RegisteredTool:
 
 
 class ToolRegistry:
-    """工具注册表。对应原版 YEz。
+    """工具注册表。
 
     agent 启动时注册工具;循环中按 LLM 返回的 tool_use.name 查找 handler。
     按角色限制可见工具 (原版 REVIEWER 只能用只读工具集 i$z)。

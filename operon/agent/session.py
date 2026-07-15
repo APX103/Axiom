@@ -1,6 +1,6 @@
 """Session: agent 执行的高层入口。
 
-对应原版: 启动一个根 frame + 注册工具 + 创建 Agent + run。
+
 把 FrameService / ToolRegistry / ToolRouter / Agent 组合起来,提供便捷 API。
 """
 

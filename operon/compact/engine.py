@@ -1,6 +1,6 @@
 """Rolling Compact 引擎主入口。
 
-对应原版: 0848.js:1980-2160 (MOG checkRollingCompact) + 227-241 (r_G abortRollingCompact)。
+
 
 简化版 (同步阻塞,无并发 fork):
 原版 fork 是异步并发的 (dispatch 后后台跑,下一轮再应用)。
@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 
 
 class CompactResult:
-    """check_rolling_compact 的结果。对应原版返回的 {type: ...}。"""
+    """check_rolling_compact 的结果。"""
 
     def __init__(self, rtype: str, **kw):
         self.type = rtype  # idle / applied / dispatched / block_applied
@@ -54,7 +54,7 @@ async def check_rolling_compact(
     system_tokens: int = 0,
     model: str | None = None,
 ) -> CompactResult:
-    """Rolling Compact 主入口。对应原版 MOG (0848.js:1980-2160)。
+    """Rolling Compact 主入口。
 
     简化流程 (同步):
     1. 算 budget / ka
@@ -72,7 +72,7 @@ async def check_rolling_compact(
     total_applied = 0
     tokens_freed = 0
 
-    for _ in range(8):  # 最多 8 轮 (对应原版 block-await 循环)
+    for _ in range(8):  # 最多 8 轮 (
         total = estimate_messages_total(messages, system_tokens=system_tokens)
         wall = int(budget * HARD_WALL_RATIO)
         soft = int(budget * COMPACTION_TRIGGER_RATIO)
@@ -151,7 +151,7 @@ async def check_rolling_compact(
 
 
 def abort_rolling_compact(rc_state: RollingCompactState, reason: str = "") -> bool:
-    """中止 Rolling Compact。对应原版 r_G (0848.js:227-241)。
+    """中止 Rolling Compact。
 
     清状态,不动 messages。
     """
@@ -166,7 +166,7 @@ def abort_rolling_compact(rc_state: RollingCompactState, reason: str = "") -> bo
 
 
 def note_overflow(rc_state: RollingCompactState, overflow_tokens: int) -> bool:
-    """记录 overflow。对应原版 JOG (0848.js:2171-2175)。
+    """记录 overflow。
 
     Returns: 是否还能重试 (< PTL_RETRY_CAP)。
     """
@@ -180,7 +180,6 @@ def note_overflow(rc_state: RollingCompactState, overflow_tokens: int) -> bool:
 def _microcompact(messages: list[Message]) -> int:
     """微压缩: 原地截断超长的 tool_result 内容。
 
-    对应原版 _microcompact (0858.js:2890)。
     不需要 LLM 调用 — 只是压力释放阀。
     截断超过 8000 字符的 tool_result, 保留前 4000 + [truncated] 标记。
     """

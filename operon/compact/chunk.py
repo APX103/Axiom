@@ -1,6 +1,6 @@
 """Rolling Compact chunk 选择 (L1/L2 触发)。
 
-对应原版: 0848.js:980-1120 (YHz pickNextChunk / l8O shouldTriggerL1 / p8O shouldTriggerL2 / qOG growChunk)。
+
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ from .token_est import estimate_message_tokens
 
 @dataclass
 class ChunkRange:
-    """一个待压缩的 chunk。对应原版 chunk_range 对象。"""
+    """一个待压缩的 chunk。"""
 
     from_uuid: str
     to_uuid: str
@@ -44,7 +44,7 @@ def _uuid(m: Message) -> str | None:
 
 
 def _visible_messages(messages: list[Message], applied: set[str]) -> list[tuple[int, Message]]:
-    """投影后的可见消息 (drop 掉被生效 summary 覆盖的)。对应原版 e8O。"""
+    """投影后的可见消息 (drop 掉被生效 summary 覆盖的)。"""
     from .projection import compute_projection
 
     proj = compute_projection(messages, applied)
@@ -60,7 +60,7 @@ def should_trigger_l1(
     pressure: bool = False,
     exclude_to: str | None = None,
 ) -> ChunkRange | None:
-    """L1 触发判定。对应原版 l8O (0848.js:998-1044)。
+    """L1 触发判定。
 
     非压力: 剩余预算 < ka * KB_RATIO(0.7) 才触发。
     压力: 只要存在 >= MIN_CHUNK_TOKENS 的 chunk 立即触发。
@@ -130,7 +130,7 @@ def should_trigger_l1(
             # chunk 之后的剩余预算 = total - (K + chunk_tokens)
             after = total_tokens - (K + chunk_tokens)
             # 非压力下: 剩余 < ka*0.7 才触发 (剩余少了就该压,腾空间)
-            # 对应原版: cum - chunk_tokens < ka*cSz → return None (反义)
+            #
             if not pressure and after >= ka * KB_RATIO:
                 return None
             from_u = start_uuid or _uuid(visible[x][1])
@@ -158,7 +158,7 @@ def should_trigger_l2(
     *,
     pressure: bool = False,
 ) -> ChunkRange | None:
-    """L2 触发判定。对应原版 p8O (0848.js:1077-1120)。
+    """L2 触发判定。
 
     条件: 头部 >=3 条 L1 summary 且头部总 token >= max(8192, ka*0.4)。
     """
@@ -237,7 +237,7 @@ def pick_next_chunk(
     applied: set[str],
     frame_id: str | None = None,
 ) -> ChunkRange | None:
-    """选下一个 chunk。对应原版 YHz (0848.js:980-997)。
+    """选下一个 chunk。
 
     L1 优先; 同 chunk 失败 >= MAX_FORK_FAILURES 转向 L2。
     """

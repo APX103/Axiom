@@ -1,6 +1,6 @@
 """Artifact 版本化工具: save_artifacts / get_artifact / list_artifacts。
 
-对应原版: 0491.js:47 save_artifacts + 0491.js:243 read_file (artifact 部分)。
+
 与 files.py 的工作区文件工具分开: 这里走 ArtifactStore 版本化。
 
 save_artifacts 把工作区文件提升为版本化 artifact,返回 version_id (VID)。
@@ -20,7 +20,7 @@ async def save_artifacts(
     files: list[dict[str, Any]],
     version_of: str | None = None,
 ) -> str:
-    """保存 artifact 版本。对应原版 save_artifacts (0491.js:47)。
+    """保存 artifact 版本。
 
     files: [{path, version_of?, content_type?, is_intermediate?, language?}]
     从工作区文件读取内容,版本化存储。
@@ -106,7 +106,7 @@ async def save_artifacts(
 
 
 async def get_artifact(ctx: ToolContext, version_id: str) -> str:
-    """按 VID 读 artifact 内容。对应原版 read_file (artifact 部分)。"""
+    """按 VID 读 artifact 内容。"""
     store = ctx.artifact_store
     if store is None:
         return "Error: artifact store not configured"

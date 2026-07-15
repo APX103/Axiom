@@ -2,13 +2,13 @@
 
 设计决策（见 docs/divergences.md §2）:
 内部消息模型采用 Anthropic-style 的 content-block 语义,因为 agent 状态机
-(对应原版 0871.js 的 _processLlmResponse)依赖 tool_use/tool_result 语义做分支。
+(
 与 OpenAI 兼容 API 通信时,由 message_adapter 做格式转换。
 
-对应原版: 消息格式参考 Anthropic Messages API;Frame 的对话历史存在
+
 frame_messages 表 (0110.js:134),msg_json 字段即序列化的消息。
 
-Block 类型对应原版 0023.js 的消息/块类型枚举。
+Block 类型
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ from pydantic import BaseModel, Field
 
 
 class BlockType(str, Enum):
-    """Content block 类型。对应原版 Anthropic content block 语义。"""
+    """Content block 类型。"""
 
     TEXT = "text"
     TOOL_USE = "tool_use"
@@ -37,7 +37,7 @@ class TextBlock(BaseModel):
 
 
 class ToolUseBlock(BaseModel):
-    """模型发起的工具调用。对应原版 Anthropic tool_use block。
+    """模型发起的工具调用。
 
     id: 工具调用唯一标识 (模型生成,如 "toolu_...")
     name: 工具名
@@ -51,7 +51,7 @@ class ToolUseBlock(BaseModel):
 
 
 class ToolResultBlock(BaseModel):
-    """工具执行结果,回填给模型。对应原版 tool_result block。
+    """工具执行结果,回填给模型。
 
     tool_use_id: 对应的 ToolUseBlock.id
     content: 结果内容 (文本或嵌套 block)
@@ -110,7 +110,7 @@ class Message(BaseModel):
 
 
 class StopReason(str, Enum):
-    """停止原因。对应原版 Anthropic stop_reason。
+    """停止原因。
 
     end_turn: 正常结束 (无更多工具调用)
     tool_use: 模型请求调用工具
@@ -127,7 +127,7 @@ class StopReason(str, Enum):
 
 
 class ToolDefinition(BaseModel):
-    """工具定义。对应原版工具注册 (0861.js YEz) 的 OpenAI function schema 形态。
+    """工具定义。
 
     name: 工具名
     description: 工具描述 (给模型看)
@@ -155,7 +155,7 @@ class LLMResponse(BaseModel):
 
 
 class TokenUsage(BaseModel):
-    """token 用量统计。对应原版 frames 表的 input_tokens/output_tokens 等。"""
+    """token 用量统计。"""
 
     input_tokens: int = 0
     output_tokens: int = 0

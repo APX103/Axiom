@@ -3,7 +3,7 @@
 工具 handler 需要访问 agent 的共享状态 (frame、工作区、plan 状态等)。
 本模块定义 ToolContext,所有 builtin 工具通过它访问运行时环境。
 
-对应原版: 0808.js:1106 _buildToolContext 构造的工具上下文。
+
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ from operon.frames.service import FrameService
 
 @dataclass
 class PlanState:
-    """Plan mode 状态。对应原版 plan_artifact + plan steps。
+    """Plan mode 状态。
 
     steps: [{id, description, status}]
     approved: 是否已批准
@@ -46,7 +46,7 @@ class PendingUserAsk:
 
 @dataclass
 class ToolContext:
-    """工具运行上下文。对应原版 _buildToolContext 产物。
+    """工具运行上下文。
 
     工具通过此对象访问: 当前 frame、frame 服务、工作区、plan 状态。
     """
@@ -63,7 +63,7 @@ class ToolContext:
     # 解决可复现性: agent 在 venv 里装依赖,产物自带 venv,换环境也能跑。
     venv_python: Path | None = None
     # 数据源 API keys (OpenAlex/SEMANTIC_SCHOLAR 等)。
-    # 对应原版 host.credentials — agent 通过工具隐式使用,不直接看 key。
+    #
     api_keys: dict[str, str] = field(default_factory=dict)
     # Artifact 版本化存储 (阶段 4)。None 时工具退化为工作区文件。
     artifact_store: Any = None

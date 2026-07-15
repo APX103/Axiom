@@ -1,6 +1,6 @@
 """LLM Client Provider 抽象。
 
-对应原版: 0202.js:501 的 A3 类 (LLM 客户端 + 凭证解析)。
+
 重设计点 (divergences §1): 原版只接 Anthropic,本项目提供 Provider 抽象,
 首版实现 OpenAI 兼容 adapter 适配国内模型。
 """
@@ -61,7 +61,7 @@ class LLMClient(ABC):
     def count_tokens(self, text: str) -> int:
         """估算文本 token 数。
 
-        对应原版 0848.js 的 token 估算 (text.length / d8,d8=4)。
+
         Rolling Compact 用此估算消息 token 以决定压缩时机。
         """
         ...

@@ -1,6 +1,6 @@
 """Rolling Compact 状态 + 摘要元数据。
 
-对应原版: 0848.js:191-200 (s_G newRollingCompactState) + 1920-1978 (Zx_ summary 消息结构)。
+
 """
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ from typing import Any
 
 @dataclass
 class RollingSummaryMeta:
-    """折叠摘要元数据。对应原版 _rolling_summary 子对象 (Zx_, 0848.js:1920-1978)。
+    """折叠摘要元数据。
 
     存在 Message 的 rolling_summary 字段上。标识这条消息是一个"折叠摘要",
     并记录它覆盖哪些原始消息、净释放多少 token。
@@ -30,7 +30,7 @@ class RollingSummaryMeta:
 
 @dataclass
 class RollingCompactState:
-    """Rolling Compact 控制状态。对应原版 s_G (0848.js:191-200)。
+    """Rolling Compact 控制状态。
 
     这是"控制状态"。真正的会话级摘要数据存在 ConversationState 上:
     - messages[] (含 rolling_summary 的折叠消息)
@@ -45,17 +45,17 @@ class RollingCompactState:
     consecutive_fork_failures: int = 0  # applySettledFork 失败计数
     last_turn_est: int | None = None  # 上一轮 projectedTokenEstimate
     # 失败计数表: key=f"{frame_id}:{level}", value={chunk_key, fail_count}
-    # 对应原版 oX 表 (触发升级 L2)
+    #
     fail_table: dict[str, dict[str, Any]] = field(default_factory=dict)
 
 
 def new_rolling_compact_state() -> RollingCompactState:
-    """工厂。对应原版 newRollingCompactState (s_G)。"""
+    """工厂。"""
     return RollingCompactState()
 
 
 def make_summary_id(uuid_str: str) -> str:
-    """短 id。对应原版 QHz: hex→base36 取前 10。
+    """短 id。
 
     给折叠摘要一个人类可读的短 id,模型用 summary_query 时引用。
     """

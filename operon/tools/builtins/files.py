@@ -1,6 +1,6 @@
 """文件工具: read_file / write_file / list_files。
 
-对应原版: 0491.js:243 (read_file) + 0491.js:47 (save_artifacts 的简化版)。
+
 本阶段: 工作区文件读写,无 artifact 版本化 (阶段 4 接)。
 PDF 走文本提取 (divergences §4),首版支持 .txt/.md/.py/.json 等。
 """
@@ -15,7 +15,7 @@ from operon.tools.context import ToolContext
 async def read_file(ctx: ToolContext, path: str, offset: int = 0, limit: int = 2000) -> str:
     """读取工作区文件。
 
-    对应原版 read_file (0491.js:243): 文本用 offset/limit。
+
     PDF 后置 (divergences §4: 强制文本路径)。
     """
     p = (ctx.workspace / path).resolve()
@@ -46,7 +46,7 @@ async def read_file(ctx: ToolContext, path: str, offset: int = 0, limit: int = 2
 async def write_file(ctx: ToolContext, path: str, content: str) -> str:
     """写入工作区文件。
 
-    对应原版 save_artifacts (0491.js:47) 的简化版: 写工作区文件。
+
     artifact 版本化在阶段 4 接。
     """
     p = (ctx.workspace / path).resolve()

@@ -1,6 +1,6 @@
 """Rolling Compact token 估算。
 
-对应原版: 0848.js:339-388 (UZ estimateMessageTokens) + 892-930 (xHz projectedTokenEstimate)。
+
 
 token 估算策略:
 1. assistant 且有 server_output_tokens → 信任 server 数 + tool_result 内容字符估算
@@ -21,12 +21,11 @@ from .constants import CHARS_PER_TOKEN
 if TYPE_CHECKING:
     pass
 
-# 视觉块默认 token (对应原版: _vision_token_hint or 8000, 乘 d8 后净 8000)
 VISION_DEFAULT_TOKENS = 8000
 
 
 def estimate_message_tokens(msg: Message) -> int:
-    """单条消息 token 估算。对应原版 UZ (0848.js:339-388)。
+    """单条消息 token 估算。
 
     优先级:
     1. assistant + server_output_tokens > 0 → output + tool_result 内容字符
@@ -82,7 +81,6 @@ def estimate_message_tokens(msg: Message) -> int:
 def estimate_messages_total(messages: list[Message], *, system_tokens: int = 0) -> int:
     """所有消息 + system 的总 token 估算。
 
-    对应原版 projectedTokenEstimate (xHz) 的简化版。
     原版有 server-anchor 优化 (以最后一次 server input 为基准),这里简化为全量累加。
     """
     total = system_tokens
@@ -92,7 +90,7 @@ def estimate_messages_total(messages: list[Message], *, system_tokens: int = 0) 
 
 
 def find_last_server_anchored_assistant(messages: list[Message]) -> int | None:
-    """找最后一条有 server_input_tokens 的 assistant。对应原版 Jx_。
+    """找最后一条有 server_input_tokens 的 assistant。
 
     返回 index,无则 None。用于投影估算的锚点。
     """

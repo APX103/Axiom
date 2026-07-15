@@ -1,6 +1,6 @@
 """把 agent 回调桥接到 WebSocket 的适配器。
 
-对应原版: 原版用 Fastify + 自定义协议推事件到桌面壳。
+
 本项目: AgentCallbacks 子类把每次回调序列化为 dict,经 WS 推给前端。
 事件协议见 operon.api.events。
 """

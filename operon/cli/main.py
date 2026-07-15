@@ -1,6 +1,6 @@
 """CLI 入口。
 
-对应原版: 2558.js CLI 入口 + 2547.js serveMain。
+
 本阶段: version / info / chat (单轮) / run (完整 agent 多轮)。
 """
 

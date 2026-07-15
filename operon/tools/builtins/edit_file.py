@@ -1,6 +1,6 @@
 """文件编辑工具: edit_file。
 
-对应原版: 0804.js:11 edit_file (原子替换, old_string→new_string)。
+
 原版语义: old_string 必须在文件中唯一匹配,否则失败 (防歧义)。
 这是 agent 精确修改文件的标准工具 (而非整文件重写)。
 """
@@ -19,7 +19,7 @@ async def edit_file(
 ) -> str:
     """精确字符串替换编辑。
 
-    对应原版 edit_file (0804.js:11): old_string→new_string 原子替换。
+
     - old_string 必须在文件中存在
     - 默认必须唯一匹配 (replace_all=False),否则报错防歧义
     - 替换失败时文件不变 (原子性)

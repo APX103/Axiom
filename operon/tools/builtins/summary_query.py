@@ -1,6 +1,6 @@
 """summary_query 工具: 让 agent 查询被 Rolling Compact 折叠掉的原始消息内容。
 
-对应原版: summary_query 工具 (0865.js:2996 handleSummaryQuery + 0848.js:2211 LOG)。
+
 
 摘要是有损的 — agent 可能需要被压缩掉的原始 UUID、数字、文件内容等。
 此工具根据 summary 的 from_uuid/to_uuid 重建原始消息块, 做一次 LLM 问答。

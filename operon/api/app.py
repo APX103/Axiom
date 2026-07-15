@@ -1,6 +1,6 @@
 """FastAPI 应用 — HTTP/WebSocket API 层。
 
-对应原版: 原版用 Fastify daemon (端口 8000)。
+
 本项目: FastAPI + WebSocket,暴露 agent 能力给前端。
 
 端点:

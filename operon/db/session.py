@@ -1,6 +1,6 @@
 """DB session 管理。
 
-对应原版: 2533.js:397 N4_() 打开 DB + 2533.js:427 迁移。
+
 原版用 bun:sqlite + worker_threads,本项目用 SQLAlchemy 2.0 (async) + aiosqlite。
 """
 
@@ -19,7 +19,7 @@ from .schema import Base
 async def init_engine(db_url: str, *, echo: bool = False) -> AsyncEngine:
     """初始化引擎并建表。
 
-    对应原版启动时的迁移 (2533.js:427)。
+
     首版用 create_all (后续接 Alembic 迁移)。
 
     db_url 若为裸 sqlite:/// 会被规范化为 sqlite+aiosqlite:/// (async driver)。

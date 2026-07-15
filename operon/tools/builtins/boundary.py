@@ -1,6 +1,6 @@
 """boundary 工具: 标记任务边界, 让 Rolling Compact 在任务之间切而非任务中间切。
 
-对应原版: boundary 工具 (0808.js:435 W$z schema + 0865.js:2992 _handleBoundary)。
+
 
 agent 完成一个任务阶段后调用此工具, 在消息流里插入一个 task_boundary 标记。
 chunk.py 的 _is_task_boundary 检测到此标记后, 会把 L1 chunk 的边界对齐到这里,

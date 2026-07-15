@@ -1,6 +1,6 @@
 """记忆提取: 每轮结束后从对话中提取持久事实。
 
-对应原版: extractProjectMemoriesBackground (0873.js:519-647)。
+
 简化: 用一次 LLM 调用, 返回 {append, replace, remove} 操作。
 不做 PI classifier, 不做 literal-preservation repair。
 """

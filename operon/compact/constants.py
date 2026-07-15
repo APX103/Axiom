@@ -1,6 +1,6 @@
 """Rolling Compact 常数。
 
-对应原版: 0848.js:2342-2357 + 0836.js:417 (d8) + 0039.js:304-309 (配置默认值)。
+
 所有常数值逐条对照原版 (见 docs/mapping.md 常数表)。
 任何改动都应在 docs/divergences.md 记录理由。
 """
@@ -56,7 +56,7 @@ DEFAULT_KA_RATIO = 0.2  # rolling_compact_ka_ratio
 def compute_ka(budget: int, ka_ratio: float = DEFAULT_KA_RATIO) -> int:
     """计算 ka (压缩预算)。
 
-    对应原版 T_G (0848.js:93-95):
+
         ka = max(KA_FLOOR, floor(budget * ka_ratio))
     """
     return max(KA_FLOOR, int(budget * ka_ratio))
@@ -65,7 +65,7 @@ def compute_ka(budget: int, ka_ratio: float = DEFAULT_KA_RATIO) -> int:
 def output_ceiling_for(chunk_tokens: int, model_max_output: int) -> int:
     """计算 summarizer 的输出 maxTokens。
 
-    对应原版 _YO (0848.js:1121):
+
         max(1024, min(floor(chunk_tokens/3), model_max_output, OUTPUT_CEILING))
     """
     return max(1024, min(chunk_tokens // COMPRESSION_TARGET_DIVISOR, model_max_output, OUTPUT_CEILING))
@@ -74,6 +74,6 @@ def output_ceiling_for(chunk_tokens: int, model_max_output: int) -> int:
 def degenerate_min(chunk_tokens: int) -> int:
     """退化判定的最小 token 阈值。
 
-    对应原版 (0848.js:1706): max(floor(chunk/100), DEGENERATE_DRAFT_MIN_TOKENS)
+
     """
     return max(chunk_tokens // DEGENERATE_DRAFT_DIVISOR, DEGENERATE_DRAFT_MIN_TOKENS)

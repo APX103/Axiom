@@ -1,6 +1,6 @@
 """MCP server → mcp-* skill 文档自动生成。
 
-对应原版: 0772.js RxO (文档生成) + _v (名称规范) + PC_ (解析)。
+
 
 原版: MCP server 连接后,其工具列表被合成 mcp-<server> skill 文档,
 让模型通过 search_skills/skill 发现,再用 host.mcp 调用。

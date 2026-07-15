@@ -1,6 +1,6 @@
 """BM25 + 关键词召回引擎。
 
-对应原版: TS class (0771.js:95-208) — BM25 + Jaccard RRF。
+
 纯 Python 实现, 不需要向量嵌入。
 """
 
@@ -49,7 +49,7 @@ def _tokenize(text: str) -> list[str]:
 class BM25Index:
     """BM25 索引。会话开始时构建一次, 每轮查询。
 
-    对应原版 TS class (0771.js)。
+
     """
 
     def __init__(self) -> None:

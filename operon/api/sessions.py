@@ -1,6 +1,6 @@
 """会话管理器。
 
-对应原版: 多会话/多 frame 的生命周期管理。
+
 支持:
 - 创建会话 (配 LLM + workspace + plan_mode) + 写 DB
 - 异步运行 (事件经 callbacks 出) + 消息落库

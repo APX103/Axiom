@@ -1,6 +1,6 @@
 """Artifact 版本化存储。
 
-对应原版: 0187.js:47-169 _saveArtifactCommon (乐观并发) + 0110.js:302-419 三层表。
+
 
 三层结构 (照搬原版):
 - artifacts (逻辑文件,可多版本)
@@ -44,7 +44,7 @@ def _short(vid: str) -> str:
 
 @dataclass
 class ArtifactRecord:
-    """逻辑 artifact。对应原版 artifacts 表 (0110.js:302)。"""
+    """逻辑 artifact。"""
 
     id: str
     project_id: str
@@ -58,7 +58,7 @@ class ArtifactRecord:
 
 @dataclass
 class VersionRecord:
-    """物理版本。对应原版 artifact_versions 表 (0110.js:351)。"""
+    """物理版本。"""
 
     id: str  # VID
     artifact_id: str
@@ -103,7 +103,7 @@ class SaveResult:
 
 
 class ArtifactStore:
-    """Artifact 版本化存储。对应原版 ArtifactStore (_saveArtifactCommon)。
+    """Artifact 版本化存储。
 
     内存态 + 工作区文件。乐观并发用 latest_version_id 乐观锁。
 
@@ -141,7 +141,7 @@ class ArtifactStore:
         extracted_code: str | None = None,
         dependencies: list[dict[str, str]] | None = None,
     ) -> SaveResult:
-        """保存一个版本。对应原版 _saveArtifactCommon。
+        """保存一个版本。
 
         Args:
             version_of: artifact_id 或 version_id (追加版本); None=按 filename 查/建

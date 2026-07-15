@@ -1,6 +1,6 @@
 """MCP Server 管理器。
 
-对应原版: custom_mcp_servers 表 + host.mcp dispatcher (0814.js:844)。
+
 管理多个 MCP server,聚合工具列表,路由工具调用。
 """
 
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class MCPServerConfig:
-    """单个 MCP server 配置。对应原版 custom_mcp_servers 行。"""
+    """单个 MCP server 配置。"""
 
     name: str
     url: str

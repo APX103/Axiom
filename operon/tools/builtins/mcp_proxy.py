@@ -1,6 +1,6 @@
 """MCP 工具代理: 把 MCP server 的工具自动注册成 agent 直接可调的工具。
 
-对应原版: 原版用 host.mcp(server, method, args) 显式调用 (repl-only)。
+
 本项目: 自动注册成 agent 工具,工具名 mcp__<server>__<tool>,体验更好。
 
 session 创建时:

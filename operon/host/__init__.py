@@ -1,6 +1,6 @@
 """Host 对象 — 给 Python kernel 的进程内接口。
 
-对应原版: 0221.js _OperonSDK (Python SDK) + 0814.js n$z (dispatcher)。
+
 
 原版用 stdio JSON-RPC 桥接 TS 主进程和 Python kernel。
 Python 全栈下,host 是进程内对象,直接调用 operon 内部组件 (ArtifactStore/LLMClient 等),

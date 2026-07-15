@@ -1,6 +1,6 @@
 """验证 findings schema + verdict/disposition。
 
-对应原版: 0835.js:6-93 (x8O findings schema) + verification_checks 表 (0110.js:977)。
+
 """
 
 from __future__ import annotations

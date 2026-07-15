@@ -1,6 +1,6 @@
 """Token 计数。
 
-对应原版: 0848.js 用 text.length / d8 (d8=4) 估算 token。
+
 本模块提供两种计数:
 1. 字符估算 (CHARS_PER_TOKEN=4,与原版一致,无外部依赖,用于 Rolling Compact 触发判断)
 2. tiktoken 精确计数 (用于计费/预算,国内模型可用 cl100k 近似)
@@ -16,7 +16,7 @@ CHARS_PER_TOKEN = 4
 
 
 def estimate_tokens(text: str) -> int:
-    """字符估算 token 数。对应原版 Math.floor(text.length / d8)。
+    """字符估算 token 数。
 
     原版用法 (0848.js:347): output + Math.floor(G / d8)
     """

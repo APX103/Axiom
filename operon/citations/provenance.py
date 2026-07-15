@@ -1,6 +1,6 @@
 """Provenance — 运行时溯源插装。
 
-对应原版: 0221.js "runtime provenance instrumentation — CORE (1/3)" + WRAPS (2/3)。
+
 
 原版 provenance 把 agent 的每次 host 调用、artifact 产出、代码执行关联起来,
 形成可复现的 lineage 图。环境开关 OPERON_PROVENANCE_OFF=1 可关。

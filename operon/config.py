@@ -1,6 +1,6 @@
 """配置体系。
 
-对应原版: 0039.js 的 Zod config schema + 0038.js release 固化 + config.toml。
+
 重设计 (divergences §7): 用 Pydantic-Settings 替代 Zod,支持环境变量 + TOML。
 
 模型分级 (divergences §9): 原版硬编码 haiku/sonnet/opus,改为可配三档。
@@ -19,7 +19,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class ModelTier(BaseModel):
     """单个模型档位配置。
 
-    对应原版 0234.js:16 dF 的 small/medium/large,但 model 名可配。
+
     base_url 为空则用 provider 默认。
     context_window: 模型上下文长度 (token),None 时用 RollingCompactConfig.context_ceiling 兜底。
     """
@@ -32,7 +32,7 @@ class ModelTier(BaseModel):
 
 
 class ModelsConfig(BaseModel):
-    """模型分级配置。对应原版 dF。
+    """模型分级配置。
 
     small/medium 可选: 未配置时降级到 large (首版单模型也能跑)。
     """
@@ -105,7 +105,7 @@ class InvalidationConfig(BaseModel):
 
 
 class SandboxConfig(BaseModel):
-    """沙箱配置。对应原版 0039.js:158 [sandbox]。首版简化。"""
+    """沙箱配置。"""
 
     disabled: bool = False
     network_isolated: bool = False
@@ -113,7 +113,7 @@ class SandboxConfig(BaseModel):
 
 
 class Settings(BaseSettings):
-    """顶层配置。对应原版 0039.js d9w + 0038.js release 固化。
+    """顶层配置。
 
     优先级: 环境变量 > TOML 文件 > 代码默认值。
     环境变量前缀 OPERON_ (如 OPERON_DATA_DIR)。
@@ -140,7 +140,7 @@ class Settings(BaseSettings):
     invalidation: InvalidationConfig = Field(default_factory=InvalidationConfig)
     sandbox: SandboxConfig = Field(default_factory=SandboxConfig)
     # 数据源 API keys (OpenAlex / Semantic Scholar / 搜索 API 等)。
-    # 对应原版 host.credentials。config.toml 集中存, 不进 git (.gitignore 已含 config.toml)。
+    #
     # 工具通过 ctx.api_keys.get("OPENALEX_API_KEY") 等读取。
     api_keys: dict[str, str] = Field(default_factory=dict)
     # MCP servers (搜索 MCP 等)。每项 {name, url, headers}。

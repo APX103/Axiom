@@ -1,6 +1,6 @@
 """Skill 词法检索: BM25 + Jaccard + RRF。
 
-对应原版: 0771.js TS 类 (BM25+Jaccard+RRF) + 0772.js (词汇表) + 0808.js:206 search_skills。
+
 
 算法:
 1. tokenize (拆词 + camelCase + 去停用词 + 去复数)

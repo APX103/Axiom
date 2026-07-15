@@ -1,6 +1,6 @@
 """联网检索工具: web_search + fetch_url。
 
-对应原版: web_search 是原版核心工具 (Anthropic 服务端 server tool)。
+
 divergences §5: 原版用 Anthropic 服务端工具,本项目自建 (国内模型无等价)。
 
 实装: DuckDuckGo HTML 搜索 (免 key) + httpx 抓取页面。

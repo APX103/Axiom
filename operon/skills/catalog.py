@@ -1,6 +1,6 @@
 """Skill catalog: 从磁盘扫描 + 注册表。
 
-对应原版: 0799.js _assemble (合并来源) + SkillManager (0796.js)。
+
 
 简化: 只 disk 来源 (扫 <workspace>/.claude/skills/<name>/SKILL.md)。
 保留: 扫描 + 缓存 + 视图过滤 (disabled)。

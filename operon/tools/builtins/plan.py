@@ -1,6 +1,6 @@
 """Plan mode 工具: generate_plan / update_step_status / approve_plan。
 
-对应原版: 0808.js:10 (generate_plan) + 0860.js:1011 (update_step_status)。
+
 Plan mode 是 agent 三模式之一: 强制先计划后执行。
 
 流程 (对照 explore 报告):
@@ -28,7 +28,7 @@ async def generate_plan(
 ) -> str:
     """生成执行计划。
 
-    对应原版 generate_plan (0808.js:10): 写 plan artifact,触发 awaiting_plan_approval。
+
     steps: [{id, description}] 列表。
     """
     if steps is None:
@@ -66,7 +66,7 @@ async def update_step_status(
 ) -> str:
     """更新计划步骤状态。
 
-    对应原版 update_step_status (0860.js:1011)。
+
     status: pending | in_progress | completed | skipped
     """
     if not ctx.plan.steps:

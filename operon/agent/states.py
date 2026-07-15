@@ -1,6 +1,6 @@
 """Frame 状态枚举。
 
-对应原版: 0011.js:126-137 的 Hc_ Zod enum + 各终态/成功态/等待态集合。
+
 这些集合照搬原版的分组,UI 和状态机依赖它们判断 frame 是否可继续。
 """
 
@@ -45,7 +45,7 @@ RUNNING: frozenset[FrameStatus] = frozenset({FrameStatus.PROCESSING, FrameStatus
 
 
 class RunResultKind(str, Enum):
-    """agent run 的最终结果类型。对应原版 exit kind。
+    """agent run 的最终结果类型。
 
     natural:     正常完成 (无更多工具调用)
     cancelled:   被取消 (abort signal)

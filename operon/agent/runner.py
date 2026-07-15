@@ -1,6 +1,6 @@
 """Agent 状态机 — 核心循环。
 
-对应原版: 0871.js 的 Ki 类 (会话编排器 + 主循环 + 所有门控)。
+
 这是整个系统的"大脑",驱动一轮 agent 执行。
 
 主循环结构 (对照 0871.js:1030 _runLoop):
@@ -58,7 +58,7 @@ MAX_PLAN_DENIALS = 3
 
 @dataclass
 class RunResult:
-    """agent run 的最终结果。对应原版 run() 的返回值。"""
+    """agent run 的最终结果。"""
 
     kind: RunResultKind
     frame: Frame
@@ -74,7 +74,7 @@ class RunResult:
 
 
 class Agent:
-    """Agent 编排器。对应原版 0871.js Ki 类。
+    """Agent 编排器。
 
     一个 Agent 实例 = 一次会话/一个 frame 的执行。
     MAIN/REVIEWER/BOOKMARKER 都是 Agent,靠 agent_name 分化 (本阶段只有 MAIN)。
@@ -124,7 +124,7 @@ class Agent:
         self._verifier = None  # 按需初始化 (Reviewer 模式时)
 
     async def run(self, user_input: str) -> RunResult:
-        """执行一次 agent 会话。对应原版 run() @ 0871.js:92。"""
+        """执行一次 agent 会话。"""
         # 初始化: 用户消息入历史
         self.frame.messages.append(Message(role=Role.USER, content=user_input))
         self.frame.task_summary = user_input[:200]
@@ -289,7 +289,7 @@ class Agent:
             logger.warning("memory extraction failed: %s", e)
 
     async def _run_loop(self) -> RunResult:
-        """主循环。对应原版 _runLoop @ 0871.js:1030。"""
+        """主循环。"""
         while self._iter < self.max_iterations:
             # 1. 哨兵检查
             if self.frame.status == FrameStatus.CANCELLED:
@@ -342,7 +342,7 @@ class Agent:
         return self._result(RunResultKind.MAX_ITERS)
 
     async def _process_llm_response(self, resp: LLMResponse) -> tuple[bool, RunResult | None]:
-        """处理单次 LLM 响应。对应原版 _processLlmResponse @ 0871.js:1300。
+        """处理单次 LLM 响应。
 
         返回 (should_exit, exit_result)。should_exit=True 时 exit_result 有效。
         """
@@ -438,7 +438,6 @@ class Agent:
     async def _handle_natural_completion(self, resp: LLMResponse) -> tuple[bool, RunResult | None]:
         """自然完成路径 (无工具调用时的退出门链)。
 
-        对应原版 _handleNaturalCompletion @ 0871.js:1895。
         本阶段实现 plan_produce_denial 门 (对照 1625)。
         """
         # 空内容 end_turn 重试 (对照 0871.js:1344) — harness-notice, 用户不可见
@@ -586,7 +585,7 @@ class Agent:
 
 @dataclass
 class AgentCallbacks:
-    """agent 执行回调。对应原版的事件/遥测钩子。
+    """agent 执行回调。
 
     子类化覆盖方法来接入日志/UI/遥测。默认 no-op。
     """

@@ -1,6 +1,6 @@
 """ask_user 工具。
 
-对应原版: 0808.js:315 ask_user + 0871.js:1714 触发 awaiting_user_response。
+
 agent 需要用户输入时调用,frame 进入 awaiting_user_response。
 """
 
@@ -18,7 +18,7 @@ async def ask_user(
 ) -> str:
     """向用户提问。
 
-    对应原版 ask_user (0808.js:315): 卡片式提问,带 options/header。
+
     触发 frame → awaiting_user_response。
     """
     ctx.pending_ask = PendingUserAsk(question=question, options=options or [])

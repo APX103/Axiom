@@ -1,6 +1,6 @@
 """内置工具注册。
 
-对应原版: 0861.js:21-47 YEz 把所有工具注册到工具集。
+
 按角色返回不同的工具集 (原版 REVIEWER 只读集 i$z,MAIN 全集)。
 """
 
@@ -35,7 +35,7 @@ from . import (
 
 
 def register_all(registry: ToolRegistry, ctx: ToolContext) -> None:
-    """注册所有内置工具到 registry。对应原版 MAIN 角色的全集。"""
+    """注册所有内置工具到 registry。"""
 
     # 代码执行
     registry.register(

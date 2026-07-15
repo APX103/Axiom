@@ -1,6 +1,6 @@
 """MCP Client — streamable HTTP JSON-RPC。
 
-对应原版: 原版 Operon 用 streamable HTTP (SSE 标注) transport。
+
 divergences: 不引入官方 MCP SDK,手写轻量 client (httpx + SSE 解析),更可控。
 
 MCP streamable HTTP 协议:

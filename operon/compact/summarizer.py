@@ -1,6 +1,6 @@
 """Rolling Compact summarizer — 实际压缩 chunk 成摘要。
 
-对应原版: 0848.js:1471-1791 (ZHz summarizeChunk) + 1920-1978 (Zx_ build summary msg) + 242-316 (eSz applySettledFork)。
+
 
 简化版 (保留核心,去掉可选优化):
 - 保留: LLM 压缩 + 压缩门(final<=chunk/3) + 重试(GATE_MAX_RETRIES=3) + 退化检测
@@ -32,7 +32,6 @@ from .state import RollingSummaryMeta, make_summary_id
 if TYPE_CHECKING:
     pass
 
-# 摘要 system prompt (对应原版 COMPACT_SYSTEM_PROMPT, 0195.js:241)
 SUMMARIZER_SYSTEM = (
     "You are a conversation summarizer. Summarize the given conversation chunk into a concise "
     "summary that preserves: key decisions, results, file/artifact names, identifiers, numeric values, "
@@ -91,7 +90,7 @@ async def summarize_chunk(
     *,
     model: str | None = None,
 ) -> RollingSummaryMeta | None:
-    """压缩一个 chunk 成摘要。对应原版 ZHz (0848.js:1471-1791)。
+    """压缩一个 chunk 成摘要。
 
     Returns:
         RollingSummaryMeta (成功) | None (失败)
@@ -182,7 +181,7 @@ async def summarize_chunk(
 
 
 def build_summary_message(rs: RollingSummaryMeta) -> Message:
-    """构建 summary 载体消息。对应原版 Zx_ (0848.js:1920-1978)。
+    """构建 summary 载体消息。
 
     存储形式: role=user, content=[TextBlock("[rolling-summary ID]")], 带 rolling_summary 元数据。
     """

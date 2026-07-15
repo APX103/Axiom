@@ -1,6 +1,6 @@
 """Rolling Compact 投影。
 
-对应原版: 0848.js:431-517 (hL_ computeRollingProjection) + 823-850 (t8O renderSummaryBlock)。
+
 
 投影是 RC 的精髓: 原 chunk 消息永远留在 messages 里,
 渲染给 LLM 时通过投影:
@@ -23,7 +23,7 @@ def compute_projection(
 ) -> dict[str, set]:
     """计算投影: drop / repositioned 集合。
 
-    对应原版 hL_ (0848.js:431-517)。
+
 
     Returns:
         {"drop": {uuid...}, "repositioned": {uuid...}}
@@ -75,7 +75,7 @@ def compute_projection(
 def render_summary_block(rs: RollingSummaryMeta) -> str:
     """渲染 summary 为 LLM 可读的 <summary> 块。
 
-    对应原版 t8O (0848.js:823-850)。
+
     存储是 user message,渲染成 assistant 的:
         <summary id=XXX scope=detail|overview>
         ...摘要正文...
@@ -95,7 +95,7 @@ def prepare_messages_for_llm(
 ) -> list[Message]:
     """投影后渲染给 LLM 的消息列表。
 
-    对应原版 prepareMessagesForLlm (0858.js:2514) + applyRollingProjection。
+
 
     算法:
     1. 计算 drop/repositioned

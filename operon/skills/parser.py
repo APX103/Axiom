@@ -1,6 +1,6 @@
 """SKILL.md 解析。
 
-对应原版: 0796.js:390-421 _parseSkillFile + 87-96 KLz (正文渲染)。
+
 
 Skill = YAML frontmatter (name/description 必填) + markdown body (给模型的指令)。
 简化: 去掉 when 守卫 / symlink 安全 / operon- 前缀 / AST gate。
@@ -49,7 +49,7 @@ class Skill:
 def parse_skill_md(content: str, base_dir: Path | None = None, source: str = "local") -> Skill:
     """解析 SKILL.md 内容。
 
-    对应原版 _parseSkillFile (0796.js:390) + KLz 正文渲染 (0796.js:87)。
+
     """
     if len(content.encode("utf-8")) > SKILL_MAX_BYTES:
         raise ValueError(f"SKILL.md exceeds {SKILL_MAX_BYTES} bytes — refusing to parse")

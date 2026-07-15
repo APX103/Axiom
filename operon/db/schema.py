@@ -1,6 +1,6 @@
 """SQLAlchemy 2.0 数据模型。
 
-对应原版: 0110.js 的 Drizzle ORM schema (0088.js/0108.js 的 CREATE TABLE)。
+
 本模块实现的核心表:
 - frames (0110.js:51-133, 变量 P)
 - projects (简化)
@@ -28,7 +28,7 @@ def _now() -> datetime:
 
 
 class Base(DeclarativeBase):
-    """ORM 基类。对应原版 Drizzle 的 schema 总入口。"""
+    """ORM 基类。"""
 
     pass
 
@@ -36,7 +36,6 @@ class Base(DeclarativeBase):
 class Frame(Base):
     """会话帧 — 核心执行单元。
 
-    对应原版: 0110.js:51-133, 变量 P。
     一个 frame = 一次 agent 调用 (一个 runner 执行单元),不是单条消息。
     一个对话/会话是一棵 frame 树: parent_frame_id → root_frame_id 形成树。
 
@@ -126,7 +125,6 @@ class Project(Base):
 class Artifact(Base):
     """逻辑产物文件 (可有多版本)。
 
-    对应原版: 0110.js:302-349, 变量 T_。
     一个 artifact 是逻辑文件,物理内容在 artifact_versions。
     latest_version_id 指向当前最新版本。
     """
@@ -170,7 +168,6 @@ class Artifact(Base):
 class ArtifactVersion(Base):
     """产物版本 — 物理内容 + lineage。
 
-    对应原版: 0110.js:351-419, 变量 N_。
     每次保存 artifact 追加一个 version,parent_version_id 指向上一版。
     带 extracted_code/lineage_messages/environment_snapshot 用于复现。
     """
@@ -222,7 +219,6 @@ class ArtifactVersion(Base):
 class VerificationCheck(Base):
     """验证检查记录。
 
-    对应原版: 0110.js:977-1007, 变量 k3。
     每条记录是 reviewer 对某个 claim 的一次裁决。
     verdict: pass|warn|fail|inconclusive (照搬原版 enum)
     status: open|resolved|unaddressed (照搬原版 enum)
@@ -260,7 +256,6 @@ class VerificationCheck(Base):
 class CompactionArchive(Base):
     """Rolling Compact 压缩归档。
 
-    对应原版: 0110.js:176, 变量 mx。
     每次压缩 (L1/L2) 记录被压缩的消息和生成的 summary。
     summary_query 工具用此表按需取回原文细节。
     """
@@ -283,7 +278,6 @@ class CompactionArchive(Base):
 class ArtifactDependency(Base):
     """Artifact 版本间的依赖 DAG 边。
 
-    对应原版: 0110.js 的 artifact_dependencies 表。
     ArtifactStore 内存态用 self._deps (list[(version_id, depends_on_version_id, ref_name)])
     承载; 落库时写这张表, 供 get_lineage_topology 做递归/BFS 拓扑查询。
 
@@ -375,7 +369,6 @@ class SessionMessage(Base):
 class MemoryRecord(Base):
     """三层记忆: profile (用户全局) / project (跨会话) / frame (会话级)。
 
-    对应原版 memories 表 (0026_memory.sql + 0037 + 0052)。
     简化: 去掉 user_id (单用户), 去掉 categories, 去掉 supersede chain (用 replace 直接更新)。
     保留: entity 分层 + evidence 标签 + origin 来源 + last_surfaced_at 召回追踪。
     """

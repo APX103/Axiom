@@ -1,6 +1,6 @@
 """Frame 服务。
 
-对应原版: 0125.js:55,83 的 createRootFrame/createChildFrame + 0877.js:207 FrameService。
+
 负责 frame 的创建、状态转移、树查询。
 
 本阶段:
@@ -19,7 +19,7 @@ from .model import Frame
 
 
 class FrameService:
-    """Frame 管理服务。对应原版 FrameService (0877.js:207)。
+    """Frame 管理服务。
 
     内存态维护 frame 树,DB 持久化为可选。
     """
@@ -37,7 +37,6 @@ class FrameService:
     ) -> Frame:
         """创建根 frame。
 
-        对应原版 createRootFrame (0125.js:55):
         parent_frame_id=None, root_frame_id=id, conversation_type="agent"。
         """
         frame = Frame(
@@ -62,7 +61,6 @@ class FrameService:
     ) -> Frame:
         """创建子 frame。
 
-        对应原版 createChildFrame (0125.js:83)。
         parent+root 都指向父/根。用于 delegate/reviewer/bookmarker (阶段 3+)。
         """
         parent = self._frames[parent_id]
@@ -90,7 +88,6 @@ class FrameService:
     def update_status(self, frame_id: str, status: FrameStatus) -> Frame:
         """更新 frame 状态 + 终态校验。
 
-        对应原版 status 转移规则: 终态 frame 不可再变。
         """
         frame = self.require(frame_id)
         if frame.status in TERMINAL and status != frame.status:
@@ -104,7 +101,7 @@ class FrameService:
         return frame
 
     def get_tree(self, root_id: str) -> list[Frame]:
-        """返回 root 下所有 frame (按创建顺序)。对应原版树查询。"""
+        """返回 root 下所有 frame (按创建顺序)。"""
         root = self.require(root_id)
         return [f for f in self._frames.values() if f.root_frame_id == root.root_frame_id]
 

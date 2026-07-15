@@ -1,6 +1,6 @@
 """工具路由器。
 
-对应原版: 0871.js 的 _tool_router.executeToolCalls (1496-1514)。
+
 负责并发执行 LLM 请求的工具调用,捕获错误 (错误回填 is_error,不中断循环)。
 """
 
@@ -16,7 +16,7 @@ from .registry import ToolRegistry
 
 
 class ToolRouter:
-    """工具执行路由器。对应原版 _tool_router。
+    """工具执行路由器。
 
     execute_tool_calls: 并发执行一批 tool_use,返回 tool_result 列表。
     错误处理: 单个工具失败 → 返回 is_error=True 的 result,不影响其他工具。
@@ -30,7 +30,6 @@ class ToolRouter:
     async def execute_one(self, tool_use: ToolUseBlock, *, timeout: float | None = None) -> ToolResultBlock:
         """执行单个工具调用。
 
-        对应原版单工具执行。错误 → is_error=True (原版行为: 不中断循环)。
         """
         tool = self.registry.get(tool_use.name)
         if tool is None:
@@ -64,7 +63,7 @@ class ToolRouter:
     async def execute_tool_calls(
         self, tool_uses: list[ToolUseBlock], *, timeout: float | None = None
     ) -> list[ToolResultBlock]:
-        """并发执行一批工具调用。对应原版 executeToolCalls。
+        """并发执行一批工具调用。
 
         原版行为: 工具并发执行,结果按 tool_use 顺序对齐回填。
         """

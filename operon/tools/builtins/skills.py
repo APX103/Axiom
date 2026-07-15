@@ -1,6 +1,6 @@
 """Skill 工具: search_skills / skill。
 
-对应原版: 0808.js:206 search_skills + 0808.js:1060 skill + 0808.js:1145 _executeLocalTool。
+
 """
 
 from __future__ import annotations

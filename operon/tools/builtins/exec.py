@@ -1,6 +1,6 @@
 """代码执行工具: python / bash。
 
-对应原版: 0336.js:85 (bash) + 0336.js:114 (python)。
+
 原版在沙箱 conda env 里执行;本阶段用进程内 exec (python) / subprocess (bash)。
 沙箱化在阶段后续接 (sandbox.py 接口已预留)。
 
@@ -26,7 +26,7 @@ _PYTHON_NS: dict[str, Any] = {}
 async def python(ctx: ToolContext, code: str) -> str:
     """执行 Python 代码。
 
-    对应原版 python 工具 (0336.js:114): 持久 kernel,跨调用保留变量。
+
     本阶段用进程内 exec + 全局 namespace (无隔离,沙箱后置)。
 
     CWD = 工作区 (ctx.workspace): 让脚本里的相对路径 (open('output/...')) 正确解析。
@@ -93,7 +93,7 @@ def _venv_site_packages(venv_python: Any) -> list[str]:
 async def bash(ctx: ToolContext, command: str, timeout: int = 30) -> str:
     """执行 bash 命令。
 
-    对应原版 bash 工具 (0336.js:85): 在工作区沙箱执行。
+
     cwd=workspace; 若工作区有 venv, PATH 前置 venv/bin (让 python/pip 指向工作区 venv)。
     """
     import os

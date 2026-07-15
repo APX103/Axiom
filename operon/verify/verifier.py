@@ -1,6 +1,6 @@
 """Verifier — 验证 harness 核心。
 
-对应原版: 0850.js oL_ 类。
+
 负责: 阈值 checkpoint 触发 + spawn REVIEWER 子 frame + findings 持久化 + 通知回传 MAIN。
 
 简化 (保留核心,去掉并发优化):
@@ -57,7 +57,7 @@ _ARTIFACT_WRITER_TOOLS = {"save_artifacts", "generate_plan", "write_file"}
 
 
 class Verifier:
-    """验证 harness。对应原版 oL_ (0850.js)。
+    """验证 harness。
 
     用 LLMClient 直接做 reviewer 调用 (简化: 不 spawn 子 frame,直接调 LLM)。
     原版 spawn 子 frame 是为了独立上下文 + reviewer 模型; 本版简化为单独 LLM 调用。

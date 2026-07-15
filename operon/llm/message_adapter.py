@@ -1,6 +1,6 @@
 """消息格式转换器: 内部 Anthropic-style ↔ OpenAI 兼容。
 
-对应原版: 原版直接用 Anthropic 原生格式,无需转换。
+
 重设计点 (divergences §1, §2): 换 OpenAI 兼容 API 后必须做 tool_use ↔
 function_calling 的双向转换。
 
