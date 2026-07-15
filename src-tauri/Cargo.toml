@@ -21,6 +21,7 @@ window-vibrancy = "0.6"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["rt-multi-thread", "process", "time", "sync"] }
+nix = { version = "0.31.3", features = ["signal", "process"] }
 
 [features]
 # 默认不启用任何特性; Tauri 的 dev 脚本会自动加上 dev 特性。

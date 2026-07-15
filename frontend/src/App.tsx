@@ -75,36 +75,58 @@ function Workbench() {
   }, []);
 
   // 探测后端 + 同步配置 + 恢复会话
+  // 启动时后端可能还没ready, 所以用轮询而不是单次探测; 运行期间也持续心跳。
   useEffect(() => {
-    health()
-      .then(() => {
-        setBackendUp(true);
-        return getSettings();
-      })
-      .then((raw) => {
-        const saved = fromApiSettings(raw);
-        setConfig(saved);
-        const hasEnabled = saved.llm_providers.some(isProviderReady);
-        setServerConfigured(hasEnabled);
-        if (!hasEnabled) setShowSettings(true);
+    let mounted = true;
+    let settingsLoaded = false;
 
-        if (!restoredRef.current) {
-          restoredRef.current = true;
-          refreshSessionList().then(async (list) => {
-            const savedSid = loadSid();
-            if (savedSid && list.some((s) => s.id === savedSid)) {
-              try {
-                const state = await getSessionState(savedSid);
-                setSid(savedSid);
-                session.loadFromState(state);
-              } catch {
-                saveSid(null);
+    const tryConnect = async () => {
+      if (!mounted) return;
+      try {
+        await health();
+        if (!mounted) return;
+        setBackendUp(true);
+
+        if (!settingsLoaded) {
+          settingsLoaded = true;
+          const raw = await getSettings();
+          if (!mounted) return;
+          const saved = fromApiSettings(raw);
+          setConfig(saved);
+          const hasEnabled = saved.llm_providers.some(isProviderReady);
+          setServerConfigured(hasEnabled);
+          if (!hasEnabled) setShowSettings(true);
+
+          if (!restoredRef.current) {
+            restoredRef.current = true;
+            refreshSessionList().then(async (list) => {
+              const savedSid = loadSid();
+              if (savedSid && list.some((s) => s.id === savedSid)) {
+                try {
+                  const state = await getSessionState(savedSid);
+                  setSid(savedSid);
+                  session.loadFromState(state);
+                } catch {
+                  saveSid(null);
+                }
               }
-            }
-          });
+            });
+          }
         }
-      })
-      .catch(() => setBackendUp(false));
+      } catch {
+        if (!mounted) return;
+        setBackendUp(false);
+        settingsLoaded = false;
+      }
+    };
+
+    // 首次立即探测, 之后每 2 秒心跳
+    tryConnect();
+    const interval = setInterval(tryConnect, 2000);
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 自动滚动到底部 (用 rAF 节流, 避免流式 text 每帧触发 smooth scroll)

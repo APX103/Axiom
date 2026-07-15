@@ -7,6 +7,7 @@ use std::net::TcpListener;
 use std::path::PathBuf;
 use std::process::Stdio;
 use std::sync::Arc;
+use std::time::Duration;
 use tauri::{Manager, RunEvent, WebviewWindow};
 use tokio::process::{Child, Command};
 use tokio::sync::Mutex;
@@ -106,6 +107,51 @@ fn resolve_backend_binary(app_handle: &tauri::AppHandle) -> (PathBuf, Vec<String
     )
 }
 
+/// 把子进程放到独立的进程组, 这样关闭 app 时可以整组杀掉,
+/// 避免 PyInstaller onefile 留下孤儿进程继续占端口。
+#[cfg(unix)]
+fn set_child_pgid(child: &Child) {
+    use nix::unistd::{setpgid, Pid};
+    if let Some(pid) = child.id() {
+        let pid_i32 = pid as i32;
+        // 忽略错误: 子进程可能自己已经是组长
+        let _ = setpgid(Pid::from_raw(pid_i32), Pid::from_raw(pid_i32));
+    }
+}
+
+#[cfg(not(unix))]
+fn set_child_pgid(_child: &Child) {}
+
+/// 杀掉整个后端进程树 (先 SIGTERM, 再 SIGKILL)。
+async fn kill_backend_tree(child: &mut Child) {
+    if let Some(pid) = child.id() {
+        eprintln!("[axiom] stopping backend pid={}", pid);
+
+        #[cfg(unix)]
+        {
+            use nix::sys::signal::{killpg, Signal};
+            use nix::unistd::Pid;
+            let pgid = -(pid as i32);
+
+            // 先优雅终止
+            let _ = killpg(Pid::from_raw(pgid), Signal::SIGTERM);
+
+            // 给 500ms  grace period
+            tokio::time::sleep(Duration::from_millis(500)).await;
+
+            // 强制杀
+            let _ = killpg(Pid::from_raw(pgid), Signal::SIGKILL);
+        }
+
+        #[cfg(not(unix))]
+        {
+            let _ = child.kill().await;
+        }
+    }
+
+    let _ = child.wait().await;
+}
+
 async fn start_backend(app_handle: &tauri::AppHandle, port: u16) -> std::io::Result<Child> {
     let (bin, mut args) = resolve_backend_binary(app_handle);
     let work_dir = backend_work_dir();
@@ -133,7 +179,8 @@ async fn start_backend(app_handle: &tauri::AppHandle, port: u16) -> std::io::Res
 
     eprintln!("[axiom] starting backend: {:?} {:?} (cwd={:?})", bin, args, work_dir);
 
-    let mut child = cmd.spawn()?;
+    let child = cmd.spawn()?;
+    set_child_pgid(&child);
 
     Ok(child)
 }
@@ -142,7 +189,7 @@ async fn start_backend(app_handle: &tauri::AppHandle, port: u16) -> std::io::Res
 async fn restart_backend(state: tauri::State<'_, AppState>, app_handle: tauri::AppHandle) -> Result<String, String> {
     let mut guard = state.backend.lock().await;
     if let Some(mut child) = guard.take() {
-        let _ = child.kill().await;
+        kill_backend_tree(&mut child).await;
     }
     let port = *state.backend_port.lock().await;
     match start_backend(&app_handle, port).await {
@@ -201,6 +248,24 @@ pub fn run() {
                 let _ = window_for_nav.show();
                 let _ = window_for_nav.set_focus();
             });
+
+            // 主窗口关闭时同步杀掉后端并退出应用 (避免后台占端口)。
+            let backend_for_close = backend.clone();
+            let app_handle_for_close = app.handle().clone();
+            window.on_window_event(move |event| {
+                if let tauri::WindowEvent::CloseRequested { .. } = event {
+                    eprintln!("[axiom] main window closing, stopping backend...");
+                    let backend_clone = backend_for_close.clone();
+                    let app_handle_clone = app_handle_for_close.clone();
+                    tauri::async_runtime::spawn(async move {
+                        if let Some(mut child) = backend_clone.lock().await.take() {
+                            kill_backend_tree(&mut child).await;
+                        }
+                        app_handle_clone.exit(0);
+                    });
+                }
+            });
+
             Ok(())
         })
         .build(tauri::generate_context!())
@@ -210,7 +275,7 @@ pub fn run() {
                 let backend_clone = app.state::<AppState>().backend.clone();
                 tauri::async_runtime::block_on(async move {
                     if let Some(mut child) = backend_clone.lock().await.take() {
-                        let _ = child.kill().await;
+                        kill_backend_tree(&mut child).await;
                         eprintln!("[axiom] backend stopped");
                     }
                 });
