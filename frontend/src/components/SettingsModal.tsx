@@ -692,6 +692,7 @@ export function SettingsModal({
                   <div className="text-[10px] text-faint">先规划后执行</div>
                 </div>
               </label>
+              <UpdateCheck />
             </div>
           )}
 
@@ -752,6 +753,57 @@ function SkillCard({
         <p className="text-xs text-muted leading-snug mt-0.5 line-clamp-2">
           {skill.description}
         </p>
+      </div>
+    </div>
+  );
+}
+
+const CURRENT_VERSION = "0.0.2";
+const UPDATE_URL = "https://raw.githubusercontent.com/operonpy/axiom/main/VERSION";
+
+function UpdateCheck() {
+  const [checking, setChecking] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
+
+  const check = async () => {
+    setChecking(true);
+    setResult(null);
+    try {
+      const resp = await fetch(UPDATE_URL, { cache: "no-store" });
+      if (!resp.ok) {
+        setResult("无法检查更新 (网络错误)");
+        return;
+      }
+      const latest = (await resp.text()).trim();
+      if (latest && latest !== CURRENT_VERSION) {
+        setResult(`发现新版本 ${latest} (当前 ${CURRENT_VERSION})`);
+        window.open("https://github.com/operonpy/axiom/releases", "_blank");
+      } else {
+        setResult(`已是最新版本 (${CURRENT_VERSION})`);
+      }
+    } catch {
+      setResult("检查更新失败");
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  return (
+    <div className="p-3 rounded-lg bg-page">
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="text-sm text-default">版本 {CURRENT_VERSION}</div>
+          <div className="text-[10px] text-faint mt-0.5">
+            {result || "检查是否有新版本"}
+          </div>
+        </div>
+        <button
+          onClick={check}
+          disabled={checking}
+          className="text-xs px-3 py-1.5 rounded-lg bg-elevated hover:bg-hover text-muted hover:text-default transition-colors disabled:opacity-50"
+        >
+          {checking ? "检查中…" : "检查更新"}
+        </button>
       </div>
     </div>
   );

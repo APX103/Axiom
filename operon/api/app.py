@@ -112,7 +112,7 @@ def create_app() -> FastAPI:
     # ---- 健康检查 ----
     @app.get("/api/health")
     async def health() -> dict[str, str]:
-        return {"status": "ok"}
+        return {"status": "ok", "version": "0.0.2"}
 
     # ---- 配置摘要 (前端据此判断后端是否已配好 LLM, 跳过手填弹窗) ----
     @app.get("/api/config")
