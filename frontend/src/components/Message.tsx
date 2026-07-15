@@ -1,9 +1,9 @@
 // 单条消息渲染: 用户气泡 + AI 卡片 + 代码块 + 工具调用折叠。
-import { useState } from "react";
+import { memo, useState } from "react";
 import type { UIMessage } from "../hooks/useSession";
 import { Markdown } from "./Markdown";
 
-export function MessageView({ msg }: { msg: UIMessage }) {
+export const MessageView = memo(function MessageView({ msg }: { msg: UIMessage }) {
   // 跳过空消息:
   // - user: 工具结果被后端存为 role=user 但无文本, 不应显示为用户气泡
   // - assistant: 没有文本且没有工具调用, 不应显示空卡片
@@ -63,7 +63,7 @@ export function MessageView({ msg }: { msg: UIMessage }) {
       </div>
     </div>
   );
-}
+});  // memo(MessageView)
 
 function ToolCallView({ call, result }: { call: import("../types").ToolCall; result?: import("../types").ToolResult }) {
   const [open, setOpen] = useState(false);

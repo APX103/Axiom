@@ -1,19 +1,47 @@
 // Markdown 渲染组件: 用于 LLM 聊天输出。
-// 流式友好: 每次收到增量 text 后, 上层把完整文本传入, 本组件重解析全量。
+// 性能优化: 流式输出时用 debounce — 文本变化后 150ms 内无新 delta 才触发
+// 完整 Markdown + KaTeX 解析。流式过程中显示纯文本 (带等宽格式)。
 // 支持: 代码块 (含语言标注)、表格、列表、任务列表、删除线 (GFM) + 数学公式 (KaTeX)。
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export function Markdown({ text }: { text: string }) {
   if (!text) return null;
+
+  // debounce: 文本变化后 150ms 内无新内容才渲染 Markdown
+  const [renderedText, setRenderedText] = useState(text);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const textRef = useRef(text);
+  textRef.current = text;
+
+  useEffect(() => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      setRenderedText(textRef.current);
+    }, 150);
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [text]);
+
+  const isStreaming = renderedText !== text;
+
   return (
     <div className="prose prose-sm max-w-none dark:prose-invert prose-headings:text-default prose-p:text-default prose-strong:text-default prose-a:text-link hover:prose-a:text-link/80 prose-pre:my-0 prose-pre:p-0 prose-pre:bg-transparent prose-code:before:content-none prose-code:after:content-none">
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm, remarkMath]}
-        rehypePlugins={[rehypeKatex]}
+      {isStreaming ? (
+        // 流式中: 纯文本 + 光标 (避免每个 delta 都重跑 Markdown 解析)
+        <div className="whitespace-pre-wrap break-words text-default text-[15px] leading-relaxed">
+          {renderedText}
+          <span className="inline-block w-2 h-4 bg-accent animate-pulse ml-0.5 align-middle" />
+          <span className="text-faint text-xs"> {text.slice(renderedText.length)}</span>
+        </div>
+      ) : (
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm, remarkMath]}
+          rehypePlugins={[rehypeKatex]}
         components={{
           pre: ({ children }) => <>{children}</>,
           code: CodeBlock,
@@ -26,9 +54,10 @@ export function Markdown({ text }: { text: string }) {
           th: ({ node, ...props }) => <th {...props} className="bg-subtle text-default font-medium" />,
           td: ({ node, ...props }) => <td {...props} className="border-border text-muted" />,
         }}
-      >
-        {text}
-      </ReactMarkdown>
+        >
+          {renderedText}
+        </ReactMarkdown>
+      )}
     </div>
   );
 }
