@@ -202,6 +202,53 @@ async fn restart_backend(state: tauri::State<'_, AppState>, app_handle: tauri::A
     }
 }
 
+/// GitHub release 元数据 (我们只关心 tag_name 和 html_url)。
+#[derive(serde::Deserialize)]
+struct GhRelease {
+    tag_name: String,
+    html_url: String,
+}
+
+/// 简单的 semver 比较。要求版本字符串以 v 或数字开头。
+/// 返回 true 当且仅当 latest > current。
+fn is_newer(current: &str, latest: &str) -> bool {
+    fn parse(s: &str) -> Vec<u32> {
+        s.trim_start_matches('v')
+            .split('.')
+            .take(3)
+            .filter_map(|p| p.parse::<u32>().ok())
+            .collect()
+    }
+    let c = parse(current);
+    let l = parse(latest);
+    l > c
+}
+
+/// 检查 GitHub 是否有新版本。
+/// 入参 current: 当前版本号 (如 "0.0.2")。
+/// 返回: None = 没有更新; Some((version, url)) = 有新版本及其 Release 页面地址。
+#[tauri::command]
+fn check_update(current: String) -> Result<Option<(String, String)>, String> {
+    const REPO: &str = "APX103/Axiom";
+    let url = format!("https://api.github.com/repos/{}/releases/latest", REPO);
+    let resp = ureq::get(&url)
+        .header("User-Agent", "Axiom-Updater")
+        .header("Accept", "application/vnd.github+json")
+        .call()
+        .map_err(|e| format!("failed to fetch latest release: {}", e))?;
+
+    let release: GhRelease = resp
+        .into_body()
+        .read_json()
+        .map_err(|e| format!("failed to parse release: {}", e))?;
+
+    if is_newer(&current, &release.tag_name) {
+        Ok(Some((release.tag_name, release.html_url)))
+    } else {
+        Ok(None)
+    }
+}
+
 /// 向前端注入后端端口, 并导航到工作台 /app。
 /// 用 eval 注入端口到 localStorage (跨重载持久), 然后跳转 /app。
 fn inject_port_and_navigate(window: &WebviewWindow, port: u16) {
@@ -223,7 +270,7 @@ pub fn run() {
             backend: backend.clone(),
             backend_port: backend_port.clone(),
         })
-        .invoke_handler(tauri::generate_handler![restart_backend])
+        .invoke_handler(tauri::generate_handler![restart_backend, check_update])
         .setup(move |app| {
             let window = app.get_webview_window("main").unwrap();
 

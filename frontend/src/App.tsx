@@ -12,6 +12,7 @@ import { PlanPanel } from "./components/PlanPanel";
 import { ResizableSidebar } from "./components/ResizableSidebar";
 import { SettingsModal, fromApiSettings, loadConfig, type FullConfig } from "./components/SettingsModal";
 import { PaperView } from "./components/PaperView";
+import { UpdateBanner } from "./components/UpdateBanner";
 import type { SessionInfo } from "./types";
 
 const SID_KEY = "operon-py-active-sid";
@@ -252,6 +253,7 @@ function Workbench() {
 
   return (
     <div className="h-full flex flex-col bg-page text-default theme-transition">
+      <UpdateBanner />
       {/* 顶部标题栏 - SciForge 风格 */}
       <header className="h-12 bg-subtle flex items-center justify-between px-3 shrink-0 z-20 border-b border-border">
         <div className="flex items-center gap-2.5">
