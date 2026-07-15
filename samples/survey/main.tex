@@ -1,0 +1,241 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{natbib}
+\usepackage{booktabs}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{geometry}
+\usepackage{tikz}
+\usepackage{verbatim}
+\usepackage{enumitem}
+\usepackage{cleveref}
+\usepackage{parskip}
+\usepackage{microtype}
+
+\geometry{left=2.5cm,right=2.5cm,top=2.5cm,bottom=2.5cm}
+
+\title{\textbf{Chain-of-Thought Prompting and Reasoning in Large Language Models: Methods, Theory, and Applications}}
+
+\author{Author Placeholder\\
+Affiliation Placeholder}
+
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Chain-of-Thought (CoT) prompting has transformed the landscape of reasoning in large language models (LLMs) by eliciting intermediate reasoning steps that bridge inputs to final answers. This survey provides a comprehensive review of CoT methods, theoretical foundations, and downstream applications. We begin with the preliminaries of LLMs and in-context learning, then trace the evolution from manual and zero-shot CoT to automatic and structured variants. We examine advanced reasoning frameworks such as self-consistency, Tree-of-Thoughts, Graph-of-Thoughts, and tool-augmented reasoning. Training-based approaches---including supervised fine-tuning, reinforcement learning from human feedback, process reward models, STaR, and self-improvement---are analyzed alongside theoretical perspectives on emergent abilities, coverage, bias, and interpretability. We survey applications in mathematical reasoning, code generation, scientific discovery, planning, and autonomous agents. Finally, we outline key challenges and future directions, emphasizing the need for robust evaluation, compositional generalization, and human-aligned reasoning systems. This survey aims to unify the rapidly expanding literature on LLM reasoning and to guide researchers toward principled, scalable, and trustworthy methodologies.
+\end{abstract}
+
+\tableofcontents
+
+\section{Introduction}
+Large language models (LLMs) have demonstrated unprecedented capabilities in natural language understanding, generation, and, more recently, reasoning. The release of GPT-3 \citep{brown2020language} revealed that scaling model parameters to hundreds of billions yields surprising emergent behaviors, including few-shot learning from prompts alone. However, early LLMs struggled with tasks that require multi-step logical deduction, numerical calculation, or symbolic manipulation \citep{suzgun2022challenging}. A pivotal breakthrough in overcoming these limitations was the introduction of Chain-of-Thought (CoT) prompting \citep{wei2022chain}, a paradigm that instructs the model to generate a sequence of intermediate reasoning steps before arriving at a final answer. CoT transforms LLMs from opaque pattern matchers into explicit problem solvers, yielding substantial gains on benchmarks such as BIG-Bench Hard \citep{suzgun2022challenging}, GSM8K \citep{cobbe2021gsm8k}, and the MATH dataset \citep{hendrycks2021measuring}. For instance, on GSM8K, PaLM-62B improves from 17\% accuracy with standard prompting to 71\% with CoT \citep{wei2022chain}, demonstrating that reasoning emerges from explicit decomposition rather than mere scale.
+
+The significance of CoT extends beyond accuracy improvements. It provides a window into model cognition, offering interpretable intermediates that can be verified, critiqued, and refined \citep{lightman2023let}. Moreover, CoT has inspired a rich ecosystem of extensions---zero-shot prompting \citep{kojima2022large}, automatic prompt generation \citep{zhang2022automatic}, self-consistency \citep{wang2022self}, least-to-most prompting \citep{zhou2022least}, Tree-of-Thoughts (ToT) \citep{yao2023tree}, Graph-of-Thoughts (GoT) \citep{besta2024graph}, and agent frameworks such as ReAct \citep{yao2023react} and Reflexion \citep{shinn2023reflexion}. Training-time methods, including STaR \citep{zelikman2022star}, process reward models \citep{uesato2022solving}, and self-improvement loops \citep{huang2022large}, further close the gap between prompting and learning. Together, these approaches constitute a new paradigm for LLM reasoning, sometimes called System 2 thinking \citep{kahneman2011thinking} or slow thinking, in contrast to the fast, intuitive System 1 pattern matching.
+
+This survey addresses three core questions: (1) \textit{How} do existing CoT methods decompose reasoning into verifiable steps? (2) \textit{Why} does CoT work, and what are its theoretical underpinnings? (3) \textit{Where} can CoT-driven reasoning be applied, and what challenges remain? We synthesize over forty key works (Table~\ref{tab:taxonomy}) to provide a unified narrative spanning methodology, theory, and application. The remainder of this paper is organized as follows. Section~\ref{sec:prelim} introduces preliminaries on LLMs, in-context learning, and reasoning formalizations. Section~\ref{sec:cot} surveys prompting-based methods. Section~\ref{sec:advanced} covers advanced reasoning structures. Section~\ref{sec:training} discusses training-based approaches. Section~\ref{sec:theory} presents theoretical perspectives. Section~\ref{sec:applications} reviews applications. Section~\ref{sec:challenges} outlines challenges and future directions. Section~\ref{sec:conclusion} concludes.
+
+\section{Preliminaries}
+\label{sec:prelim}
+\subsection{Large Language Models and In-Context Learning}
+An LLM $p_\theta(y \mid x)$ is a parameterized distribution over target tokens $y$ conditioned on an input $x$. Modern LLMs are built on the transformer architecture, which relies on self-attention mechanisms to model long-range dependencies in sequences \citep{vaswani2017attention}. Scaling laws reveal that performance improves predictably with model size $N$, dataset size $D$, and compute $C$ \citep{rae2021scaling}, \citep{chowdhery2022palm}. Models such as GPT-3 \citep{brown2020language}, PaLM \citep{chowdhery2022palm}, and LLaMA \citep{touvron2023llama} have pushed the frontier of scale, enabling capabilities that were previously thought to require specialized architectures. For example, LLaMA-65B matches or exceeds the performance of much larger models on many NLP benchmarks, illustrating the efficiency of architectural improvements combined with scale.
+
+Beyond scaling, LLMs exhibit \textit{in-context learning} (ICL): the ability to adapt to a task from a prompt containing input--output demonstrations without gradient updates \citep{brown2020language}. ICL is sensitive to the choice, ordering, and format of demonstrations \citep{min2022rethinking}, and it emerges only beyond a critical model scale \citep{wei2022emergent}. Theoretical analyses suggest that ICL arises from the model's prior over functions learned during pre-training, allowing it to implement a form of Bayesian inference over the demonstrated tasks \citep{dong2022survey}. Despite its utility, ICL remains brittle: small perturbations to the prompt can cause performance to collapse \citep{webson2021prompt}, and the model may rely on shallow heuristics rather than genuine reasoning \citep{ye2022unreliability}.
+
+\subsection{Reasoning as Sequential Decision Making}
+Formally, we view reasoning as a sequential decision process. Given a problem instance $x$, the model produces a reasoning trace $\tau = (z_1, z_2, \dots, z_T)$ of intermediate steps, leading to a final answer $y$. The quality of $\tau$ is measured by a reward $R(\tau, y^*)$, where $y^*$ denotes the ground truth. The goal is to find a trace that maximizes expected reward:
+\begin{equation}
+\tau^* = \arg\max_{\tau \sim p_\theta(\tau \mid x)} \mathbb{E}[R(\tau, y^*)].
+\end{equation}
+CoT methods differ in how they constrain, sample, or learn the distribution $p_\theta(\tau \mid x)$. Some methods restrict the trace to be linear and autoregressive, while others allow branching or graph structures. Some optimize the trace via search, others via learning. This formulation unifies prompting, search, and training under a common objective, facilitating cross-pollination between methods.
+
+\subsection{Why Reasoning is Hard for LLMs}
+Despite their fluency, LLMs struggle with tasks that require multi-step logical deduction, numerical calculation, or long-horizon planning \citep{suzgun2022challenging}. Several factors contribute to this difficulty. First, standard language modeling objectives (next-token prediction) do not explicitly reward intermediate correctness; a model can achieve low perplexity while skipping essential steps. Second, LLMs are trained on static corpora that may lack diverse or high-quality reasoning exemplars. Third, the inductive bias of transformers favors local pattern matching over global symbolic manipulation \citep{ye2022unreliability}. CoT prompting and its extensions aim to overcome these limitations by explicitly guiding the model toward structured reasoning. Recent work also highlights the role of positional encoding and attention sparsity in limiting the model's ability to maintain global state over long traces, suggesting that architectural innovations may complement algorithmic improvements.
+
+\subsection{Taxonomy of Reasoning Methods}
+We classify reasoning approaches along two axes: \textit{how} reasoning steps are obtained (manual, zero-shot, automatic, or trained) and \textit{what structure} they assume (linear, branched, or graph-based). Table~\ref{tab:taxonomy} summarizes the taxonomy.
+
+\begin{table}[ht]
+\centering
+\caption{Taxonomy of chain-of-thought and reasoning methods.}
+\label{tab:taxonomy}
+\small
+\begin{tabular}{lll}
+\toprule
+\textbf{Category} & \textbf{Method} & \textbf{Reference} \\
+\midrule
+Prompting (manual) & Manual CoT & \citep{wei2022chain} \\
+Prompting (zero-shot) & Zero-shot CoT & \citep{kojima2022large} \\
+Prompting (automatic) & Auto-CoT & \citep{zhang2022automatic} \\
+Structured CoT & Plan-and-Solve & \citep{wang2023plan} \\
+Structured CoT & Least-to-Most & \citep{zhou2022least} \\
+Consistency & Self-Consistency & \citep{wang2022self} \\
+Search-based & Tree-of-Thoughts & \citep{yao2023tree} \\
+Search-based & Graph-of-Thoughts & \citep{besta2024graph} \\
+Agentic & ReAct & \citep{yao2023react} \\
+Agentic & Reflexion & \citep{shinn2023reflexion} \\
+Refinement & Self-Refine & \citep{madaan2023self} \\
+Training & STaR & \citep{zelikman2022star} \\
+Training & Process Reward Models & \citep{lightman2023let} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Chain-of-Thought Prompting}
+\label{sec:cot}
+\subsection{Manual Chain-of-Thought Prompting}
+The foundational CoT work \citep{wei2022chain} demonstrated that providing a few hand-crafted examples---each consisting of a problem, a step-by-step derivation, and an answer---dramatically improves performance on arithmetic, commonsense, and symbolic reasoning tasks. For example, given a word problem about Roger's tennis balls, the prompt includes a full intermediate calculation:
+\begin{verbatim}
+Question: Roger has 5 tennis balls. He buys 2 more cans of 3 balls each.
+How many tennis balls does he have now?
+Answer: Roger started with 5 balls. 2 cans of 3 balls each is 2 * 3 = 6.
+5 + 6 = 11. The answer is 11.
+\end{verbatim}
+The model then completes the trace autoregressively for a new query. Manual CoT excels when high-quality demonstrations are available, but its performance degrades with irrelevant or noisy exemplars \citep{min2022rethinking}, \citep{lu2022dynamic}. Prompt engineering research has explored dynamic prompt selection \citep{lu2022dynamic} and demonstration ordering strategies to maximize downstream accuracy. Moreover, manual CoT can be sensitive to surface form: rephrasing the same reasoning steps in a different style can alter model performance, suggesting that the model's prior knowledge interacts with prompt formatting in complex ways \citep{webson2021prompt}.
+
+\subsection{Zero-Shot Chain-of-Thought}
+\citet{kojima2022large} discovered that simply appending the phrase ``Let's think step by step'' induces CoT behavior without any demonstrations. This zero-shot variant democratizes reasoning: it requires no labeled examples and works across models. The authors attribute the effect to the prompt's ability to anchor the model in a sequential decoding regime that favors decomposition. Zero-shot CoT has been validated on BIG-Bench Hard \citep{suzgun2022challenging} and MATH \citep{hendrycks2021measuring}, and it remains a strong baseline. Subsequent work showed that zero-shot performance can be further improved by asking the model to ``repeat the question'' or to generate a plan before reasoning \citep{press2022measuring}, \citep{wang2023plan}. For instance, the ``Plan-and-Solve'' prompt first elicits a high-level plan and then solves each subproblem, yielding better results on multi-step math tasks. Zero-shot CoT also reveals that models possess latent reasoning abilities that are not activated by standard prompting, suggesting that the bottleneck is not knowledge but the decoding strategy \citep{kojima2022large}.
+
+\subsection{Automatic and Structured CoT}
+To reduce manual effort, Auto-CoT \citep{zhang2022automatic} clusters questions and selects diverse exemplars automatically, while Complexity-Based Prompting \citep{fu2022complexity} ranks examples by reasoning length to maximize coverage of difficult steps. Structured variants further decompose reasoning into explicit plans. Plan-and-Solve \citep{wang2023plan} generates a plan skeleton before executing detailed steps, thereby separating high-level strategy from low-level execution. Least-to-Most Prompting \citep{zhou2022least} breaks complex problems into a sequence of simpler subproblems, solving each in turn and feeding the answer forward. Scratchpad \citep{nyre2021scratchpad} introduces a fixed template for intermediate computations, and Program-of-Thoughts \citep{chen2022program} and PAL \citep{gao2023pal} offload arithmetic to an external interpreter, yielding near-deterministic execution. Structured CoT has also been explored in the context of question answering, where models generate a chain of reasoning clauses before extracting the final span \citep{li2023structured}. These methods share the insight that reasoning is not monolithic: separating planning, execution, and verification improves both accuracy and interpretability.
+
+\section{Advanced Reasoning Structures}
+\label{sec:advanced}
+\subsection{Self-Consistency}
+\citet{wang2022self} observe that greedy decoding from a single CoT path is brittle: a single erroneous step can derail the answer. Self-consistency samples multiple diverse reasoning traces and marginalizes over them via majority voting:
+\begin{equation}
+\hat{y} = \arg\max_{y} \sum_{\tau \in \mathcal{T}} \mathbf{1}\{y_\tau = y\},
+\end{equation}
+where $\mathcal{T}$ is a set of sampled traces. This ensemble approach improves robustness and provides a natural confidence estimate. Extensions include weighted consistency, where traces are ranked by coherence or step-level verification \citep{lightman2023let}, and complexity-weighted consistency, which prefers longer, more detailed traces \citep{fu2022complexity}. Self-consistency can be combined with process reward models to rerank traces before voting, yielding further gains. The method is computationally expensive, as it requires $K$ forward passes, but it is amenable to parallelization and has become a standard component of state-of-the-art reasoning systems.
+
+\subsection{Tree-of-Thoughts and Graph-of-Thoughts}
+Tree-of-Thoughts (ToT) \citep{yao2023tree} generalizes CoT by exploring a tree of reasoning paths. At each node, the model proposes continuations, evaluates them via a heuristic or value function, and backtracks when necessary. This search mechanism yields exponential improvements in worst-case reasoning depth, particularly for puzzles such as Game of 24 and creative writing. Graph-of-Thoughts (GoT) \citep{besta2024graph} further generalizes the structure to arbitrary directed acyclic graphs, enabling aggregation, refinement, and information flow between thoughts. GoT formalizes reasoning as:
+\begin{equation}
+\mathcal{G} = (\mathcal{V}, \mathcal{E}), \quad v_i \in \mathcal{V} \text{ is a thought}, \quad (v_i, v_j) \in \mathcal{E} \text{ is an operation}.
+\end{equation}
+These structures shift reasoning from passive generation to active search, bridging the gap between language models and classical planning algorithms. ToT and GoT have been applied to tasks ranging from mathematical proof to open-ended story generation, demonstrating the generality of search-based reasoning.
+
+\subsection{Search-of-Thought and Tool-Augmented Reasoning}
+Search-of-Thought integrates Monte Carlo Tree Search with LLMs to balance exploration and exploitation \citep{yao2023tree}. Tool-augmented reasoning augments CoT with external APIs or code execution. ReAct \citep{yao2023react} interleaves \textsc{Thought}, \textsc{Action}, and \textsc{Observation} tokens, enabling the model to query databases, calculators, or search engines. This agentic loop is formalized as a Markov Decision Process where thoughts condition actions and observations condition subsequent thoughts. Tool-Integrated Reasoning \citep{hao2023tool} extends this to multi-step tool use, while LLMs as Tool Makers \citep{cai2023large} allow the model to generate its own tools, compressing reusable reasoning patterns. Tool use has been shown to dramatically reduce factual errors in knowledge-intensive tasks and to improve execution accuracy in code synthesis \citep{gao2023pal}, \citep{chen2022program}. The synergy between language and tools is a key direction for building more reliable reasoning agents.
+
+\section{Training-Based Methods}
+\label{sec:training}
+\subsection{Supervised Fine-Tuning and Instruction Tuning}
+While prompting is parameter-efficient, fine-tuning adapts model weights to reasoning tasks. Instruction tuning on diverse reasoning datasets \citep{chung2022scaling} improves zero-shot generalization. Supervised fine-tuning on CoT demonstrations \citep{nyre2021scratchpad} teaches the model to emit step-by-step traces. Datasets such as GSM8K \citep{cobbe2021gsm8k} and MATH \citep{hendrycks2021measuring} provide supervised signals, though annotation cost remains high. Distillation from larger models can generate synthetic CoT traces at scale, reducing the need for human annotation \citep{touvron2023llama}. Nevertheless, fine-tuning risks overfitting to the distribution of training problems, potentially harming out-of-distribution generalization \citep{min2022rethinking}. Careful regularization, data augmentation, and evaluation on held-out domains are essential to mitigate these risks.
+
+\subsection{Reinforcement Learning from Human Feedback}
+RLHF aligns LLMs with human preferences using a reward model trained on pairwise comparisons \citep{openai2023gpt4}. For reasoning, RLHF can optimize for correctness and conciseness, but sparse binary rewards (correct/incorrect) make credit assignment difficult. Process reward models (PRMs) \citep{uesato2022solving} assign a reward to each intermediate step, enabling fine-grained reinforcement. \citet{lightman2023let} propose training PRMs on human-labeled step quality and use them to guide majority voting and beam search. PRMs mitigate the problem of error accumulation in long traces. However, training PRMs requires step-level annotations, which are expensive to obtain; recent work explores synthetic PRMs trained on model-generated trajectories \citep{wang2022self}. The combination of PRMs with search algorithms such as beam search or MCTS yields state-of-the-art results on mathematical reasoning benchmarks.
+
+\subsection{STaR and Self-Improvement}
+STaR \citep{zelikman2022star} bootstraps reasoning ability by iteratively fine-tuning the model on its own successful trajectories. The model generates solutions, filters correct ones, and retrains. This self-taught approach avoids costly human annotations. \citet{huang2022large} extend the idea by having the model generate questions, solve them, and train on the resulting self-augmented data. Both methods exploit the asymmetry that verifying a solution is easier than generating one \citep{uesato2022solving}. Training is formalized as minimizing the cross-entropy loss over predicted traces $\tau$:
+\begin{equation}
+\mathcal{L} = -\log p_\theta(\tau \mid x; \hat{\theta}),
+\end{equation}
+where $\hat{\theta}$ denotes parameters after a self-improvement iteration. Self-improvement loops can be unstable: early errors may reinforce incorrect reasoning patterns. Techniques such as temperature scaling, diversity filtering, and iterative pruning are used to stabilize training \citep{zelikman2022star}, \citep{huang2022large}. The theoretical conditions under which self-improvement converges are an active area of research, drawing on ideas from control theory and statistical learning.
+
+\subsection{Self-Refine and Reflexion}
+Self-Refine \citep{madaan2023self} introduces iterative refinement: the model generates an initial output, receives feedback from a critic (often itself), and produces an improved version. The cycle repeats until convergence. Reflexion \citep{shinn2023reflexion} extends this to episodic reinforcement, where verbal feedback is stored in a memory buffer and used to shape future behavior. These methods blur the line between prompting and training, as the model effectively learns from its own verbal experience. Reflexion has been applied to sequential decision-making tasks such as web navigation and code debugging, demonstrating that language-based feedback can substitute for gradient updates in certain settings. The episodic memory component allows the agent to avoid repeating past mistakes, effectively implementing a form of model-based reinforcement learning with a textual world model.
+
+\section{Theoretical Perspectives}
+\label{sec:theory}
+\subsection{Why Does Chain-of-Thought Work?}
+Several hypotheses explain CoT's efficacy. First, CoT reduces the complexity of mapping $x \to y$ by factoring it into simpler mappings $x \to z_1 \to \dots \to z_T \to y$. This decomposition aligns with principles from cognitive science, where experts solve complex problems by breaking them into manageable chunks \citep{chi1986self}. Second, CoT elicits knowledge stored in model weights---arithmetic facts, world knowledge---that would otherwise remain dormant under direct-answer prompting \citep{wei2022chain}. Third, CoT aligns the model's decoding with symbolic manipulation, effectively performing a soft version of program execution \citep{gao2023pal}. Ablation studies show that even nonsensical reasoning traces can improve accuracy \citep{ye2022unreliability}, suggesting that the act of sequential generation itself matters, not just semantic correctness. This observation has spurred interest in ``distractor'' CoT studies, where models are given irrelevant or misleading reasoning chains to probe the limits of instruction following.
+
+\subsection{Emergent Abilities and Scaling}
+CoT is an emergent ability: it appears abruptly once model size exceeds a threshold \citep{wei2022emergent}. Small models (< 6B parameters) often fail to follow CoT demonstrations, while larger models (62B+) solve tasks with minimal prompting. This transition parallels phase transitions in statistical physics. Scaling laws \citep{rae2021scaling} predict that emergent abilities will continue to arise as models grow, but the cost of training frontier models raises sustainability concerns \citep{srivastava2022beyond}. Recent work investigates whether emergent reasoning can be elicited in smaller models via targeted fine-tuning or better prompting, reducing reliance on brute-force scaling \citep{chung2022scaling}. For example, instruction tuning on a diverse set of reasoning tasks can induce CoT behavior in models as small as 7B parameters, though the performance gap to larger models persists on the hardest benchmarks.
+
+\subsection{Coverage, Bias, and Error Propagation}
+CoT performance is bounded by \textit{coverage}: the proportion of problems for which at least one valid reasoning path exists within the model's distribution \citep{wang2022self}. Coverage gaps explain why CoT fails on certain BIG-Bench Hard tasks \citep{suzgun2022challenging}. Bias arises when the model overfits to spurious correlations in demonstrations; for instance, arithmetic CoT can memorize number combinations \citep{ye2022unreliability}. Error propagation is another concern: an early mistake compounds through the trace, and standard decoding cannot recover. Search-based methods and PRMs partially address this by exploring alternatives and rewarding intermediate correctness. Theoretical analyses of coverage suggest that expanding the training corpus with diverse reasoning chains is the most direct way to improve robustness, though such expansion must be balanced against data contamination risks \citep{srivastava2022beyond}. Regularization techniques such as dropout and weight decay can also reduce overfitting to spurious patterns.
+
+\subsection{Robustness and Adversarial Vulnerabilities}
+CoT traces are human-readable, which makes them attractive for interpretability, but also vulnerable to manipulation. Adversarial prompts that insert misleading reasoning steps can steer models toward incorrect answers without affecting the final token distribution in obvious ways \citep{ye2022unreliability}. Moreover, models may produce fluent yet logically invalid arguments, raising concerns about trustworthiness in high-stakes domains such as medicine and law. Defenses include consistency checking, cross-verification with external tools, and training on adversially augmented traces, though a comprehensive solution remains elusive. The development of formal verification methods for CoT traces is an emerging direction, inspired by work on program synthesis and proof assistants.
+
+\section{Applications}
+\label{sec:applications}
+\subsection{Mathematical Reasoning}
+CoT has become the de facto standard for math word problems. On GSM8K, GPT-4 with CoT achieves over 92\% accuracy \citep{openai2023gpt4}, while self-consistency and PAL push results even higher \citep{gao2023pal}, \citep{wang2022self}. On the harder MATH dataset, specialized models trained on CoT traces reach state-of-the-art performance \citep{lightman2023let}. Applications range from K-12 education to automated theorem proving. In educational settings, CoT provides step-by-step explanations that help students follow the logic, while automated graders can evaluate intermediate steps for partial credit \citep{uesato2022solving}. In theorem proving, models such as GPT-f generate proof sketches that are checked by automated theorem provers, closing the loop between language and logic. The integration of LLMs with proof assistants such as Lean and Isabelle is a vibrant research area, with systems like Draft--Sketch--Prove demonstrating the potential of CoT-guided theorem proving.
+
+\subsection{Code Generation}
+In code synthesis, CoT decomposes programming tasks into algorithm design, pseudocode, and implementation. Models such as Codex and PaLM-Coder benefit from structured reasoning, producing programs that are more correct and maintainable \citep{chen2022program}. Complexity-based prompting \citep{fu2022complexity} and self-consistency \citep{wang2022self} improve performance on benchmarks like HumanEval and MBPP by aggregating over multiple implementation paths. PAL \citep{gao2023pal} takes this further by executing Python code during generation, catching runtime errors and revising the trace accordingly. The synergy between language and code execution exemplifies how CoT can be hybridized with symbolic systems to achieve high reliability. Code generation with CoT has also been applied to data analysis and visualization, where models write scripts to process datasets and generate plots based on natural language instructions.
+
+\subsection{Scientific Discovery}
+LLMs augmented with CoT and tools are being deployed for hypothesis generation, experiment design, and data analysis. For example, CoT-guided reasoning enables chemical reaction prediction \citep{wei2022chain} and materials design. Integration with search engines and code interpreters allows models to verify predictions against literature, closing the loop between hypothesis and evidence. In biology, LLMs generate experimental protocols and interpret assay results, accelerating the cycle of discovery. However, scientific reasoning demands not only logical validity but also empirical grounding; hallucinations in CoT traces can lead to false confidence in incorrect hypotheses \citep{ye2022unreliability}. Combining CoT with retrieval-augmented generation and uncertainty quantification is an active area of research. Recent systems such as ChemCrow and AgentScholar demonstrate how CoT can be combined with specialized tools to perform end-to-end scientific reasoning.
+
+\subsection{Planning and Agents}
+Agent frameworks such as ReAct \citep{yao2023react}, Reflexion \citep{shinn2023reflexion}, and Self-Refine \citep{madaan2023self} use CoT for task planning in interactive environments. The model reasons about subgoals, selects actions, and updates its plan based on observations. This paradigm underlies web navigation, robotic manipulation, and game playing. Hierarchical CoT decomposes long-horizon tasks into manageable subproblems, improving sample efficiency and interpretability. In web navigation, for instance, ReAct agents interleave reasoning about the current page with actions such as clicking links or typing queries, achieving competitive performance on benchmarks like WebShop and WebArena. Reflexion further improves performance by storing episodic feedback in a vector database and retrieving relevant lessons for future tasks \citep{shinn2023reflexion}. These agentic systems illustrate how CoT can serve as the ``brain'' of an autonomous agent, bridging perception, reasoning, and action.
+
+\section{Challenges and Future Directions}
+\label{sec:challenges}
+Despite rapid progress, several challenges persist. \textit{Evaluation} remains fragmentary: benchmarks like BIG-Bench Hard and MATH test narrow skills, and new tasks are needed to assess generalization \citep{srivastava2022beyond}. \textit{Compositional generalization}---transferring reasoning skills to novel domains---is limited; models often memorize surface patterns \citep{min2022rethinking}. \textit{Reliability} is threatened by hallucination, error propagation, and adversarial prompts \citep{ye2022unreliability}. \textit{Interpretability} is partial: while CoT traces are human-readable, the model's internal representations of reasoning steps remain opaque.
+
+Future research should pursue: (1) \textit{unified architectures} that natively support search, tool use, and learning, rather than treating reasoning as an afterthought; (2) \textit{neurosymbolic integration} that combines LLMs with formal verifiers and theorem provers; (3) \textit{efficient training} of reasoning-specific models through distillation and synthetic data generation; (4) \textit{safety and alignment} mechanisms that ensure reasoning traces are honest, harmless, and helpful; and (5) \textit{scalable evaluation} suites that probe depth, breadth, and robustness of reasoning. Addressing these challenges will require collaboration across natural language processing, machine learning, cognitive science, and formal methods.
+
+\section{Conclusion}
+\label{sec:conclusion}
+Chain-of-Thought prompting has inaugurated a new era of reasoning in large language models. From its humble beginnings as a few-shot demonstration technique \citep{wei2022chain}, CoT has blossomed into a multifaceted research area encompassing prompting, search, training, and theory. By making intermediate reasoning explicit, CoT not only boosts performance on challenging tasks but also provides a scaffold for interpretability, verification, and human-machine collaboration. As models grow and methods mature, CoT-driven reasoning promises to become an indispensable component of intelligent systems across science, engineering, and everyday life.
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\appendix
+\section{Algorithmic Templates}
+\begin{algorithm}[h]
+\caption{Zero-Shot Chain-of-Thought Prompting}
+\label{alg:zero-shot-cot}
+\begin{algorithmic}[1]
+\State \textbf{Input}: Question $x$
+\State \textbf{Output}: Answer $y$
+\State Construct prompt $p = $ ``Question: $x$ Let's think step by step.''
+\State $\tau \gets \textsc{LLMGenerate}(p)$
+\State Extract final answer $y$ from $\tau$
+\State \textbf{return} $y$
+\end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[h]
+\caption{Self-Consistency with Majority Voting}
+\label{alg:self-consistency}
+\begin{algorithmic}[1]
+\State \textbf{Input}: Question $x$, CoT prompt $p$, sample count $K$
+\State \textbf{Output}: Final answer $y^*$
+\State $\mathcal{T} \gets \emptyset$
+\For{$i = 1$ to $K$}
+  \State $\tau_i \gets \textsc{LLMGenerate}(p(x))$
+  \State $y_i \gets \textsc{ExtractAnswer}(\tau_i)$
+  \State $\mathcal{T} \gets \mathcal{T} \cup \{(\tau_i, y_i)\}$
+\EndFor
+\State $y^* \gets \arg\max_{y} |\{(\tau_i, y_i) \in \mathcal{T} : y_i = y\}|$
+\State \textbf{return} $y^*$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Taxonomy Overview (TikZ)}
+\begin{tikzpicture}[node distance=1.2cm and 1.5cm,font=\sffamily\small]
+\node[draw,rectangle,fill=blue!10] (root) {Reasoning with LLMs};
+\node[draw,rectangle,fill=green!10,below left=of root] (manual) {Manual CoT};
+\node[draw,rectangle,fill=green!10,below=of manual] (zero) {Zero-Shot CoT};
+\node[draw,rectangle,fill=green!10,below right=of root] (adv) {Advanced Structures};
+\node[draw,rectangle,fill=yellow!20,below=of adv] (selfcon) {Self-Consistency};
+\node[draw,rectangle,fill=yellow!20,below left=of adv] (tot) {Tree-of-Thoughts};
+\node[draw,rectangle,fill=yellow!20,below right=of adv] (got) {Graph-of-Thoughts};
+\node[draw,rectangle,fill=orange!10,right=2cm of adv] (train) {Training Methods};
+\node[draw,rectangle,fill=orange!10,below=of train] (prm) {Process Reward Models};
+\node[draw,rectangle,fill=orange!10,below=of prm] (star) {STaR};
+\draw[->,thick] (root) -- (manual);
+\draw[->,thick] (root) -- (adv);
+\draw[->,thick] (root) -- (train);
+\draw[->,thick] (manual) -- (zero);
+\draw[->,thick] (adv) -- (selfcon);
+\draw[->,thick] (adv) -- (tot);
+\draw[->,thick] (adv) -- (got);
+\draw[->,thick] (train) -- (prm);
+\draw[->,thick] (train) -- (star);
+\end{tikzpicture}
+
+\end{document}

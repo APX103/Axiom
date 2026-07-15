@@ -1,0 +1,27 @@
+[package]
+name = "axiom"
+version = "0.0.1"
+description = "Local AI workbench built on operon-py"
+authors = ["operon-py"]
+license = "MIT"
+edition = "2021"
+rust-version = "1.77"
+
+[lib]
+name = "axiom_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-shell = "2"
+window-vibrancy = "0.6"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "process", "time", "sync"] }
+
+[features]
+# 默认不启用任何特性; Tauri 的 dev 脚本会自动加上 dev 特性。
+default = []

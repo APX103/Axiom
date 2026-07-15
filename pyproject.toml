@@ -1,0 +1,67 @@
+[project]
+name = "operon-py"
+version = "0.0.1"
+description = "Python clean-room reimplementation of Operon core logic"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "operon-py" }]
+license = { text = "MIT" }
+
+dependencies = [
+    # LLM provider (OpenAI-compatible, supports domestic models via base_url)
+    "openai>=1.50",
+    # DB layer (replaces Drizzle)
+    "sqlalchemy[asyncio]>=2.0",
+    "aiosqlite>=0.20",
+    "alembic>=1.13",
+    # Config / validation (replaces Zod)
+    "pydantic>=2.7",
+    "pydantic-settings>=2.3",
+    # CLI
+    "typer>=0.12",
+    # HTTP/WebSocket API server
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    # TOML config
+    # (stdlib tomllib covers parsing on 3.11+)
+    # token counting
+    "tiktoken>=0.7",
+    # HTTP for tools (web_search, fetch_article)
+    "httpx>=0.27",
+    # PDF text extraction (the pdf-explore path; vision path deferred)
+    "pypdfium2>=4.30",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "pytest-cov>=5.0",
+    "ruff>=0.6",
+]
+
+[project.scripts]
+operon = "operon.cli.main:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["operon"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[dependency-groups]
+dev = [
+    "pyinstaller>=6.21.0",
+]

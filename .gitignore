@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.python-version
+
+# 构建/缓存
+dist/
+build/
+.pytest_cache/
+.ruff_cache/
+*.log
+src-tauri/target/
+src-tauri/gen/
+
+# 前端
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/tsconfig.tsbuildinfo
+frontend/public/*.dmg
+frontend/public/*.zip
+frontend/public/*.tar.gz
+
+# 数据/工作区 (运行时产物)
+*.db
+*.sqlite*
+data/
+workspace/
+
+# 本地配置 (可能含 key)
+config.toml
+.env
+.env.*
+
+# IDE
+.vscode/
+.idea/
+.DS_Store
+
+# 临时测试文件
+/tmp/
+*.tmp
+axiom/
