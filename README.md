@@ -49,10 +49,10 @@ Axiom 是一个**本地优先的科研 AI 工作台**，基于 `operon-py` 内�
 
 ### macOS（推荐）
 
-| 架构 | 下载 |
-|------|------|
-| Apple Silicon (M1/M2/M3/M4) | `Axiom_x.x.x_aarch64.dmg` |
-| Intel Mac | `Axiom_x.x.x_x86_64.dmg` |
+| 平台 / 架构 | 下载 |
+|-------------|------|
+| macOS Apple Silicon (M1/M2/M3/M4) | `Axiom_x.x.x_aarch64.dmg` |
+| Linux x86_64 | `Axiom_x.x.x_amd64.deb` / `.AppImage` |
 
 1. 挂载 `.dmg`，拖动 `Axiom.app` 到 `/Applications`。
 2. 首次运行若提示“无法打开，因为无法验证开发者”，请：
@@ -297,9 +297,9 @@ src-tauri/target/release/bundle/dmg/Axiom_0.0.x_aarch64.dmg
    git push origin v0.0.3
    ```
 4. GitHub Actions 自动触发 [Release 工作流](.github/workflows/release.yml)：
-   - 在 `macos-latest` 上构建 `aarch64` 版本。
-   - 在 `macos-13` 上构建 `x86_64` 版本。
-   - 创建一个 **Draft Release**，上传 `.dmg` 和 `.app` 产物。
+   - 在 `macos-latest` 上构建 `aarch64-apple-darwin`（`.dmg`）。
+   - 在 `ubuntu-22.04` 上构建 `x86_64-unknown-linux-gnu`（`.deb` / `.AppImage`）。
+   - 创建一个 **Draft Release**，上传对应产物。
 5. 在 GitHub Releases 页面检查 Draft，填写 Release Note 后发布。
 
 > 所有正式发布都应从 `main` 分支打 tag。`main` 是唯一的长期分支。

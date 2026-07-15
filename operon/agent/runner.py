@@ -26,7 +26,10 @@ plan mode 门控 (对照 0871.js:1625 _gatePlanProduceDenial):
 from __future__ import annotations
 
 import asyncio
+import logging
 from dataclasses import dataclass, field
+
+logger = logging.getLogger(__name__)
 
 from operon.frames.model import Frame
 from operon.frames.service import FrameService
