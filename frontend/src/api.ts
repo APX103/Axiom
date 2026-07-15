@@ -2,7 +2,7 @@
 // 开发时 Vite proxy /api → http://127.0.0.1:8000
 // Tauri 桌面壳会把后端端口注入到 window.__BACKEND_PORT__
 
-import type { ModelConfig, SessionInfo, SkillInfo, McpServerStatus, MemoryInfo } from "./types";
+import type { SessionInfo, SkillInfo, McpServerStatus, MemoryInfo } from "./types";
 
 declare global {
   interface Window {
@@ -23,7 +23,10 @@ function getApiBase(): string {
   return "/api";
 }
 
-const BASE = getApiBase();
+/** 导出供组件直接构造 API URL (文件下载/预览等) */
+export function apiBase(): string {
+  return getApiBase();
+}
 
 async function jfetch(url: string, opts?: RequestInit) {
   const resp = await fetch(url, {
@@ -38,52 +41,52 @@ async function jfetch(url: string, opts?: RequestInit) {
 }
 
 export async function health(): Promise<{ status: string }> {
-  return jfetch(`${BASE}/health`);
+  return jfetch(`${getApiBase()}/health`);
 }
 
 export async function getSettings(): Promise<Record<string, unknown>> {
-  return jfetch(`${BASE}/settings`);
+  return jfetch(`${getApiBase()}/settings`);
 }
 
 export async function saveSettings(body: Record<string, unknown>): Promise<{ status: string }> {
-  return jfetch(`${BASE}/settings`, {
+  return jfetch(`${getApiBase()}/settings`, {
     method: "POST",
     body: JSON.stringify(body),
   });
 }
 
 export async function listSkills(): Promise<SkillInfo[]> {
-  return jfetch(`${BASE}/skills`);
+  return jfetch(`${getApiBase()}/skills`);
 }
 
 export async function getMcpTools(serverName: string): Promise<McpServerStatus> {
-  return jfetch(`${BASE}/mcp/${encodeURIComponent(serverName)}/tools`);
+  return jfetch(`${getApiBase()}/mcp/${encodeURIComponent(serverName)}/tools`);
 }
 
 export async function listMemories(entity?: string): Promise<MemoryInfo[]> {
   const qs = entity ? `?entity=${encodeURIComponent(entity)}` : "";
-  return jfetch(`${BASE}/memories${qs}`);
+  return jfetch(`${getApiBase()}/memories${qs}`);
 }
 
 export async function deleteMemory(memId: string): Promise<{ status: string }> {
-  return jfetch(`${BASE}/memories/${encodeURIComponent(memId)}`, { method: "DELETE" });
+  return jfetch(`${getApiBase()}/memories/${encodeURIComponent(memId)}`, { method: "DELETE" });
 }
 
 export async function listSessions(): Promise<SessionInfo[]> {
-  return jfetch(`${BASE}/sessions`);
+  return jfetch(`${getApiBase()}/sessions`);
 }
 
 export async function createSession(
-  config: ModelConfig & { workspace?: string; plan_mode?: boolean }
+  body: Record<string, unknown>
 ): Promise<{ id: string; frame_id: string }> {
-  return jfetch(`${BASE}/sessions`, {
+  return jfetch(`${getApiBase()}/sessions`, {
     method: "POST",
-    body: JSON.stringify(config),
+    body: JSON.stringify(body),
   });
 }
 
 export async function approvePlan(sid: string): Promise<{ approved: boolean; steps: unknown[] }> {
-  return jfetch(`${BASE}/sessions/${sid}/approve`, { method: "POST" });
+  return jfetch(`${getApiBase()}/sessions/${sid}/approve`, { method: "POST" });
 }
 
 export async function getSessionState(sid: string): Promise<{
@@ -96,15 +99,15 @@ export async function getSessionState(sid: string): Promise<{
   artifacts: Record<string, import("./types").ArtifactInfo>;
   messages: { role: string; content: unknown }[];
 }> {
-  return jfetch(`${BASE}/sessions/${sid}`);
+  return jfetch(`${getApiBase()}/sessions/${sid}`);
 }
 
 export async function deleteSession(sid: string): Promise<{ status: string }> {
-  return jfetch(`${BASE}/sessions/${sid}`, { method: "DELETE" });
+  return jfetch(`${getApiBase()}/sessions/${sid}`, { method: "DELETE" });
 }
 
 export async function deleteFile(sid: string, path: string): Promise<{ status: string }> {
-  return jfetch(`${BASE}/sessions/${sid}/files/${encodeURIComponent(path)}`, {
+  return jfetch(`${getApiBase()}/sessions/${sid}/files/${encodeURIComponent(path)}`, {
     method: "DELETE",
   });
 }
@@ -116,7 +119,7 @@ export function connectStream(
   onError?: (e: Event) => void
 ): { send: (prompt: string) => void; close: () => void } {
   const proto = "ws:";
-  const wsBase = BASE.replace(/^https?:\/\/([^/]+).*/, "$1");
+  const wsBase = getApiBase().replace(/^https?:\/\/([^/]+).*/, "$1");
   const ws = new WebSocket(`${proto}//${wsBase}/api/sessions/${sid}/stream`);
   // 缓冲握手前发出的消息, 等 onopen 再 flush (修 WS 时序 bug: send 在 open 前会丢失)
   const pending: string[] = [];
@@ -156,7 +159,7 @@ export function connectSSE(
   let closed = false;
 
   // SSE 文本流解析: 按 \n\n 分割事件块, 每块取 data: 行
-  fetch(`${BASE}/sessions/${sid}/stream-sse`, {
+  fetch(`${getApiBase()}/sessions/${sid}/stream-sse`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ prompt }),

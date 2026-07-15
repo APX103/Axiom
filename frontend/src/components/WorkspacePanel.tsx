@@ -1,7 +1,7 @@
 // 工作区面板: 展示 agent 产出的文件 (artifacts) + 实际工作区文件。
 // .tex/.pdf 可点击查看/下载/删除。
 import { useEffect, useState } from "react";
-import { deleteFile } from "../api";
+import { deleteFile, apiBase } from "../api";
 import type { ArtifactInfo } from "../types";
 
 export function WorkspacePanel({
@@ -24,7 +24,7 @@ export function WorkspacePanel({
     }
     let alive = true;
     const poll = () => {
-      fetch(`/api/sessions/${sid}/files`)
+      fetch(`${apiBase()}/sessions/${sid}/files`)
         .then((r) => r.json())
         .then((d) => {
           if (alive) setFiles(d.files || []);
@@ -102,11 +102,11 @@ function FileItem({
   const isViewable = /\.(tex|md|txt|py|csv|json|bib|js|ts|tsx|jsx|html|css|yaml|yml|xml|sh)$/.test(path);
   const isDoc = /\.(tex|pdf)$/.test(path);
   const view = () => {
-    if (sid && isViewable) window.open(`/api/sessions/${sid}/files/${encodeURIComponent(path)}`, "_blank");
+    if (sid && isViewable) window.open(`${apiBase()}/sessions/${sid}/files/${encodeURIComponent(path)}`, "_blank");
   };
   const download = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (sid) window.open(`/api/sessions/${sid}/files/${encodeURIComponent(path)}?download=true`, "_blank");
+    if (sid) window.open(`${apiBase()}/sessions/${sid}/files/${encodeURIComponent(path)}?download=true`, "_blank");
   };
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();

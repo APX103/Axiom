@@ -3,7 +3,7 @@
 // 支持月之亮面/暗面主题切换。
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { approvePlan, deleteFile, deleteSession, getSessionState, getSettings, health, listSessions } from "./api";
+import { approvePlan, createSession, deleteFile, deleteSession, getSessionState, getSettings, health, listSessions, apiBase } from "./api";
 import { useSession } from "./hooks/useSession";
 import { useTheme } from "./hooks/useTheme";
 import { MessageView } from "./components/Message";
@@ -150,20 +150,15 @@ function Workbench() {
     if (config.disabled_skills && config.disabled_skills.length > 0) {
       body.disabled_skills = config.disabled_skills;
     }
-    const resp = await fetch("/api/sessions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    if (!resp.ok) {
-      const err = await resp.text();
-      alert(`创建会话失败: ${err}`);
-      throw new Error(err);
+    try {
+      const data = await createSession(body);
+      setSid(data.id);
+      refreshSessionList();
+      return data.id;
+    } catch (e) {
+      alert(`创建会话失败: ${e instanceof Error ? e.message : e}`);
+      throw e;
     }
-    const data = await resp.json();
-    setSid(data.id);
-    refreshSessionList();
-    return data.id as string;
   };
 
   const send = async () => {
@@ -517,7 +512,7 @@ function ProjectTree({ sid }: { sid: string | null }) {
     }
     let alive = true;
     const poll = () => {
-      fetch(`/api/sessions/${sid}/files`)
+      fetch(`${apiBase()}/sessions/${sid}/files`)
         .then((r) => r.json())
         .then((d) => {
           if (alive) setFiles(d.files || []);
@@ -556,7 +551,7 @@ function ProjectTree({ sid }: { sid: string | null }) {
         <div
           key={f.path}
           className="group flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-hover cursor-pointer text-xs"
-          onClick={() => window.open(`/api/sessions/${sid}/files/${encodeURIComponent(f.path)}`, "_blank")}
+          onClick={() => window.open(`${apiBase()}/sessions/${sid}/files/${encodeURIComponent(f.path)}`, "_blank")}
         >
           <FileIcon path={f.path} />
           <span className="flex-1 truncate text-muted">{f.name}</span>

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import "katex/dist/katex.min.css";
 import { parseTex, formatBibEntry } from "../tex";
+import { apiBase } from "../api";
 
 interface Props {
   sid: string;
@@ -26,7 +27,7 @@ export function PaperView({ sid, onClose }: Props) {
   useEffect(() => {
     (async () => {
       try {
-        const fl = await fetch(`/api/sessions/${sid}/files`).then((r) => r.json());
+        const fl = await fetch(`${apiBase()}/sessions/${sid}/files`).then((r) => r.json());
         const allFiles: FileInfo[] = fl.files || [];
         setFiles(allFiles);
         const texFiles = allFiles.filter((f) => f.path.endsWith(".tex"));
@@ -50,7 +51,7 @@ export function PaperView({ sid, onClose }: Props) {
     setLoading(true);
     setError(null);
     try {
-      const texResp = await fetch(`/api/sessions/${sessionId}/files/${encodeURIComponent(texPath)}`);
+      const texResp = await fetch(`${apiBase()}/sessions/${sessionId}/files/${encodeURIComponent(texPath)}`);
       setTex(await texResp.text());
       // 优先匹配同名 .bib; 否则取第一个 .bib
       const base = texPath.replace(/\.tex$/i, "");
@@ -60,7 +61,7 @@ export function PaperView({ sid, onClose }: Props) {
         bibFiles.find((f) => f.path.toLowerCase().includes("reference")) ||
         bibFiles[0];
       if (matched) {
-        const bibResp = await fetch(`/api/sessions/${sessionId}/files/${encodeURIComponent(matched.path)}`);
+        const bibResp = await fetch(`${apiBase()}/sessions/${sessionId}/files/${encodeURIComponent(matched.path)}`);
         setBib(await bibResp.text());
       } else {
         setBib("");
@@ -90,7 +91,7 @@ export function PaperView({ sid, onClose }: Props) {
   }, [doc]);
 
   const download = (path: string) => {
-    window.open(`/api/sessions/${sid}/files/${encodeURIComponent(path)}?download=true`, "_blank");
+    window.open(`${apiBase()}/sessions/${sid}/files/${encodeURIComponent(path)}?download=true`, "_blank");
   };
 
   if (loading && !tex)
