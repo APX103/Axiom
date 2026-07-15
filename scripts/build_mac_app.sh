@@ -21,17 +21,11 @@ rm -rf "${ROOT}/dist/operon-backend"
 rm -rf "${ROOT}/build/operon-backend"
 rm -rf "${ROOT}/frontend/dist"
 
+echo "[build] syncing dependencies..."
+uv sync
+
 echo "[build] building Python backend with PyInstaller..."
-uv run pyinstaller --name operon-backend --onefile --clean \
-  --hidden-import=aiosqlite \
-  --hidden-import=pypdfium2 \
-  --hidden-import=tiktoken \
-  --hidden-import=uvicorn \
-  --hidden-import=fastapi \
-  --hidden-import=openai \
-  --hidden-import=httpx \
-  --collect-submodules=operon \
-  backend_entry.py
+uv run pyinstaller operon-backend.spec --clean --noconfirm
 
 echo "[build] building frontend..."
 cd "${ROOT}/frontend"

@@ -1,7 +1,14 @@
 # -*- mode: python ; coding: utf-8 -*-
 from PyInstaller.utils.hooks import collect_submodules
 
-hiddenimports = ['aiosqlite', 'pypdfium2', 'tiktoken', 'uvicorn', 'fastapi', 'openai', 'httpx']
+hiddenimports = [
+    'aiosqlite', 'pypdfium2', 'tiktoken', 'uvicorn', 'fastapi', 'openai', 'httpx',
+    # httpx lazy-imports socksio when SOCKS proxy is used; bundle it explicitly
+    # so the standalone binary works on machines with proxy env vars.
+    'socksio',
+    'httpcore', 'httpcore._backends', 'httpcore._backends.anyio',
+    'httpcore._sync', 'httpcore._async',
+]
 hiddenimports += collect_submodules('operon')
 
 

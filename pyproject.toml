@@ -27,7 +27,7 @@ dependencies = [
     # token counting
     "tiktoken>=0.7",
     # HTTP for tools (web_search, fetch_article)
-    "httpx>=0.27",
+    "httpx[socks]>=0.27",
     # PDF text extraction (the pdf-explore path; vision path deferred)
     "pypdfium2>=4.30",
 ]
