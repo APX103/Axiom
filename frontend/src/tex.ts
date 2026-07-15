@@ -291,6 +291,54 @@ export function renderInline(s: string): string {
     s = replaceBraced(s, cmd, (inner) => `<${tag}>${inner}</${tag}>`);
   }
 
+  // siunitx 宏包: \SI{数值}{单位} → "数值 单位"
+  // 单位里的 \giga → G, \mega → M, \kilo → k, \milli → m, \micro → µ, \nano → n 等
+  const UNIT_MAP: Record<string, string> = {
+    giga: "G", mega: "M", kilo: "k", milli: "m", micro: "µ", nano: "n",
+    pico: "p", tera: "T", centi: "c", deci: "d",
+    hertz: "Hz", joule: "J", watt: "W", volt: "V", ampere: "A",
+    kelvin: "K", celsius: "°C", mole: "mol", gram: "g", kilogram: "kg",
+    meter: "m", metre: "m", second: "s", liter: "L", litre: "L",
+    pascal: "Pa", newton: "N", tesla: "T", electronvolt: "eV",
+    percent: "%", degree: "°", radian: "rad", bar: "bar",
+    voltampere: "VA", farad: "F", ohm: "Ω", siemens: "S", henry: "H",
+    candela: "cd", lux: "lx", weber: "Wb", gray: "Gy", sievert: "Sv",
+    becquerel: "Bq", katal: "kat",
+  };
+  const convUnit = (unitStr: string): string => {
+    let s = unitStr;
+    // \square\meter → meter², \cubic\meter → meter³ (幂次跟在被修饰的单位后面)
+    s = s.replace(/\\square\s*\\([a-z]+)/g, (_, u) => `\\${u}²`);
+    s = s.replace(/\\cubic\s*\\([a-z]+)/g, (_, u) => `\\${u}³`);
+    // \per → / (在单位替换前处理, 这样 /m 的结构保留)
+    s = s.replace(/\\per\b\s*/g, "/");
+    // \sqrt{m} → √m
+    s = s.replace(/\\sqrt\{([^}]*)\}/g, (_, e) => `√${e}`);
+    // 替换前缀+单位命令为符号
+    for (const [cmd, sym] of Object.entries(UNIT_MAP)) {
+      s = s.replace(new RegExp(`\\\\${cmd}\\b`, "g"), sym);
+    }
+    // 残余的 \text{...} 去括号
+    s = s.replace(/\\text\{([^}]*)\}/g, "$1");
+    // 清理残余的反斜杠命令和多余空格
+    s = s.replace(/\\[a-zA-Z]+/g, "").replace(/\s+/g, " ").trim();
+    return s;
+  };
+
+  // \SIrange{起}{止}{单位} → "起–止 单位"
+  s = s.replace(/\\SIrange\s*\{([^}]*)\}\s*\{([^}]*)\}\s*\{([^}]*)\}/g,
+    (_m, lo: string, hi: string, unit: string) => {
+      const u = convUnit(unit);
+      return u ? `${lo}–${hi}\\,${u}` : `${lo}–${hi}`;
+    });
+
+  // \SI{数值}{单位} → "数值\\,单位" (\\, 是 LaTeX 的小间距, 后续渲染)
+  s = s.replace(/\\SI\s*\{([^}]*)\}\s*\{([^}]*)\}/g,
+    (_m, val: string, unit: string) => {
+      const u = convUnit(unit);
+      return u ? `${val}\\,${u}` : val;
+    });
+
   // 引用 (支持 natbib: \cite \citep \citet \citeauthor \citealp 等)
   // 渲染成可点击的 [N] 锚点 → 底部参考文献列表 (N 按正文首次出现顺序编号)
   s = s.replace(/\\cite[ptp]*\{([^}]*)\}/g, (_whole, keys: string) => {
