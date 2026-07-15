@@ -1,7 +1,7 @@
 // 会话 hook: 管理 WS 连接 + 把事件流聚合成对话/工具/plan 状态。
 // 对应 agent 循环的事件流 → 前端 UI 状态。
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { connectSSE } from "../api";
 import type { ArtifactInfo, PlanSnapshot, ToolCall, ToolResult, WSEvent } from "../types";
 
@@ -34,6 +34,7 @@ export function useSession() {
   const curRef = useRef<UIMessage | null>(null);
 
   const reset = useCallback(() => {
+    closeConnection();
     setMessages([]);
     setStatus("idle");
     setIteration(0);
@@ -162,10 +163,24 @@ export function useSession() {
   // SSE 连接句柄 (切到 SSE; WS 保留向后兼容)
   const wsRef = useRef<{ close: () => void } | null>(null);
 
+  const closeConnection = useCallback(() => {
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+  }, []);
+
+  // 组件卸载时关闭 SSE 连接
+  useEffect(() => {
+    return () => closeConnection();
+  }, [closeConnection]);
+
   const start = useCallback(
     (sid: string, prompt: string) => {
       setError(null);
       setStatus("running");
+      // 关闭上一个 SSE 连接 (避免泄漏)
+      closeConnection();
       setMessages((m) => [...m, { id: nextId(), role: "user", text: prompt }]);
       const conn = connectSSE(sid, prompt, (e) => handleEvent(e), (err) => {
         setError(String(err));
@@ -173,7 +188,7 @@ export function useSession() {
       });
       wsRef.current = conn;
     },
-    [handleEvent]
+    [handleEvent, closeConnection]
   );
 
   const loadFromState = useCallback(

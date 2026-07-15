@@ -132,8 +132,8 @@ class Agent:
 
         try:
             result = await self._run_loop()
-            # 记忆提取: 后台从本轮对话提取持久事实
-            await self._extract_memories_background()
+            # 记忆提取: 真异步 (不阻塞 complete 事件的发送)
+            asyncio.create_task(self._extract_memories_background())
             return result
         except asyncio.CancelledError:
             self.frame_service.update_status(self.frame.id, FrameStatus.CANCELLED)

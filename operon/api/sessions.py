@@ -40,15 +40,47 @@ class ActiveSession:
     frame_service: FrameService
     last_result: RunResult | None = None
     running: asyncio.Task | None = None
+    mcp_manager: Any = None  # MCPServerManager, 清理时需要 close_all
     _msg_seq: int = 0  # DB 消息序号计数器
+
+    async def cleanup(self) -> None:
+        """释放会话持有的资源 (MCP 连接等)。"""
+        if self.mcp_manager is not None:
+            try:
+                await self.mcp_manager.close_all()
+            except Exception:
+                logger.warning("Failed to close MCP connections for session %s", self.id)
+            self.mcp_manager = None
 
 
 class SessionManager:
     """会话管理器。内存态 + SQLite 持久化。"""
 
+    MAX_ACTIVE_SESSIONS = 10  # 内存中最多保留的活跃会话 (LRU 淘汰)
+
     def __init__(self, db_session_factory: Any = None) -> None:
         self._sessions: dict[str, ActiveSession] = {}
         self.db_session_factory = db_session_factory
+
+    def _evict_if_needed(self) -> None:
+        """超过 MAX_ACTIVE_SESSIONS 时, 清理最旧的空闲会话 (LRU)。"""
+        while len(self._sessions) > self.MAX_ACTIVE_SESSIONS:
+            # 找最旧的 (非 running 的) 会话
+            oldest_sid = None
+            oldest_time = None
+            for sid, active in self._sessions.items():
+                if active.running is not None and not active.running.done():
+                    continue  # 跳过正在运行的
+                created = active.ctx.frame.created_at
+                if oldest_time is None or created < oldest_time:
+                    oldest_time = created
+                    oldest_sid = sid
+            if oldest_sid is None:
+                break  # 全都在运行, 不淘汰
+            evicted = self._sessions.pop(oldest_sid)
+            logger.info("Evicting inactive session %s from memory (LRU)", oldest_sid)
+            # 异步清理 (不阻塞当前操作)
+            asyncio.create_task(evicted.cleanup())
 
     # ---- 内部 DB 辅助 ----
 
@@ -261,8 +293,10 @@ class SessionManager:
             ctx=ctx,
             callbacks=callbacks,
             frame_service=session.frame_service,
+            mcp_manager=session.mcp_manager,
         )
         self._sessions[sid] = active
+        self._evict_if_needed()
         await self._db_save_session(active)
         return active
 
@@ -392,8 +426,18 @@ class SessionManager:
         }
 
     async def delete_session(self, sid: str) -> None:
-        """删除会话 (内存 + DB + 工作区目录)。"""
+        """删除会话 (内存 + DB + 工作区目录 + MCP 连接)。"""
         active = self._sessions.pop(sid, None)
+
+        # 清理 MCP 连接 + frame 记忆
+        if active is not None:
+            await active.cleanup()
+            # 清除该会话的 frame 记忆
+            if active.ctx.memory_store is not None:
+                try:
+                    await active.ctx.memory_store.clear_frame(active.ctx.frame.id)
+                except Exception:
+                    pass
 
         # 先拿到 workspace 路径 (DB 删除后就查不到了)
         workspace_path = None

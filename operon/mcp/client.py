@@ -180,9 +180,6 @@ class MCPClient:
         result = await self._request("tools/list", {})
         self.tools = result.get("tools", []) if isinstance(result, dict) else []
         self._initialized = True
-        result = await self._request("tools/list", {})
-        self.tools = result.get("tools", []) if isinstance(result, dict) else []
-        self._initialized = True
 
     async def _notify(self, method: str, params: dict[str, Any]) -> None:
         """发 notification (无 id,不期望 result)。"""

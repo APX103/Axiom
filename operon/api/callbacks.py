@@ -25,10 +25,13 @@ class WSCallbacks(AgentCallbacks):
 
     def __init__(self, ws: WebSocket | None = None):
         self.ws = ws
-        self.queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
+        self.queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue(maxsize=1000)
 
     async def _emit(self, event: dict[str, Any]) -> None:
-        await self.queue.put(event)
+        try:
+            self.queue.put_nowait(event)
+        except asyncio.QueueFull:
+            pass  # 队列满时丢弃事件 (避免阻塞 agent 循环)
 
     # ---- AgentCallbacks 实现 ----
 
