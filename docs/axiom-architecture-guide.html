@@ -1,0 +1,1184 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Axiom 架构与文献综述流程解析</title>
+  <meta name="description" content="Axiom 本地科研 AI 工作台的全栈设计、论文搜索策略、多轮检索、综述生成与引用机制解析。">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Noto+Serif+SC:wght@400;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <style>
+    :root {
+      --bg-page: #fafaf9;
+      --bg-card: #ffffff;
+      --bg-elevated: #f5f5f4;
+      --bg-code: #f8fafc;
+      --text-primary: #1c1917;
+      --text-secondary: #57534e;
+      --text-tertiary: #78716c;
+      --border: #e7e5e4;
+      --border-light: #f5f5f4;
+      --accent-indigo: #4f46e5;
+      --accent-indigo-light: #e0e7ff;
+      --accent-teal: #0d9488;
+      --accent-teal-light: #ccfbf1;
+      --accent-amber: #d97706;
+      --accent-rose: #e11d48;
+      --shadow-sm: 0 1px 2px 0 rgba(0,0,0,0.04);
+      --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);
+      --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.05), 0 4px 6px -2px rgba(0,0,0,0.03);
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 14px;
+      --max-width: 900px;
+      --toc-width: 260px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+      scroll-padding-top: 88px;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg-page);
+      color: var(--text-primary);
+      line-height: 1.75;
+      font-size: 16px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Header */
+    .site-header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(250, 250, 249, 0.92);
+      backdrop-filter: saturate(180%) blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .header-inner {
+      max-width: var(--max-width);
+      margin: 0 auto;
+      padding: 0 24px;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 700;
+      font-size: 17px;
+      color: var(--text-primary);
+      text-decoration: none;
+    }
+
+    .brand-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--accent-indigo);
+      box-shadow: 0 0 0 4px var(--accent-indigo-light);
+    }
+
+    .header-meta {
+      font-size: 13px;
+      color: var(--text-tertiary);
+      display: none;
+    }
+
+    @media (min-width: 640px) {
+      .header-meta {
+        display: block;
+      }
+    }
+
+    /* Layout */
+    .layout {
+      max-width: var(--max-width);
+      margin: 0 auto;
+      padding: 48px 24px 96px;
+    }
+
+    /* Hero */
+    .hero {
+      padding: 48px 0 56px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 56px;
+    }
+
+    .hero-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--accent-teal);
+      margin-bottom: 16px;
+    }
+
+    .hero h1 {
+      font-family: "Noto Serif SC", Georgia, serif;
+      font-size: clamp(32px, 6vw, 52px);
+      line-height: 1.15;
+      font-weight: 700;
+      margin: 0 0 20px;
+      letter-spacing: -0.02em;
+    }
+
+    .hero-lead {
+      font-size: 19px;
+      color: var(--text-secondary);
+      max-width: 720px;
+      line-height: 1.7;
+      margin: 0 0 28px;
+    }
+
+    .hero-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 500;
+      background: var(--bg-elevated);
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+    }
+
+    .tag.primary {
+      background: var(--accent-indigo-light);
+      color: var(--accent-indigo);
+      border-color: #c7d2fe;
+    }
+
+    /* Typography */
+    h2 {
+      font-family: "Noto Serif SC", Georgia, serif;
+      font-size: 28px;
+      font-weight: 700;
+      margin: 64px 0 20px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border-light);
+      letter-spacing: -0.01em;
+    }
+
+    h3 {
+      font-size: 20px;
+      font-weight: 600;
+      margin: 40px 0 14px;
+      color: var(--text-primary);
+    }
+
+    h4 {
+      font-size: 16px;
+      font-weight: 600;
+      margin: 28px 0 10px;
+      color: var(--text-primary);
+    }
+
+    p {
+      margin: 0 0 18px;
+    }
+
+    a {
+      color: var(--accent-indigo);
+      text-decoration: none;
+      border-bottom: 1px solid transparent;
+      transition: border-color 0.15s;
+    }
+
+    a:hover {
+      border-bottom-color: var(--accent-indigo);
+    }
+
+    strong {
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    /* TOC */
+    .toc-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      margin-bottom: 48px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .toc-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin: 0 0 16px;
+    }
+
+    .toc-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      gap: 6px;
+    }
+
+    .toc-list a {
+      display: block;
+      padding: 6px 10px;
+      border-radius: var(--radius-sm);
+      color: var(--text-secondary);
+      font-size: 14px;
+      border-bottom: none;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .toc-list a:hover {
+      background: var(--bg-elevated);
+      color: var(--text-primary);
+    }
+
+    .toc-list .toc-h3 {
+      padding-left: 24px;
+      font-size: 13px;
+    }
+
+    /* Cards */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 28px;
+      margin: 24px 0;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .card-title {
+      font-size: 16px;
+      font-weight: 600;
+      margin: 0 0 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .card-body {
+      color: var(--text-secondary);
+      font-size: 15px;
+      line-height: 1.7;
+    }
+
+    .card-body p:last-child {
+      margin-bottom: 0;
+    }
+
+    /* Info blocks */
+    .callout {
+      border-radius: var(--radius-md);
+      padding: 18px 22px;
+      margin: 24px 0;
+      border-left: 4px solid;
+      background: var(--bg-card);
+    }
+
+    .callout.info {
+      border-color: var(--accent-indigo);
+      background: #f5f7ff;
+    }
+
+    .callout.tip {
+      border-color: var(--accent-teal);
+      background: #f0fdfa;
+    }
+
+    .callout.warn {
+      border-color: var(--accent-amber);
+      background: #fffbeb;
+    }
+
+    .callout-title {
+      font-weight: 600;
+      font-size: 14px;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .callout p {
+      margin: 0;
+      font-size: 14.5px;
+      color: var(--text-secondary);
+    }
+
+    /* Lists */
+    ul, ol {
+      margin: 0 0 18px;
+      padding-left: 22px;
+    }
+
+    li {
+      margin-bottom: 8px;
+    }
+
+    li::marker {
+      color: var(--text-tertiary);
+    }
+
+    /* Code */
+    code {
+      font-family: "JetBrains Mono", Consolas, Monaco, monospace;
+      font-size: 0.88em;
+      background: var(--bg-code);
+      color: var(--accent-rose);
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+
+    pre {
+      background: #1e293b;
+      color: #e2e8f0;
+      border-radius: var(--radius-md);
+      padding: 20px;
+      overflow-x: auto;
+      font-size: 13.5px;
+      line-height: 1.65;
+      margin: 20px 0;
+      box-shadow: var(--shadow-md);
+    }
+
+    pre code {
+      background: transparent;
+      color: inherit;
+      padding: 0;
+      border: none;
+      font-size: inherit;
+    }
+
+    .code-caption {
+      font-size: 12px;
+      color: var(--text-tertiary);
+      margin: -8px 0 12px;
+    }
+
+    /* Mermaid */
+    .mermaid {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      margin: 24px 0;
+      box-shadow: var(--shadow-sm);
+      display: flex;
+      justify-content: center;
+    }
+
+    /* Tables */
+    .table-wrap {
+      overflow-x: auto;
+      margin: 24px 0;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: var(--bg-card);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    th, td {
+      padding: 12px 16px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+
+    th {
+      background: var(--bg-elevated);
+      font-weight: 600;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-tertiary);
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    /* Diagram labels */
+    .diagram-caption {
+      text-align: center;
+      font-size: 13px;
+      color: var(--text-tertiary);
+      margin-top: -16px;
+      margin-bottom: 28px;
+    }
+
+    /* Step flow */
+    .steps {
+      display: grid;
+      gap: 14px;
+      margin: 24px 0;
+    }
+
+    .step {
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 18px 20px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .step-num {
+      flex: 0 0 32px;
+      height: 32px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: var(--accent-indigo);
+      color: white;
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    .step-body {
+      flex: 1;
+    }
+
+    .step-title {
+      font-weight: 600;
+      font-size: 15px;
+      margin: 0 0 4px;
+    }
+
+    .step-desc {
+      font-size: 14px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+      margin: 0;
+    }
+
+    /* File path pills */
+    .file-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 12px;
+      background: var(--bg-elevated);
+      color: var(--text-secondary);
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      margin: 2px 0;
+    }
+
+    /* Two column feature grid */
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+      margin: 24px 0;
+    }
+
+    .feature {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 20px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .feature h4 {
+      margin: 0 0 8px;
+      font-size: 15px;
+    }
+
+    .feature p {
+      margin: 0;
+      font-size: 14px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    /* Footer */
+    .page-footer {
+      margin-top: 80px;
+      padding-top: 32px;
+      border-top: 1px solid var(--border);
+      color: var(--text-tertiary);
+      font-size: 13px;
+      text-align: center;
+    }
+
+    /* Print */
+    @media print {
+      .site-header { position: static; }
+      .toc-card { display: none; }
+      pre { white-space: pre-wrap; }
+    }
+
+    /* Mermaid overrides for light theme */
+    .mermaid svg {
+      max-width: 100% !important;
+      height: auto !important;
+    }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="#top">
+        <span class="brand-dot"></span>
+        Axiom 架构解析
+      </a>
+      <span class="header-meta">本地科研 AI 工作台 · operon-py 内核</span>
+    </div>
+  </header>
+
+  <main class="layout" id="top">
+    <section class="hero">
+      <div class="hero-label">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+        Architecture & Workflow Guide
+      </div>
+      <h1>Axiom：本地科研 AI 工作台的设计与文献综述全流程</h1>
+      <p class="hero-lead">
+        这篇文章把 <strong>Axiom</strong> 的整体架构、交互流程、论文搜索策略、多轮检索机制、综述生成流水线，以及它的引用/校验体系，全部整理在一个页面里。适合分享给第一次接触这个项目的朋友快速理解它“是怎么工作的”。
+      </p>
+      <div class="hero-tags">
+        <span class="tag primary">Python 后端 · FastAPI</span>
+        <span class="tag">React + Vite 前端</span>
+        <span class="tag">Tauri 桌面壳</span>
+        <span class="tag">OpenAlex / Crossref</span>
+        <span class="tag">LaTeX 论文预览</span>
+      </div>
+    </section>
+
+    <nav class="toc-card">
+      <div class="toc-title">目录</div>
+      <ul class="toc-list">
+        <li><a href="#overview">1. Axiom 是什么</a></li>
+        <li><a href="#architecture">2. 三层架构：壳、前端、内核</a></li>
+        <li><a href="#agent-loop">3. Agent 主循环：一次请求的生命周期</a></li>
+        <li><a href="#search-strategy">4. 论文搜索策略</a></li>
+        <li class="toc-h3"><a href="#search-sources">4.1 数据源与工具</a></li>
+        <li class="toc-h3"><a href="#multi-round">4.2 多轮/迭代搜索的实现</a></li>
+        <li><a href="#literature-review">5. 从搜索到综述：literature-review skill</a></li>
+        <li><a href="#citation">6. Citation 机制</a></li>
+        <li class="toc-h3"><a href="#citation-markdown">6.1 Markdown 模式</a></li>
+        <li class="toc-h3"><a href="#citation-latex">6.2 LaTeX 模式</a></li>
+        <li class="toc-h3"><a href="#citation-verify">6.3 DOI 校验与风格检查</a></li>
+        <li><a href="#artifacts">7. Artifact 版本化存储</a></li>
+        <li><a href="#frontend">8. 前端如何渲染综述</a></li>
+        <li><a href="#summary">9. 关键要点总结</a></li>
+      </ul>
+    </nav>
+
+    <section id="overview">
+      <h2>1. Axiom 是什么</h2>
+      <p>
+        <strong>Axiom</strong> 是一个<strong>本地优先的科研 AI 工作台</strong>。它把 LLM 的推理能力、学术数据检索、代码执行、文件编辑和版本化管理，打包成一个可以运行在 macOS 桌面上的应用。
+      </p>
+      <p>
+        它的后端内核是 <code>operon-py</code>（对原版 Operon 的 clean-room Python 重实现），前端是 React + Vite，桌面壳用 Tauri v2（Rust）把前后端打包成一个可分发应用。所有会话、工作区文件、SQLite 数据库都保存在本地机器上，LLM 调用则走兼容 OpenAI 协议的云端或本地模型。
+      </p>
+
+      <div class="feature-grid">
+        <div class="feature">
+          <h4>本地优先</h4>
+          <p>数据、工作区、SQLite 全在本地；支持把数据目录软链到 SSD。</p>
+        </div>
+        <div class="feature">
+          <h4>云端推理 + 本地执行</h4>
+          <p>LLM 只负责推理，所有工具、代码、文件操作都在本地完成。</p>
+        </div>
+        <div class="feature">
+          <h4>学术工作流</h4>
+          <p>内置 OpenAlex 论文检索、引用图扩展、DOI 校验、LaTeX 综述渲染。</p>
+        </div>
+        <div class="feature">
+          <h4>可扩展 Skill</h4>
+          <p>通过 SKILL.md + 可选 kernel.py 给 Agent 注入领域策略。</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="architecture">
+      <h2>2. 三层架构：壳、前端、内核</h2>
+      <p>整个项目可以粗分为三层，每层职责非常清晰：</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>层级</th>
+              <th>目录</th>
+              <th>技术栈</th>
+              <th>职责</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>桌面壳</strong></td>
+              <td><code>src-tauri/</code></td>
+              <td>Rust + Tauri v2</td>
+              <td>窗口管理、启动内嵌 Python 后端、端口注入、进程清理、打包签名</td>
+            </tr>
+            <tr>
+              <td><strong>前端 UI</strong></td>
+              <td><code>frontend/</code></td>
+              <td>React 18 + TypeScript + Vite + Tailwind</td>
+              <td>三栏工作台、会话流、工作区文件、LaTeX 论文预览、设置面板</td>
+            </tr>
+            <tr>
+              <td><strong>后端内核</strong></td>
+              <td><code>operon/</code></td>
+              <td>Python 3.11 + FastAPI + SQLAlchemy 2.0</td>
+              <td>Agent 状态机、工具系统、LLM 适配、Artifact/记忆/验证</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="mermaid">
+graph TB
+    subgraph 用户层
+      U[用户]
+    end
+
+    subgraph 桌面壳
+      T[Tauri Rust 壳]
+    end
+
+    subgraph 前端
+      F[React 工作台]
+    end
+
+    subgraph 后端 operon-py
+      A[FastAPI / WebSocket]
+      B[Agent Runner]
+      C[Tool Registry]
+      D[Artifact Store]
+      E[Memory Store]
+      V[Verifier]
+    end
+
+    subgraph 外部
+      L[LLM API]
+      O[OpenAlex / Crossref]
+      M[MCP Servers]
+    end
+
+    U --> F
+    T --> F
+    T --> A
+    F <-->|HTTP/WS| A
+    A --> B
+    B --> C
+    C --> O
+    C --> M
+    B --> D
+    B --> E
+    B --> V
+    B --> L
+      </div>
+      <p class="diagram-caption">图 1：Axiom 整体架构分层</p>
+
+      <div class="callout info">
+        <div class="callout-title">关键设计哲学</div>
+        <p>所有“状态”尽量落在本地（SQLite、工作区文件、Artifact 版本链），LLM 只作为无状态的推理引擎。这让 Axiom 更像一个“会自己调用工具的本地科研 IDE”，而不是一个纯聊天应用。</p>
+      </div>
+    </section>
+
+    <section id="agent-loop">
+      <h2>3. Agent 主循环：一次请求的生命周期</h2>
+      <p>
+        当用户在工作台输入一句话（例如“帮我写一份关于 LLM 推理时计算的综述”），后端会启动一次 <strong>Agent Run</strong>。它的核心在 <span class="file-pill">operon/agent/runner.py</span> 的 <code>Agent._run_loop()</code>。
+      </p>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <div class="step-title">Session.prepare()</div>
+            <p class="step-desc">创建根 frame、初始化 ToolContext（workspace、api_keys、ArtifactStore、SkillCatalog、MemoryStore、host 对象），注册内置工具，连接 MCP servers。</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <div class="step-title">记忆召回</div>
+            <p class="step-desc">用用户输入对三层记忆（profile / project / frame）做 BM25 召回，把相关记忆以 harness-notice 注入上下文。</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <div class="step-title">构建 System Prompt</div>
+            <p class="step-desc"><code>build_system_prompt()</code> 把 floor 规则、代码执行规则、学术诚信规则、skill 指令、计划状态、记忆摘要拼成最终 system prompt。</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <div class="step-title">调 LLM</div>
+            <p class="step-desc">优先走流式，每个 text/thinking delta 实时推给前端；返回 tool_use 或自然文本。</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">5</div>
+          <div class="step-body">
+            <div class="step-title">执行工具</div>
+            <p class="step-desc"><code>ToolRouter</code> 并发执行 tool_use，回填 tool_result，继续下一轮。</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">6</div>
+          <div class="step-body">
+            <div class="step-title">自然完成 / Reviewer 终审</div>
+            <p class="step-desc">无 tool_use 时进入完成路径，Verifier 可选做 terminal barrier 审查，发现 fabricated citation 等问题会 veto 并要求 Agent 修复。</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="mermaid">
+sequenceDiagram
+    participant U as 用户
+    participant F as 前端
+    participant A as FastAPI
+    participant S as Session
+    participant R as Agent Runner
+    participant L as LLM
+    participant T as Tools
+
+    U->>F: 输入 prompt
+    F->>A: POST /api/sessions/{sid}/stream-sse
+    A->>S: Session.run(prompt)
+    S->>S: prepare(): frame + ctx + tools
+    loop Agent 主循环
+      R->>R: 记忆召回
+      R->>R: build_system_prompt
+      R->>L: chat_stream / chat
+      alt 返回 tool_use
+        L-->>R: tool_use blocks
+        R->>T: execute_tool_calls
+        T-->>R: tool_results
+      else 自然完成
+        L-->>R: text blocks
+        R->>R: terminal_barrier
+      end
+    end
+    R-->>A: RunResult
+    A-->>F: SSE 事件流
+    F-->>U: 渲染文本/工具结果/Artifact
+      </div>
+      <p class="diagram-caption">图 2：一次用户请求的后端生命周期</p>
+
+      <div class="callout tip">
+        <div class="callout-title">Rolling Compact</div>
+        <p>当上下文接近模型窗口上限时，<code>operon/compact/</code> 会对历史消息做 L1/L2 折叠与摘要，避免爆窗。它会在每轮调 LLM 前检查并触发。</p>
+      </div>
+    </section>
+
+    <section id="search-strategy">
+      <h2>4. 论文搜索策略</h2>
+      <p>
+        Axiom 没有硬编码一个独立的“多轮搜索引擎”。它的搜索能力由三层组合而成：
+      </p>
+      <ol>
+        <li><strong>单轮工具层</strong>：OpenAlex、DuckDuckGo web_search、Crossref 校验。</li>
+        <li><strong>Skill 策略层</strong>：<code>literature-review</code> skill 通过提示词让 Agent 自己驱动“首轮搜索 → 取 Top-K → 引用图扩展 → 验证 → 写作”的迭代流程。</li>
+        <li><strong>存储层</strong>：结果需要 Agent 主动调用 <code>save_artifacts</code> 或 <code>write_memory</code> 才会持久化。</li>
+      </ol>
+
+      <h3 id="search-sources">4.1 数据源与工具</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>工具 / API</th>
+              <th>代码位置</th>
+              <th>作用</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>OpenAlex</strong></td>
+              <td><span class="file-pill">operon/tools/builtins/openalex.py</span></td>
+              <td><code>search_papers</code> 关键词检索；<code>fetch_paper</code> 按 DOI 取详情。支持 relevance / cited_by_count / publication_date 排序。</td>
+            </tr>
+            <tr>
+              <td><strong>Crossref</strong></td>
+              <td><span class="file-pill">skills/skills/literature-review/kernel.py</span></td>
+              <td><code>crossref_lookup</code> 自由文本引用找 DOI；<code>verify_dois</code> 校验 DOI 真实性并检测撤稿。</td>
+            </tr>
+            <tr>
+              <td><strong>Web 搜索</strong></td>
+              <td><span class="file-pill">operon/tools/builtins/web.py</span></td>
+              <td><code>web_search</code> / <code>fetch_url</code> 基于 DuckDuckGo，补充最新网页或灰色文献。</td>
+            </tr>
+            <tr>
+              <td><strong>MCP 连接器</strong></td>
+              <td><span class="file-pill">operon/mcp/</span></td>
+              <td>可接入 PubMed、Semantic Scholar、bioRxiv、ClinicalTrials.gov 等外部学术 MCP server。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout warn">
+        <div class="callout-title">OpenAlex 需要 API Key</div>
+        <p><code>kernel.py</code> 中的 <code>search_openalex</code> / <code>expand_citations</code> 强制要求 <code>OPENALEX_API_KEY</code>，匿名调用会直接报错。Crossref 可不带 key，但配置 contact email 会进入 polite pool。</p>
+      </div>
+
+      <h3 id="multi-round">4.2 多轮/迭代搜索的实现</h3>
+      <p>
+        多轮搜索不是由代码循环驱动，而是由 <code>literature-review</code> skill 的提示词策略驱动，Agent 自主决定何时扩展、何时停止。标准流程如下：
+      </p>
+
+      <div class="mermaid">
+flowchart LR
+    A[用户查询] --> B[首轮 sweep]
+    B --> C[取 Top 2-3 命中]
+    C --> D[backward:<br/>references]
+    C --> E[forward:<br/>cited_by]
+    D --> F[合并 + 去重]
+    E --> F
+    F --> G[verify_dois 校验]
+    G --> H[按主题合成写作]
+    H --> I[save_artifacts]
+      </div>
+      <p class="diagram-caption">图 3：literature-review skill 驱动的迭代搜索流程</p>
+
+      <p>其中最关键的一步是 <code>expand_citations(doi)</code>，它在 <span class="file-pill">skills/skills/literature-review/kernel.py</span> 中实现：</p>
+
+      <pre><code>def expand_citations(doi: str, n_backward: int = 50, n_forward: int = 15) -> dict:
+    # 1. 通过 DOI 拿到 OpenAlex work_id
+    # 2. /works?filter=cited_by:&lt;work_id&gt;  取该文的参考文献（向后一步）
+    # 3. /works?filter=cites:&lt;work_id&gt;     取引用该文的后续论文（向前一步）
+    # 4. 默认按 cited_by_count:desc 排序
+    # 5. 若带 authorships 的 select 失败，降级重试不带 authorships
+    return {"references": [...], "cited_by": [...]}</code></pre>
+      <div class="code-caption">代码片段：expand_citations 的核心逻辑</div>
+
+      <p>这一步的价值在于：</p>
+      <ul>
+        <li><strong>Backward（references）</strong>：帮你找到该领域奠基的 seminal paper。</li>
+        <li><strong>Forward（cited_by）</strong>：帮你找到最新进展、扩展或争议工作。</li>
+      </ul>
+      <p>
+        去重靠 <strong>DOI</strong> 作为唯一键；相关性选择交给 LLM 判断（skill 提示词要求“取最相关的 2–3 篇”）。也就是说，<strong>多轮搜索的“多轮”体现在 Agent 根据工具返回自主决定何时再调用一次 <code>expand_citations</code> 或 <code>search_openalex</code></strong>，而不是系统有一个固定的 for 循环。
+      </p>
+
+      <div class="callout info">
+        <div class="callout-title">为什么这样设计？</div>
+        <p>把搜索策略写成 skill 提示词而不是硬编码引擎，好处是灵活：不同领域可以换不同的 MCP 数据源，Agent 能根据初步结果决定继续深挖哪个方向。代价是搜索结果的质量高度依赖 LLM 的规划和判断能力。</p>
+      </div>
+    </section>
+
+    <section id="literature-review">
+      <h2>5. 从搜索到综述：literature-review skill</h2>
+      <p>
+        你提到的“专门用来写综述的 skill”就是 <span class="file-pill">skills/skills/literature-review/SKILL.md</span>，它配套了一个 <span class="file-pill">kernel.py</span> 提供检索/校验/格式化辅助函数。
+      </p>
+
+      <h3>5.1 Skill 的核心写作规范</h3>
+      <div class="card">
+        <div class="card-title">Retrieve first, then write</div>
+        <div class="card-body">
+          <p>任何综述类请求，第一步先做文献 sweep，答案必须建立在真实检索结果上。即使 Agent 知道答案，也要 resolve 一次 DOI，因为“一个 DOI 要么解析到真实论文，要么就是一个 fabrication”。</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Synthesis, not summary</div>
+        <div class="card-body">
+          <p>按主题组织段落，不要按论文罗列。每段第一句应该是你自己的合成观点，然后用引用支撑它。如果每段第一句都是作者名，那它只是一份带注释的参考书目。</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Calibrate to evidence</div>
+        <div class="card-body">
+          <p>区分 landmark 工作与最新进展；标注预印本；标注争议；单队列发现要说“one group reported X”，III 期 RCT 才能直接陈述。</p>
+        </div>
+      </div>
+
+      <h3>5.2 综述生成的典型工具链</h3>
+      <p>当用户说“帮我写一份关于 X 的综述”时，Agent 通常会按这个顺序调用工具：</p>
+
+      <ol>
+        <li><code>search_skills({query: "literature review"})</code> → 发现 literature-review skill。</li>
+        <li><code>skill({skill: "literature-review"})</code> → 把 SKILL.md + kernel.py 注入上下文。</li>
+        <li><code>search_papers</code> / <code>kernel.search_openalex</code> → 首轮检索。</li>
+        <li><code>fetch_paper</code> → 获取单篇详情。</li>
+        <li><code>kernel.verify_dois</code> → 校验候选 DOI。</li>
+        <li><code>kernel.expand_citations</code> → 前后向引用图扩展。</li>
+        <li><code>write_file</code> / Python 生成 <code>draft.md</code> 或 <code>main.tex + references.bib</code>。</li>
+        <li><code>kernel.style_pass(draft)</code> → 确定性 lint。</li>
+        <li><code>save_artifacts</code> → 版本化保存。</li>
+        <li><code>Verifier.terminal_barrier()</code> → 最终审稿，可能要求修复。</li>
+      </ol>
+
+      <div class="mermaid">
+flowchart TB
+    subgraph 检索层
+      S1[search_openalex]
+      S2[crossref_lookup]
+      S3[web_search / MCP]
+      S4[expand_citations]
+      S5[verify_dois]
+    end
+    subgraph 写作层
+      W1[确定主题结构]
+      W2[按主题写段落]
+      W3[插入 inline citation]
+      W4[style_pass lint]
+    end
+    subgraph 沉淀层
+      P1[save_artifacts]
+      P2[Verifier 终审]
+      P3[前端渲染]
+    end
+
+    S1 --> S5
+    S2 --> S5
+    S3 --> S5
+    S5 --> S4
+    S4 --> W1
+    W1 --> W2 --> W3 --> W4 --> P1 --> P2 --> P3
+      </div>
+      <p class="diagram-caption">图 4：从检索到综述生成的完整流水线</p>
+    </section>
+
+    <section id="citation">
+      <h2>6. Citation 机制</h2>
+      <p>
+        Axiom 内部其实有两条 citation 轨道：一条给 Markdown 综述（聊天回复 + <code>.md</code> artifact），一条给 LaTeX 综述论文（<code>.tex + .bib</code>）。
+      </p>
+
+      <h3 id="citation-markdown">6.1 Markdown 模式</h3>
+      <p>Inline citation 格式是 Markdown 链接：</p>
+      <pre><code>[Author Year](https://doi.org/10.xxxx/xxxxxx)</code></pre>
+      <p>渲染后显示为 <code>(Author Year)</code>，DOI 藏在 href 里，既方便读者点击，也方便正则提取。如果 DOI 本身含括号，必须 URL 编码为 <code>%28</code> / <code>%29</code>，否则链接会断。</p>
+
+      <div class="callout warn">
+        <div class="callout-title">禁止的写法</div>
+        <p>不要出现 <code>[1][2][3]</code> 编号引用（段落重排后会错位），也不要把 <code>(DOI: 10.xxxx/...)</code> 作为正文可见文本。</p>
+      </div>
+
+      <h3 id="citation-latex">6.2 LaTeX 模式</h3>
+      <p>当前端检测到工作区有 <code>.tex</code> 文件时，会进入 PaperView 渲染。此时 citation 必须走 natbib：</p>
+      <ul>
+        <li><strong>Inline</strong>：<code>\citep{key}</code>（括号引用）或 <code>\citet{key}</code>（文本引用）。</li>
+        <li><strong>Multiple</strong>：<code>\citep{key1,key2}</code>，逗号分隔无空格。</li>
+        <li><strong>BibTeX key 规范</strong>：<code>firstauthor_lastname + year + first_content_word</code>，例如 <code>wei2022chain</code>、<code>vaswani2017attention</code>。</li>
+      </ul>
+
+      <pre><code>% main.tex
+Early work on attention \citep{vaswani2017attention} established ...
+
+% references.bib
+@article{vaswani2017attention,
+  title   = {Attention is all you need},
+  author  = {Vaswani, Ashish and Shazeer, Noam and Parmar, Niki and others},
+  year    = {2017},
+  journal = {NeurIPS},
+  doi     = {10.48550/arXiv.1706.03762}
+}</code></pre>
+
+      <p>前端 <span class="file-pill">frontend/src/tex.ts</span> 会：</p>
+      <ol>
+        <li>解析 <code>.tex</code> 中的 <code>\cite[ptp]*{...}</code>。</li>
+        <li>按正文<strong>首次出现顺序</strong>给每个 key 编号（<code>_citeMap[key] = number</code>）。</li>
+        <li>把 <code>\citep{key}</code> 渲染成可点击的 <code>[N]</code> 锚点。</li>
+        <li>解析 <code>.bib</code>，在文末生成编号参考文献列表。</li>
+      </ol>
+
+      <h3 id="citation-verify">6.3 DOI 校验与风格检查</h3>
+      <p>为了保证 citation 不 hallucinate，系统做了一系列校验：</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>函数</th>
+              <th>位置</th>
+              <th>作用</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>verify_dois</code></td>
+              <td><span class="file-pill">kernel.py</span></td>
+              <td>Crossref + doi.org 双重验证；检测 <code>update-to</code> 撤稿标记；拒绝含 <code>.</code> / <code>..</code> 的伪造 DOI。</td>
+            </tr>
+            <tr>
+              <td><code>crossref_lookup</code></td>
+              <td><span class="file-pill">kernel.py</span></td>
+              <td>用 author/year/title 自由文本找 DOI，避免“模式补全”一个假 DOI。</td>
+            </tr>
+            <tr>
+              <td><code>extract_dois</code></td>
+              <td><span class="file-pill">kernel.py</span></td>
+              <td>从草稿中提取所有 DOI，统一喂给 <code>verify_dois</code>。</td>
+            </tr>
+            <tr>
+              <td><code>style_pass</code></td>
+              <td><span class="file-pill">kernel.py</span></td>
+              <td>确定性正则检查：em-dash 滥用、弱化表述、过程叙述、DOI 括号未编码、标题过长、结构过平。</td>
+            </tr>
+            <tr>
+              <td><code>Verifier.terminal_barrier</code></td>
+              <td><span class="file-pill">operon/verify/verifier.py</span></td>
+              <td>用独立 reviewer LLM 终审，检测 fabricated citation、claim contradiction 等。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout tip">
+        <div class="callout-title">一个安全设计</div>
+        <p><code>verify_dois</code> 会先检查 DOI 路径里是否包含 <code>.</code> / <code>..</code> 空段，防止 CDN 路径归一化让伪造 DOI “看起来解析成功”。</p>
+      </div>
+    </section>
+
+    <section id="artifacts">
+      <h2>7. Artifact 版本化存储</h2>
+      <p>
+        生成的综述文章不是普通文件，而是 <strong>Artifact</strong>。核心实现在 <span class="file-pill">operon/artifacts/store.py</span>。
+      </p>
+      <p>
+        ArtifactStore 是三层结构：
+      </p>
+      <ul>
+        <li><strong>artifacts</strong>：逻辑文件，可多版本。</li>
+        <li><strong>artifact_versions</strong>：物理版本，含 checksum、storage_path、parent_version_id、lineage。</li>
+        <li><strong>artifact_dependencies</strong>：版本间 DAG 依赖（例如 <code>references.bib</code> 依赖 <code>main.tex</code>）。</li>
+      </ul>
+
+      <p>
+        保存时通过 <code>version_of</code> 参数追加新版本，并用 <strong>乐观并发</strong>检测冲突（如果 latest_version_id 已变，返回 <code>stale_base</code>）。内存优先运行，API 服务模式下会同时写入 SQLite，启动时 <code>load_from_db()</code> 回放。
+      </p>
+
+      <pre><code>save_artifacts(ctx, files=[{path: "draft.md"}])
+# 返回: ![draft.md]({{artifact:&lt;VID&gt;}})</code></pre>
+
+      <div class="callout info">
+        <div class="callout-title">为什么需要 Artifact？</div>
+        <p>普通 <code>write_file</code> 只是写工作区文件；<code>save_artifacts</code> 会把它提升为带版本链、依赖 DAG、checksum 的一等产物，方便后续引用、审稿、复现和前端展示。</p>
+      </div>
+    </section>
+
+    <section id="frontend">
+      <h2>8. 前端如何渲染综述</h2>
+      <p>
+        前端 <span class="file-pill">frontend/src/components/PaperView.tsx</span> 负责 LaTeX 论文预览。它会从后端读取工作区中的 <code>.tex</code> 和同名的 <code>.bib</code>，交给 <span class="file-pill">frontend/src/tex.ts</span> 做轻量解析：
+      </p>
+      <ul>
+        <li><code>\section / \subsection / \subsubsection</code> → <code>&lt;h2&gt; / &lt;h3&gt; / &lt;h4&gt;</code></li>
+        <li><code>\title / \author / \date</code> → 头部信息</li>
+        <li><code>\begin{itemize} / \item</code> → 列表</li>
+        <li><code>$...$ / \(...\) / \[...\]</code> → KaTeX 渲染</li>
+        <li><code>\citep / \citet / \cite</code> → 编号引用锚点</li>
+        <li><code>.bib</code> → 格式化参考文献列表</li>
+      </ul>
+      <p>
+        注意前端<strong>不做完整 LaTeX 编译</strong>，只是“够看”的渲染。用户仍然可以下载原始 <code>.tex</code> 到本地用完整工具链编译。
+      </p>
+    </section>
+
+    <section id="summary">
+      <h2>9. 关键要点总结</h2>
+      <div class="feature-grid">
+        <div class="feature">
+          <h4>本地优先 + 云端推理</h4>
+          <p>状态全在本地，LLM 仅作推理；Tauri 把前后端打包成 macOS App。</p>
+        </div>
+        <div class="feature">
+          <h4>Agent 是调度中心</h4>
+          <p>所有能力都是工具，Agent 循环负责调 LLM、执行工具、处理结果、审稿。</p>
+        </div>
+        <div class="feature">
+          <h4>论文搜索 = 工具 + Skill 策略</h4>
+          <p>OpenAlex/Crossref 提供单轮检索，literature-review skill 驱动迭代扩展。</p>
+        </div>
+        <div class="feature">
+          <h4>多轮扩展靠引用图</h4>
+          <p><code>expand_citations</code> 做 1-hop 前后向扩展，找到奠基工作与最新进展。</p>
+        </div>
+        <div class="feature">
+          <h4>Citation 双轨制</h4>
+          <p>Markdown 用 <code>[Author Year](doi)</code>；LaTeX 用 <code>\citep{key}</code> + <code>.bib</code>。</p>
+        </div>
+        <div class="feature">
+          <h4>校验贯穿始终</h4>
+          <p>DOI 解析、撤稿检测、<code>style_pass</code> lint、Verifier 终审，降低 fabricated citation 风险。</p>
+        </div>
+      </div>
+
+      <div class="callout info">
+        <div class="callout-title">给朋友的一句话</div>
+        <p>Axiom 本质上是一个“会自己查论文、写综述、做引用校验的本地科研 IDE”。它把搜索、写作、版本化、审稿串成一条流水线，而 <code>literature-review</code> skill 就是这条流水线的作业指导书。</p>
+      </div>
+    </section>
+
+    <footer class="page-footer">
+      <p>生成于 2026-07-15 · 基于 Axiom 项目源码整理 · 仅供内部交流</p>
+    </footer>
+  </main>
+
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'base',
+      themeVariables: {
+        primaryColor: '#e0e7ff',
+        primaryTextColor: '#1c1917',
+        primaryBorderColor: '#4f46e5',
+        lineColor: '#78716c',
+        secondaryColor: '#ccfbf1',
+        tertiaryColor: '#fffbeb',
+        fontFamily: 'Inter, sans-serif'
+      },
+      flowchart: {
+        useMaxWidth: true,
+        htmlLabels: true,
+        curve: 'basis'
+      },
+      sequence: {
+        useMaxWidth: true
+      }
+    });
+  </script>
+</body>
+</html>

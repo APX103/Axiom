@@ -149,6 +149,8 @@ async fn kill_backend_tree(child: &mut Child) {
         }
     }
 
+    // 兜底: 直接向子进程发 SIGKILL (处理 process group 设置失败的情况)
+    let _ = child.kill().await;
     let _ = child.wait().await;
 }
 
