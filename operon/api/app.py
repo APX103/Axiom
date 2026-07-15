@@ -66,6 +66,7 @@ class CreateSession(BaseModel):
 
 class RunReq(BaseModel):
     prompt: str
+    plan_mode: bool | None = None  # 覆盖会话级 plan_mode
 
 
 def create_app() -> FastAPI:
@@ -562,7 +563,7 @@ def create_app() -> FastAPI:
         queue = active.callbacks.queue
 
         async def event_gen():
-            run_task = asyncio.create_task(manager.run(sid, req.prompt))
+            run_task = asyncio.create_task(manager.run(sid, req.prompt, plan_mode=req.plan_mode))
             try:
                 while True:
                     event = await queue.get()

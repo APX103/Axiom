@@ -176,7 +176,7 @@ export function useSession() {
   }, [closeConnection]);
 
   const start = useCallback(
-    (sid: string, prompt: string) => {
+    (sid: string, prompt: string, planMode?: boolean) => {
       setError(null);
       setStatus("running");
       // 关闭上一个 SSE 连接 (避免泄漏)
@@ -185,7 +185,7 @@ export function useSession() {
       const conn = connectSSE(sid, prompt, (e) => handleEvent(e), (err) => {
         setError(String(err));
         setStatus("error");
-      });
+      }, planMode);
       wsRef.current = conn;
     },
     [handleEvent, closeConnection]

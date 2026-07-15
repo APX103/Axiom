@@ -54,6 +54,7 @@ function Workbench() {
   const [showPaper, setShowPaper] = useState(false);
   const [backendUp, setBackendUp] = useState<boolean | null>(null);
   const [input, setInput] = useState("");
+  const [planMode, setPlanMode] = useState(false);
   const [sidebarTab, setSidebarTab] = useState<"sessions" | "files">("sessions");
   const scrollRef = useRef<HTMLDivElement>(null);
   const restoredRef = useRef(false);
@@ -162,12 +163,20 @@ function Workbench() {
   };
 
   const send = async () => {
-    const prompt = input.trim();
+    let prompt = input.trim();
     if (!prompt || session.status === "running") return;
+
+    // /plan 前缀: 单条消息强制 plan mode
+    let usePlanMode = planMode;
+    if (prompt.startsWith("/plan ")) {
+      prompt = prompt.slice(6).trim();
+      usePlanMode = true;
+    }
+
     setInput("");
     try {
       const id = await ensureSession();
-      session.start(id, prompt);
+      session.start(id, prompt, usePlanMode);
     } catch (e) {
       session.reset();
       alert(`创建会话失败: ${e instanceof Error ? e.message : e}`);
@@ -340,7 +349,20 @@ function Workbench() {
                   rows={1}
                   className="w-full px-3 py-2 bg-transparent text-sm text-default placeholder:text-faint resize-none focus:outline-none min-h-[40px] max-h-[160px]"
                 />
-                <div className="flex items-center justify-end px-2 pt-1">
+                <div className="flex items-center justify-between px-2 pt-1">
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => setPlanMode((v) => !v)}
+                      className={`text-[10px] px-2 py-1 rounded-md font-medium transition-colors ${
+                        planMode
+                          ? "bg-accent/15 text-accent"
+                          : "text-faint hover:text-muted hover:bg-hover"
+                      }`}
+                      title="Plan Mode: 先规划后执行"
+                    >
+                      ◇ Plan
+                    </button>
+                  </div>
                   <div className="flex items-center gap-2">
                     <span className="text-[11px] text-faint">
                       {config.llm_providers.find((p) => p.enabled)?.model || "未配置"}
