@@ -42,6 +42,14 @@ echo "[build] building Tauri bundle..."
 cd "${ROOT}/src-tauri"
 bun x @tauri-apps/cli build
 
+echo "[build] signing with entitlements..."
+# 给 operon-backend 和整个 APP 用 adhoc 签名 + entitlements
+# 未签名 APP 通过 open 启动时, macOS 会限制子进程网络绑定
+codesign --force --sign - --entitlements "${ROOT}/src-tauri/entitlements.plist" \
+  "${ROOT}/src-tauri/target/release/bundle/macos/Axiom.app/Contents/Resources/operon-backend" 2>&1
+codesign --force --deep --sign - --entitlements "${ROOT}/src-tauri/entitlements.plist" \
+  "${ROOT}/src-tauri/target/release/bundle/macos/Axiom.app" 2>&1
+
 echo "[build] done."
 echo "  App:  ${ROOT}/src-tauri/target/release/bundle/macos/Axiom.app"
 echo "  DMG:  ${ROOT}/src-tauri/target/release/bundle/dmg/Axiom_0.0.1_aarch64.dmg"

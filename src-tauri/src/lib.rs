@@ -8,7 +8,6 @@ use std::path::PathBuf;
 use std::process::Stdio;
 use std::sync::Arc;
 use tauri::{Manager, RunEvent, WebviewWindow};
-use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::{Child, Command};
 use tokio::sync::Mutex;
 
@@ -123,34 +122,18 @@ async fn start_backend(app_handle: &tauri::AppHandle, port: u16) -> std::io::Res
     let mut cmd = Command::new(&bin);
     cmd.args(&args)
         .current_dir(&work_dir)
-        .env("OPERON_DATA_DIR", ensure_data_dir())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
+        .env("OPERON_DATA_DIR", {
+            let dir = ensure_data_dir();
+            eprintln!("[axiom] OPERON_DATA_DIR = {:?}", dir);
+            dir
+        })
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
         .kill_on_drop(true);
 
     eprintln!("[axiom] starting backend: {:?} {:?} (cwd={:?})", bin, args, work_dir);
 
     let mut child = cmd.spawn()?;
-
-    // 把后端 stdout/stderr 转发到 Tauri 日志, 方便排查
-    if let Some(stdout) = child.stdout.take() {
-        tokio::spawn(async move {
-            let reader = BufReader::new(stdout);
-            let mut lines = reader.lines();
-            while let Ok(Some(line)) = lines.next_line().await {
-                eprintln!("[backend stdout] {}", line);
-            }
-        });
-    }
-    if let Some(stderr) = child.stderr.take() {
-        tokio::spawn(async move {
-            let reader = BufReader::new(stderr);
-            let mut lines = reader.lines();
-            while let Ok(Some(line)) = lines.next_line().await {
-                eprintln!("[backend stderr] {}", line);
-            }
-        });
-    }
 
     Ok(child)
 }
@@ -173,10 +156,11 @@ async fn restart_backend(state: tauri::State<'_, AppState>, app_handle: tauri::A
 }
 
 /// 向前端注入后端端口, 并导航到工作台 /app。
+/// 用 eval 注入端口到 localStorage (跨重载持久), 然后跳转 /app。
 fn inject_port_and_navigate(window: &WebviewWindow, port: u16) {
     let script = format!(
-        "window.__BACKEND_PORT__ = {}; if (window.location.pathname === '/') {{ window.location.replace('/app'); }}",
-        port
+        "localStorage.setItem('axiom_backend_port', '{}'); window.__BACKEND_PORT__ = {}; if (window.location.pathname === '/' || !window.location.pathname.startsWith('/app')) {{ window.location.replace('/app'); }}",
+        port, port
     );
     let _ = window.eval(&script);
 }

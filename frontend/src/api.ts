@@ -17,7 +17,8 @@ function isTauri(): boolean {
 
 function getApiBase(): string {
   if (isTauri()) {
-    const port = window.__BACKEND_PORT__ || 8000;
+    // 从 localStorage 读端口 (Tauri 启动时注入, 跨重载持久)
+    const port = localStorage.getItem("axiom_backend_port") || String(window.__BACKEND_PORT__ || 8000);
     return `http://127.0.0.1:${port}/api`;
   }
   return "/api";
