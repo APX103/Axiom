@@ -23,11 +23,22 @@ class PlanState:
     steps: [{id, description, status}]
     approved: 是否已批准
     plan_artifact_id: plan artifact id (阶段 4 才真存,这里用内存占位)
+
+    收敛锚点 (防止长任务后半段跑偏):
+    research_question: 本次任务要回答的核心问题 (一句话)。综述类任务的"定海神针"。
+    scope: 范围边界 (涵盖什么 / 不涵盖什么),None 表示未指定。
+    desired_outputs: 期望的最终交付物清单 (如 ["LaTeX survey paper", "references.bib"])。
+    feasibility: {confidence, rationale} 可行性评估。
     """
 
     steps: list[dict[str, Any]] = field(default_factory=list)
     approved: bool = False
     plan_artifact_id: str | None = None
+    # 收敛锚点
+    research_question: str | None = None
+    scope: str | None = None
+    desired_outputs: list[str] = field(default_factory=list)
+    feasibility: dict[str, Any] | None = None
 
     def find_step(self, step_id: str) -> dict[str, Any] | None:
         for s in self.steps:

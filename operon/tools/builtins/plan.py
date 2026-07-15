@@ -25,11 +25,20 @@ async def generate_plan(
     ctx: ToolContext,
     steps: list[dict[str, Any]] | None = None,
     summary: str | None = None,
+    research_question: str | None = None,
+    scope: str | None = None,
+    desired_outputs: list[str] | None = None,
+    feasibility: dict[str, Any] | None = None,
 ) -> str:
     """生成执行计划。
 
 
     steps: [{id, description}] 列表。
+    research_question: 本次任务要回答的核心问题 (一句话)。综述/调研类任务必填 ——
+        它是防止后半段跑偏的锚点, 每轮 prompt 都会重新注入。
+    scope: 范围边界 (涵盖什么/不涵盖什么)。
+    desired_outputs: 期望的最终交付物清单。
+    feasibility: {confidence: high|medium|low, rationale: str} 可行性评估。
     """
     if steps is None:
         steps = []
@@ -47,6 +56,11 @@ async def generate_plan(
 
     ctx.plan.steps = normalized
     ctx.plan.plan_artifact_id = f"plan_{ctx.frame.id[:8]}"
+    # 收敛锚点
+    ctx.plan.research_question = research_question
+    ctx.plan.scope = scope
+    ctx.plan.desired_outputs = list(desired_outputs) if desired_outputs else []
+    ctx.plan.feasibility = feasibility
 
     # 触发 awaiting_plan_approval (原版行为)
     ctx.frame_service.update_status(ctx.frame.id, FrameStatus.AWAITING_PLAN_APPROVAL)
@@ -100,15 +114,33 @@ async def approve_plan(ctx: ToolContext) -> str:
 
 
 def get_plan_summary(ctx: ToolContext) -> str:
-    """计划摘要 (注入 dynamic prompt 用)。"""
-    if not ctx.plan.steps:
+    """计划摘要 (注入 dynamic prompt 用)。
+
+    收敛锚点 (research_question/scope/desired_outputs) 渲染在摘要最前 ——
+    长对话里原始问题会被滚动摘要冲淡, 这里每轮重新注入, 作为后续章节的"标尺"。
+    """
+    if not ctx.plan.steps and not ctx.plan.research_question:
         return ""
     lines = ["## Plan Steps"]
-    for s in ctx.plan.steps:
-        mark = {"pending": "○", "in_progress": "◑", "completed": "●", "skipped": "✕"}.get(
-            s["status"], "?"
-        )
-        lines.append(f"  {mark} [{s['id']}] {s['description']} ({s['status']})")
+    # 收敛锚点优先展示
+    if ctx.plan.research_question:
+        lines.append("### Research Question (do not drift from this)")
+        lines.append(f"  {ctx.plan.research_question}")
+    if ctx.plan.scope:
+        lines.append(f"  Scope: {ctx.plan.scope}")
+    if ctx.plan.desired_outputs:
+        lines.append(f"  Desired outputs: {', '.join(ctx.plan.desired_outputs)}")
+    if ctx.plan.feasibility:
+        conf = ctx.plan.feasibility.get("confidence", "?")
+        rat = ctx.plan.feasibility.get("rationale", "")
+        lines.append(f"  Feasibility: {conf}" + (f" — {rat}" if rat else ""))
+    if ctx.plan.steps:
+        lines.append("")
+        for s in ctx.plan.steps:
+            mark = {"pending": "○", "in_progress": "◑", "completed": "●", "skipped": "✕"}.get(
+                s["status"], "?"
+            )
+            lines.append(f"  {mark} [{s['id']}] {s['description']} ({s['status']})")
     return "\n".join(lines)
 
 
@@ -133,6 +165,36 @@ GENERATE_PLAN_SPEC = {
                 "description": "Ordered list of plan steps",
             },
             "summary": {"type": "string", "description": "Brief plan summary"},
+            "research_question": {
+                "type": "string",
+                "description": (
+                    "The core question this task answers, in one sentence. "
+                    "REQUIRED for surveys/reviews and any open-ended research task — "
+                    "it anchors every later section and prevents drift. "
+                    "e.g. 'What methods improve LLM reasoning, and how do they compare?'"
+                ),
+            },
+            "scope": {
+                "type": "string",
+                "description": (
+                    "Boundary of the work: what's in scope and what's explicitly out."
+                ),
+            },
+            "desired_outputs": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": (
+                    "Final deliverables (e.g. ['LaTeX survey paper', 'references.bib'])."
+                ),
+            },
+            "feasibility": {
+                "type": "object",
+                "properties": {
+                    "confidence": {"type": "string", "enum": ["high", "medium", "low"]},
+                    "rationale": {"type": "string"},
+                },
+                "description": "Feasibility assessment with confidence level and rationale.",
+            },
         },
         "required": ["steps"],
     },

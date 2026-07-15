@@ -174,6 +174,22 @@ function bodyToHtml(body: string): string {
     return `\n@@DISPLAYMATH@@${rendered}@@/DISPLAYMATH@@\n`;
   });
 
+  // 数学环境 (equation/align/gather/displaymath 等): 整块提取成 display-math 占位行
+  // KaTeX 不认 \begin/\end, 这里剥出内部表达式喂给 katexRender;
+  // align 等多行公式取内部各行 (去首尾空白), 用换行分隔以支持 aligned 环境
+  body = body.replace(
+    /\\begin\{(equation\*?|align\*?|gather\*?|displaymath|eqnarray\*?)\}([\s\S]*?)\\end\{\1\}/g,
+    (_whole, _env: string, inner: string) => {
+      const expr = inner
+        .split("\n")
+        .map((l) => l.replace(/^\s*&?\s*/, "").replace(/\s*&?\s*$/, "").trim())
+        .filter((l) => l.length > 0)
+        .join("\\\\\n");
+      const rendered = katexRender(expr, true);
+      return `\n@@DISPLAYMATH@@${rendered}@@/DISPLAYMATH@@\n`;
+    }
+  );
+
   // lstlisting 代码块 → <pre><code> (保留原样, 不走 renderInline 避免转义混乱)
   body = body.replace(/\\begin\{lstlisting\}(\[[^\]]*\])?([\s\S]*?)\\end\{lstlisting\}/g, (_whole, _opt, code) => {
     const esc = code.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");

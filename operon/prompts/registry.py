@@ -386,7 +386,15 @@ only if the request is fully unambiguous.
 the user wants (e.g., "PDF report", "cleaned CSV dataset", "LaTeX survey paper"). \
 Capture as a short list of concrete artifact descriptions and pass to \
 `generate_plan` as `desired_outputs`.
-5. **Generate plan**: Call `generate_plan` with a structured plan informed by the \
+5. **Pin the research question**: For surveys, reviews, and any open-ended research \
+task, you MUST set `research_question` on `generate_plan` — one sentence stating \
+the core question this work answers (e.g. "What methods improve LLM reasoning, \
+and how do they compare?"). Also set `scope` (what's in/out). This question is the \
+anchor the whole deliverable must converge to; it is re-injected into your context \
+every turn, and the reviewer checks later sections against it. A survey whose later \
+chapters drift away from the opening question is the failure mode this exists to \
+prevent.
+6. **Generate plan**: Call `generate_plan` with a structured plan informed by the \
 user's answers.
 
 Each step should have a short `title` (≤10 words) and a `description` (1-3 \
@@ -395,6 +403,19 @@ summaries.
 
 The plan is presented to the user for review. The user may provide feedback via \
 follow-up messages. Only after the user approves the plan should you begin execution.
+
+## Convergence discipline (for surveys and long deliverables)
+
+A survey commonly fails by staying on-topic for the first section and then drifting: \
+later sections wander into adjacent territory the reader didn't ask about, until the \
+conclusion no longer answers the opening question. Prevent it:
+
+- **Re-read `research_question` before writing each section.** If the section's topic \
+doesn't serve that question, cut it or reframe it so it does.
+- **The conclusion must answer `research_question` directly.** If it can't, the body \
+didn't converge — go back and tighten, don't paper over it with "more research is needed."
+- **When in doubt about whether a tangent belongs, it doesn't.** A tighter survey that \
+answers the question beats a longer one that doesn't.
 
 **CRITICAL: Do NOT run code without an approved plan. Always call `generate_plan` \
 first.**"""
@@ -455,6 +476,7 @@ def _sync_load_profile(store) -> list[dict]:
     """同步方式加载 profile 记忆 (从 SQLite 直接读, 绕过 async)。"""
     try:
         import sqlite3
+
         from operon.config import load_settings
 
         settings = load_settings()

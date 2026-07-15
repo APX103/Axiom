@@ -117,11 +117,17 @@ class SessionManager:
 
             async with self.db_session_factory() as db:
                 for i, msg in enumerate(messages):
+                    # harness_notice (memory 召回块/max_tokens 续传提示等) 是消息级标记,
+                    # content 列没有独立列存放, 这里把它编进 content JSON, load 时还原。
+                    # 这样不新增 DB 列, 旧数据 (裸 content) 也不受影响。
+                    payload = msg["content"]
+                    if msg.get("harness_notice"):
+                        payload = {"_harness_notice": True, "content": payload}
                     rec = SessionMessage(
                         session_id=sid,
                         seq=seq_start + i,
                         role=msg["role"],
-                        content=json.dumps(msg["content"], ensure_ascii=False),
+                        content=json.dumps(payload, ensure_ascii=False),
                     )
                     db.add(rec)
                 await db.commit()
@@ -197,13 +203,20 @@ class SessionManager:
                     .order_by(SessionMessage.seq)
                 )
                 rows = result.scalars().all()
-                return [
-                    {
-                        "role": r.role,
-                        "content": json.loads(r.content),
-                    }
-                    for r in rows
-                ]
+                out = []
+                for r in rows:
+                    payload = json.loads(r.content)
+                    # 还原 harness_notice 标记 (save 时编进了 content JSON)。
+                    # 旧数据是裸 content (str/list), 无 _harness_notice 键, 原样返回。
+                    if isinstance(payload, dict) and payload.get("_harness_notice"):
+                        out.append({
+                            "role": r.role,
+                            "content": payload["content"],
+                            "harness_notice": True,
+                        })
+                    else:
+                        out.append({"role": r.role, "content": payload})
+                return out
         except Exception:
             logger.exception("Failed to load messages for session %s", sid)
             return []
@@ -477,7 +490,9 @@ def _serialize_content(content: Any) -> Any:
         return content
     out = []
     for b in content:
-        if hasattr(b, "text"):
+        if hasattr(b, "thinking"):  # ThinkingBlock (扩展思考,需持久化/回显)
+            out.append({"type": "thinking", "thinking": b.thinking})
+        elif hasattr(b, "text"):
             out.append({"type": "text", "text": b.text})
         elif hasattr(b, "name"):  # ToolUseBlock
             out.append({"type": "tool_use", "id": b.id, "name": b.name, "input": b.input})

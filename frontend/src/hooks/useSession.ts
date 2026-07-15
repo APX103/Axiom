@@ -100,10 +100,17 @@ export function useSession() {
         break;
       case "tool_calls":
         setMessages((m) => {
+          // 按 id 去重: 同一个 tool_use 只追加一次, 避免流式时卡片重复显示
+          const existing = curRef.current
+            ? (curRef.current.toolCalls || []).map((c) => c.id)
+            : (m[m.length - 1]?.role === "assistant" ? (m[m.length - 1].toolCalls || []).map((c) => c.id) : []);
+          const fresh = e.calls.filter((c) => !existing.includes(c.id));
+          if (fresh.length === 0) return m;
+
           if (curRef.current) {
             curRef.current = {
               ...curRef.current,
-              toolCalls: [...(curRef.current.toolCalls || []), ...e.calls],
+              toolCalls: [...(curRef.current.toolCalls || []), ...fresh],
             };
             // 延迟创建: 如果还没在数组里, 现在加进去
             if (m.length === 0 || m[m.length - 1].id !== curRef.current.id) {
@@ -113,12 +120,12 @@ export function useSession() {
           }
           // 没有 curRef, 复用最后一条 assistant 或创建新的
           if (m.length === 0 || m[m.length - 1].role !== "assistant") {
-            const nm = { id: nextId(), role: "assistant" as const, text: "", toolCalls: e.calls };
+            const nm = { id: nextId(), role: "assistant" as const, text: "", toolCalls: fresh };
             curRef.current = nm;
             return [...m, nm];
           }
           const last = m[m.length - 1];
-          const updated = { ...last, toolCalls: [...(last.toolCalls || []), ...e.calls] };
+          const updated = { ...last, toolCalls: [...(last.toolCalls || []), ...fresh] };
           curRef.current = updated;
           return [...m.slice(0, -1), updated];
         });
@@ -209,38 +216,65 @@ export function useSession() {
       else setArtifacts({});
 
       if (state.messages && state.messages.length > 0) {
+        // 第一遍: 收集所有 tool_result, 建 tool_use_id → result 映射。
+        // Anthropic 风格里 tool_result 在下一条 user 消息 (会被跳过不渲染),
+        // 必须在此预先捞出, 否则刷新后工具调用永远显示"进行中"(黄色)。
+        const resultMap = new Map<string, ToolResult>();
+        for (const m of state.messages) {
+          if (Array.isArray(m.content)) {
+            for (const block of m.content as Record<string, unknown>[]) {
+              if (block.type === "tool_result") {
+                resultMap.set(block.tool_use_id as string, {
+                  tool_use_id: block.tool_use_id as string,
+                  content: (block.content as string) || "",
+                  is_error: (block.is_error as boolean) || false,
+                });
+              }
+            }
+          }
+        }
+
         const uiMsgs: UIMessage[] = [];
         for (const m of state.messages) {
           const role = m.role as UIMessage["role"];
           let text = "";
+          let thinking = "";
           const toolCalls: ToolCall[] = [];
-          const toolResults: ToolResult[] = [];
 
           if (typeof m.content === "string") {
             text = m.content;
           } else if (Array.isArray(m.content)) {
             for (const block of m.content as Record<string, unknown>[]) {
               if (block.type === "text") text += (block.text as string) || "";
+              else if (block.type === "thinking")
+                thinking += (block.thinking as string) || "";
               else if (block.type === "tool_use")
                 toolCalls.push({
                   id: block.id as string,
                   name: block.name as string,
                   input: block.input as Record<string, unknown>,
                 });
-              else if (block.type === "tool_result")
-                toolResults.push({
-                  tool_use_id: block.tool_use_id as string,
-                  content: (block.content as string) || "",
-                  is_error: (block.is_error as boolean) || false,
-                });
+              // tool_result 已在第一遍收集, 这里跳过 (它所在的 user 消息也会被跳过)
             }
           }
 
           const msg: UIMessage = { id: nextId(), role, text };
-          if (toolCalls.length > 0) msg.toolCalls = toolCalls;
-          if (toolResults.length > 0) msg.toolResults = toolResults;
+          if (thinking) msg.thinking = thinking;
+          // 把 tool_result 回挂到发起它的 tool_call 所属的 assistant 消息上
+          if (toolCalls.length > 0) {
+            msg.toolCalls = toolCalls;
+            const results = toolCalls
+              .map((tc) => resultMap.get(tc.id))
+              .filter((r): r is ToolResult => r !== undefined);
+            if (results.length > 0) msg.toolResults = results;
+          }
           // 跳过 harness-notice 消息 (max_tokens 续传等内部提示, 不应显示给用户)
           if ((m as Record<string, unknown>).harness_notice) {
+            continue;
+          }
+          // 兜底: 旧版 DB 未持久化 harness_notice 标记, 凭内容识别 memory 召回块并跳过。
+          // (新版已在 _db_save_messages 把 harness_notice 编进 content JSON)
+          if (role === "user" && text.trimStart().startsWith("[Memory]")) {
             continue;
           }
           // 跳过空 user 消息: 后端把工具结果存为 role=user (Anthropic 风格),

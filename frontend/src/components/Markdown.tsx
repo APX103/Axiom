@@ -1,47 +1,28 @@
 // Markdown 渲染组件: 用于 LLM 聊天输出。
-// 性能优化: 流式输出时用 debounce — 文本变化后 150ms 内无新 delta 才触发
-// 完整 Markdown + KaTeX 解析。流式过程中显示纯文本 (带等宽格式)。
+// 流式时 delta 高频到达, 每个 delta 都重跑 Markdown+KaTeX 解析会卡顿/重影。
+// 用 React 的 useDeferredValue — 让昂贵的 Markdown 解析"让路"给高优先级的
+// 文本累积更新, 空闲时再解析最新文本。相比手写 debounce 的优势: 不会因为
+// delta 间隔永远小于窗口而永远不 flush (旧 bug), React 保证最终一定解析到最新值。
 // 支持: 代码块 (含语言标注)、表格、列表、任务列表、删除线 (GFM) + 数学公式 (KaTeX)。
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
-import { useEffect, useRef, useState } from "react";
+import "katex/dist/katex.min.css";
+import { useDeferredValue, useState } from "react";
 
 export function Markdown({ text }: { text: string }) {
   if (!text) return null;
 
-  // debounce: 文本变化后 150ms 内无新内容才渲染 Markdown
-  const [renderedText, setRenderedText] = useState(text);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const textRef = useRef(text);
-  textRef.current = text;
-
-  useEffect(() => {
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => {
-      setRenderedText(textRef.current);
-    }, 150);
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
-  }, [text]);
-
-  const isStreaming = renderedText !== text;
+  // deferredText 落后于 text, 但 React 保证它最终赶上 (不会卡死在旧值)。
+  // 高频 delta 期间, 解析只在浏览器空闲帧触发, 避免逐字符重解析的卡顿/重影。
+  const deferredText = useDeferredValue(text);
 
   return (
     <div className="prose prose-sm max-w-none dark:prose-invert prose-headings:text-default prose-p:text-default prose-strong:text-default prose-a:text-link hover:prose-a:text-link/80 prose-pre:my-0 prose-pre:p-0 prose-pre:bg-transparent prose-code:before:content-none prose-code:after:content-none">
-      {isStreaming ? (
-        // 流式中: 纯文本 + 光标 (避免每个 delta 都重跑 Markdown 解析)
-        <div className="whitespace-pre-wrap break-words text-default text-[15px] leading-relaxed">
-          {renderedText}
-          <span className="inline-block w-2 h-4 bg-accent animate-pulse ml-0.5 align-middle" />
-          <span className="text-faint text-xs"> {text.slice(renderedText.length)}</span>
-        </div>
-      ) : (
-        <ReactMarkdown
-          remarkPlugins={[remarkGfm, remarkMath]}
-          rehypePlugins={[rehypeKatex]}
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm, remarkMath]}
+        rehypePlugins={[rehypeKatex]}
         components={{
           pre: ({ children }) => <>{children}</>,
           code: CodeBlock,
@@ -54,10 +35,9 @@ export function Markdown({ text }: { text: string }) {
           th: ({ node, ...props }) => <th {...props} className="bg-subtle text-default font-medium" />,
           td: ({ node, ...props }) => <td {...props} className="border-border text-muted" />,
         }}
-        >
-          {renderedText}
-        </ReactMarkdown>
-      )}
+      >
+        {deferredText}
+      </ReactMarkdown>
     </div>
   );
 }

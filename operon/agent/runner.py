@@ -550,14 +550,22 @@ class Agent:
         from operon.verify.verifier import Verifier
 
         cfg = getattr(self.ctx, "verification_config", None) or VerificationConfig()
-        if not cfg.enabled:
+        # 收敛自动触发: plan 钉了 research_question 时, 即使 cfg.enabled=False 也开启 verifier,
+        # 让 reviewer 检查后半段是否跑偏。普通问答/代码任务 (无 research_question) 不受影响。
+        has_anchor = bool(getattr(self.ctx.plan, "research_question", None))
+        if not cfg.enabled and not has_anchor:
             return
+        if not cfg.enabled and has_anchor:
+            # 复制一份并开启, 不改原 cfg (避免污染共享配置)。
+            # 注意 VerificationConfig 是 Pydantic BaseModel (operon/config.py), 不是 dataclass。
+            cfg = cfg.model_copy(update={"enabled": True})
         self._verifier = Verifier(
             llm=self.llm,
             frame_service=self.frame_service,
             frame=self.frame,
             config=cfg,
             reviewer_model=cfg.reviewer_model or self.model,
+            plan=self.ctx.plan,
         )
 
     async def _maybe_checkpoint(self) -> None:
