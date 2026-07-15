@@ -12,9 +12,6 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::{Child, Command};
 use tokio::sync::Mutex;
 
-#[cfg(unix)]
-use std::os::unix::fs as unix_fs;
-
 
 
 struct AppState {
@@ -44,42 +41,21 @@ fn find_free_port(start: u16) -> u16 {
     panic!("no free port found");
 }
 
-/// 确保数据目录在 SSD 上, 并通过 ~/.axiom 软链访问。
-/// 若 ~/.axiom 已存在为目录, 会迁移内容到 SSD; 若指向别处, 会重建软链。
-fn ensure_data_dir_symlink() -> PathBuf {
+/// 确保数据目录存在, 返回 ~/.axiom 路径。
+fn ensure_data_dir() -> PathBuf {
     let home = PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| ".".to_string()));
-    let axiom_link = home.join(".axiom");
+    let axiom_dir = home.join(".axiom");
 
-    // SSD 上的真实目录: /Volumes/ssd/main_link/.axiom
-    let ssd_parent = PathBuf::from("/Volumes/ssd/main_link");
-    let ssd_dir = ssd_parent.join(".axiom");
-
-    // 若软链已经正确, 直接返回
-    if let Ok(target) = fs::read_link(&axiom_link) {
-        if target == ssd_dir {
-            return axiom_link;
+    // 若是软链 (开发环境可能指向 SSD), 解析到真实路径
+    if let Ok(target) = fs::read_link(&axiom_dir) {
+        if target.is_dir() {
+            return axiom_dir;
         }
-        // 指向别处, 删除旧软链
-        let _ = fs::remove_file(&axiom_link);
     }
 
-    // 若存在普通目录, 迁移内容
-    if axiom_link.is_dir() {
-        fs::create_dir_all(&ssd_dir).ok();
-        if let Ok(entries) = fs::read_dir(&axiom_link) {
-            for entry in entries.flatten() {
-                let dest = ssd_dir.join(entry.file_name());
-                let _ = fs::rename(entry.path(), dest);
-            }
-        }
-        let _ = fs::remove_dir(&axiom_link);
-    }
-
-    // 创建 SSD 目录并建立软链
-    fs::create_dir_all(&ssd_dir).expect("failed to create ssd data dir");
-    let _ = unix_fs::symlink(&ssd_dir, &axiom_link);
-
-    axiom_link
+    // 确保目录存在
+    fs::create_dir_all(&axiom_dir).expect("failed to create data dir");
+    axiom_dir
 }
 
 /// 查找后端可执行文件路径。
@@ -115,7 +91,7 @@ async fn start_backend(app_handle: &tauri::AppHandle, port: u16) -> std::io::Res
     let mut cmd = Command::new(&bin);
     cmd.args(&args)
         .current_dir(&work_dir)
-        .env("OPERON_DATA_DIR", ensure_data_dir_symlink())
+        .env("OPERON_DATA_DIR", ensure_data_dir())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .kill_on_drop(true);
