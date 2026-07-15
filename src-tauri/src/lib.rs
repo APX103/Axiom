@@ -42,20 +42,52 @@ fn find_free_port(start: u16) -> u16 {
 }
 
 /// 确保数据目录存在, 返回 ~/.axiom 路径。
+///
+/// 若 SSD 路径 (/Volumes/ssd/main_link/.axiom) 存在且可写, 通过软链指向它,
+/// 避免内置硬盘被数据塞满。SSD 不存在时 fallback 到 ~/.axiom 本地目录。
 fn ensure_data_dir() -> PathBuf {
     let home = PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| ".".to_string()));
-    let axiom_dir = home.join(".axiom");
+    let axiom_link = home.join(".axiom");
 
-    // 若是软链 (开发环境可能指向 SSD), 解析到真实路径
-    if let Ok(target) = fs::read_link(&axiom_dir) {
+    // 若已经是软链且指向有效目录, 直接用
+    if let Ok(target) = fs::read_link(&axiom_link) {
         if target.is_dir() {
-            return axiom_dir;
+            return axiom_link;
+        }
+        // 软链指向无效路径, 删掉重建
+        let _ = fs::remove_file(&axiom_link);
+    }
+
+    // 尝试用 SSD: /Volumes/ssd/main_link/.axiom
+    let ssd_parent = PathBuf::from("/Volumes/ssd/main_link");
+    let ssd_dir = ssd_parent.join(".axiom");
+    if ssd_parent.is_dir() {
+        // SSD 存在, 建目录 + 软链
+        if let Ok(()) = fs::create_dir_all(&ssd_dir) {
+            // 若 ~/.axiom 已是普通目录, 迁移内容到 SSD
+            if axiom_link.is_dir() {
+                if let Ok(entries) = fs::read_dir(&axiom_link) {
+                    for entry in entries.flatten() {
+                        let dest = ssd_dir.join(entry.file_name());
+                        let _ = fs::rename(entry.path(), dest);
+                    }
+                }
+                let _ = fs::remove_dir(&axiom_link);
+            }
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs as unix_fs;
+                let _ = unix_fs::symlink(&ssd_dir, &axiom_link);
+            }
+            if axiom_link.exists() {
+                return axiom_link;
+            }
         }
     }
 
-    // 确保目录存在
-    fs::create_dir_all(&axiom_dir).expect("failed to create data dir");
-    axiom_dir
+    // Fallback: 直接用 ~/.axiom (SSD 不存在或建链失败)
+    fs::create_dir_all(&axiom_link).expect("failed to create data dir");
+    axiom_link
 }
 
 /// 查找后端可执行文件路径。
