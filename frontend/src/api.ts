@@ -155,7 +155,8 @@ export function connectSSE(
   prompt: string,
   onEvent: (e: import("./types").WSEvent) => void,
   onError?: (err: unknown) => void,
-  planMode?: boolean
+  planMode?: boolean,
+  deepReview?: boolean
 ): { close: () => void } {
   const controller = new AbortController();
   let closed = false;
@@ -164,7 +165,11 @@ export function connectSSE(
   fetch(`${getApiBase()}/sessions/${sid}/stream-sse`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ prompt, ...(planMode ? { plan_mode: true } : {}) }),
+    body: JSON.stringify({
+      prompt,
+      ...(planMode ? { plan_mode: true } : {}),
+      ...(deepReview ? { deep_review: true } : {}),
+    }),
     signal: controller.signal,
   })
     .then(async (resp) => {

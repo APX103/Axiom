@@ -154,6 +154,9 @@ class Session:
         )
         # 注册内置工具
         register_all(self.registry, ctx)
+        # 暴露 llm + registry 给 ctx (供 delegate 工具构造子 Agent)
+        ctx.llm = self.llm
+        ctx.registry = self.registry
 
         # 连接 MCP server + 注册 MCP 工具 (双轨)
         if config.mcp_servers:

@@ -343,11 +343,19 @@ class SessionManager:
             s["live"] = s["id"] in active_ids
         return db_sessions
 
-    async def run(self, sid: str, prompt: str, *, plan_mode: bool | None = None) -> RunResult:
+    async def run(
+        self,
+        sid: str,
+        prompt: str,
+        *,
+        plan_mode: bool | None = None,
+        deep_review: bool | None = None,
+    ) -> RunResult:
         """启动 (或继续) 一个会话。事件经 callbacks.queue 流出。消息写 DB。
 
         Args:
             plan_mode: 覆盖会话级的 plan_mode 设置。None=用会话配置。
+            deep_review: 覆盖会话级的 deep_review 设置。None=用会话配置。
         """
         active = self._sessions[sid]
 
@@ -366,6 +374,7 @@ class SessionManager:
             model=active.session.config.model,
             max_tokens=active.session.config.max_tokens,
             plan_mode=plan_mode if plan_mode is not None else active.session.config.plan_mode,
+            deep_review=bool(deep_review),
             callbacks=active.callbacks,
         )
         result = await agent.run(prompt)

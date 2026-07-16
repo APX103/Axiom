@@ -91,3 +91,7 @@ class ToolContext:
     # 三层记忆系统: 存储层 + BM25 召回索引
     memory_store: Any = None
     memory_index: Any = None
+    # LLM 客户端 + 工具注册表 (供 delegate 工具构造子 Agent 用)。
+    # 根 agent 在 Session.prepare() / sessions.py 构造时填入; 子 agent 复用父的。
+    llm: Any = None
+    registry: Any = None

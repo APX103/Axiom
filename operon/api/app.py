@@ -67,6 +67,7 @@ class CreateSession(BaseModel):
 class RunReq(BaseModel):
     prompt: str
     plan_mode: bool | None = None  # 覆盖会话级 plan_mode
+    deep_review: bool | None = None  # 覆盖会话级 deep_review (深度综述模式)
 
 
 def create_app() -> FastAPI:
@@ -563,7 +564,7 @@ def create_app() -> FastAPI:
         queue = active.callbacks.queue
 
         async def event_gen():
-            run_task = asyncio.create_task(manager.run(sid, req.prompt, plan_mode=req.plan_mode))
+            run_task = asyncio.create_task(manager.run(sid, req.prompt, plan_mode=req.plan_mode, deep_review=req.deep_review))
             try:
                 while True:
                     event = await queue.get()

@@ -140,6 +140,19 @@ def register_all(registry: ToolRegistry, ctx: ToolContext) -> None:
         handler=lambda **kw: memory.search_memory(ctx, **kw),
     )
 
+    # 子 agent 委派 (sub-agent)
+    from . import delegate as delegate_mod
+    from . import submit_output as submit_mod
+
+    registry.register(
+        **delegate_mod.DELEGATE_SPEC,
+        handler=lambda **kw: delegate_mod.delegate(ctx, **kw),
+    )
+    registry.register(
+        **submit_mod.SUBMIT_OUTPUT_SPEC,
+        handler=lambda **kw: submit_mod.submit_output(ctx, **kw),
+    )
+
 
 def plan_mode_extras(registry: ToolRegistry, ctx: ToolContext) -> None:
     """plan mode 需要的工具已包含在 register_all 中 (generate_plan 等)。

@@ -92,6 +92,7 @@ class Agent:
         model: str | None = None,
         max_tokens: int = 8192,
         plan_mode: bool = False,
+        deep_review: bool = False,
         callbacks: AgentCallbacks | None = None,
     ):
         self.llm = llm
@@ -103,6 +104,7 @@ class Agent:
         self.model = model
         self.max_tokens = max_tokens
         self.plan_mode = plan_mode
+        self.deep_review = deep_review
         self.callbacks = callbacks or AgentCallbacks()
 
         # 运行时状态
@@ -112,6 +114,12 @@ class Agent:
         self._text_streamed_this_turn = False  # 本轮是否已流式推过 text (避免 _process_llm_response 重复整段推)
         self._max_tokens_consecutive = 0  # max_tokens 连续次数 (对照 0858.js:2421)
         self._MAX_TOKENS_RETRY_CAP = 5  # 连续 max_tokens 上限, 超过则结束本轮
+        # 检索熔断: 连续 N 轮只检索不写作 → 注入"停止检索开始写作"提示
+        self._search_rounds = 0  # 连续检索轮数
+        self._SEARCH_ROUND_CAP = 6  # 阈值: 超过则强制写作
+        # deep_review 产出门控: 未写 .tex 就想结束 → 拒绝 (笨模型易提前 end_turn)
+        self._no_output_denials = 0
+        self._NO_OUTPUT_DENIAL_CAP = 3
 
         # Rolling Compact 状态 (对照 0858.js this._rcState)
         from operon.compact.state import new_rolling_compact_state
@@ -294,19 +302,17 @@ class Agent:
             # 1. 哨兵检查
             if self.frame.status == FrameStatus.CANCELLED:
                 return self._result(RunResultKind.CANCELLED)
-            if self.frame.status in (FrameStatus.AWAITING_PLAN_APPROVAL, FrameStatus.AWAITING_USER_RESPONSE):
-                # 工具触发了等待 (generate_plan / ask_user) → 退出循环,等待用户
-                kind = (
-                    RunResultKind.AWAITING
-                    if self.frame.status == FrameStatus.AWAITING_PLAN_APPROVAL
-                    else RunResultKind.AWAITING
-                )
-                awaiting = (
-                    "plan_approval"
-                    if self.frame.status == FrameStatus.AWAITING_PLAN_APPROVAL
-                    else "user_response"
-                )
-                return self._result(kind, awaiting=awaiting)
+            if self.frame.status == FrameStatus.AWAITING_PLAN_APPROVAL:
+                # deep_review 模式: 自动批准 plan, 不阻断 (无人值守深度流程不该卡审批)
+                if self.deep_review:
+                    from operon.tools.builtins import plan as plan_tools
+                    await plan_tools.approve_plan(self.ctx)
+                    logger.info("deep_review: auto-approved plan, continuing")
+                else:
+                    return self._result(RunResultKind.AWAITING, awaiting="plan_approval")
+            if self.frame.status == FrameStatus.AWAITING_USER_RESPONSE:
+                # ask_user → 退出循环,等待用户
+                return self._result(RunResultKind.AWAITING, awaiting="user_response")
 
             # 2. 接入点: biosecurity (no-op,后置)
             # if await self._check_biosecurity(): return self._result(ERROR, ...)
@@ -321,7 +327,9 @@ class Agent:
             await self._maybe_compact()
 
             # 4. 构建 system prompt + 调 LLM (用投影后的消息)
-            system = build_system_prompt(self.ctx, plan_mode=self.plan_mode)
+            system = build_system_prompt(
+                self.ctx, plan_mode=self.plan_mode, deep_review=self.deep_review
+            )
             tools = self.tool_router.registry.definitions()
             llm_messages = self._prepare_messages_for_llm()
             # 优先走流式 (LLM 支持时, 每个 text delta 增量回调 → 前端打字机效果)
@@ -421,6 +429,37 @@ class Agent:
         # 工具结果加入历史 (Anthropic 风格: tool_result 作为 user 消息的 content block)
         self.frame.messages.append(Message(role=Role.USER, content=results))
 
+        # 检索熔断: 统计本轮工具类型, 连续纯检索超阈值则强制写作
+        called_names = {tu.name for tu in tool_uses}
+        writing_tools = {"write_file", "edit_file", "save_artifacts"}
+        search_tools = {"search_papers", "web_search", "fetch_paper", "fetch_url", "search_skills"}
+        if called_names & writing_tools:
+            self._search_rounds = 0  # 写了文件, 重置
+        elif called_names & search_tools:
+            self._search_rounds += 1
+        if self._search_rounds >= self._SEARCH_ROUND_CAP and not (called_names & writing_tools):
+            n = self._search_rounds
+            self._search_rounds = 0  # 重置避免反复注入
+            self.frame.messages.append(Message(
+                role=Role.USER,
+                content=(
+                    f"You have done {n} consecutive rounds of searching. "
+                    "You have enough literature. STOP searching and START writing the survey now: "
+                    "call write_file to create main.tex and references.bib with the papers you already found. "
+                    "Do not search again."
+                ),
+                _harness_notice=True,
+            ))
+
+        # submit_output (子 agent 结构化返回): 标记被设则当作完成退出
+        if self.frame.context.get("_submit_output_called"):
+            submitted = self.frame.context.get("_submitted_output", {})
+            bullets = submitted.get("completion_bullets", [])
+            text = "Subtask complete."
+            if bullets:
+                text += " " + " ".join(bullets)
+            return True, self._result(RunResultKind.NATURAL, final_text=text)
+
         # 工具可能触发了等待状态 (generate_plan → awaiting_plan_approval, ask_user → awaiting_user_response)
         if self.frame.status in (FrameStatus.AWAITING_PLAN_APPROVAL, FrameStatus.AWAITING_USER_RESPONSE):
             awaiting = (
@@ -435,18 +474,36 @@ class Agent:
 
         return False, None
 
+    def _has_written_tex(self) -> bool:
+        """检查工作区是否已写入 .tex 文件 (deep_review 产出门控用)。"""
+        try:
+            ws = self.ctx.workspace
+            if ws is None:
+                return False
+            return any(p.suffix == ".tex" for p in ws.rglob("*.tex"))
+        except Exception:
+            return False
+
     async def _handle_natural_completion(self, resp: LLMResponse) -> tuple[bool, RunResult | None]:
         """自然完成路径 (无工具调用时的退出门链)。
 
         本阶段实现 plan_produce_denial 门 (对照 1625)。
         """
         # 空内容 end_turn 重试 (对照 0871.js:1344) — harness-notice, 用户不可见
-        if not resp.content and self._empty_turn_retries < 2:
+        if not resp.content and self._empty_turn_retries < 3:
             self._empty_turn_retries += 1
+            # deep_review: 空响应时给出强任务提醒 (笨模型容易加载 skill 后空转)
+            if self.deep_review:
+                hint = (
+                    "You returned an empty response but the survey is not written yet. "
+                    "Continue now: search for papers with search_papers (3-5 rounds), "
+                    "then write BOTH main.tex and references.bib. Do not end without "
+                    "producing these files."
+                )
+            else:
+                hint = "(Please continue your work or provide a response.)"
             self.frame.messages.append(Message(
-                role=Role.USER,
-                content="(Please continue your work or provide a response.)",
-                _harness_notice=True,
+                role=Role.USER, content=hint, _harness_notice=True,
             ))
             return False, None
 
@@ -464,6 +521,23 @@ class Agent:
                     )
                 )
                 await self.callbacks.on_event("plan_denial", "plan required before completion")
+                return False, None
+
+        # deep_review 产出门控: 未写 .tex 文件就想结束 → 拒绝, 强制继续写作
+        # (笨模型倾向: 加载 skill + 检索几轮后提前 end_turn, 却从未写文件)
+        if self.deep_review and self._no_output_denials < self._NO_OUTPUT_DENIAL_CAP:
+            if not self._has_written_tex():
+                self._no_output_denials += 1
+                self.frame.messages.append(Message(
+                    role=Role.USER,
+                    content=(
+                        "You are trying to finish, but you have NOT written any output file yet. "
+                        "The survey is incomplete. STOP ending your turn and WRITE the files now: "
+                        "call write_file to create references.bib first, then main.tex, using the "
+                        f"papers you already found. (denial {self._no_output_denials}/{self._NO_OUTPUT_DENIAL_CAP})"
+                    ),
+                    _harness_notice=True,
+                ))
                 return False, None
 
         # Terminal barrier: 最终 reviewer 审查 (对照 0871.js:1836 _gateReviewerTerminalBarrier)

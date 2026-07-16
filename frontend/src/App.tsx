@@ -56,6 +56,7 @@ function Workbench() {
   const [backendUp, setBackendUp] = useState<boolean | null>(null);
   const [input, setInput] = useState("");
   const [planMode, setPlanMode] = useState(false);
+  const [deepReview, setDeepReview] = useState(false);
   const [sidebarTab, setSidebarTab] = useState<"sessions" | "files">("sessions");
   const scrollRef = useRef<HTMLDivElement>(null);
   const restoredRef = useRef(false);
@@ -199,7 +200,7 @@ function Workbench() {
     setInput("");
     try {
       const id = await ensureSession();
-      session.start(id, prompt, usePlanMode);
+      session.start(id, prompt, usePlanMode, deepReview);
     } catch (e) {
       session.reset();
       alert(`创建会话失败: ${e instanceof Error ? e.message : e}`);
@@ -385,6 +386,17 @@ function Workbench() {
                       title="Plan Mode: 先规划后执行"
                     >
                       ◇ Plan
+                    </button>
+                    <button
+                      onClick={() => setDeepReview((v) => !v)}
+                      className={`text-[10px] px-2 py-1 rounded-md font-medium transition-colors ${
+                        deepReview
+                          ? "bg-accent-secondary/15 text-accent-secondary"
+                          : "text-faint hover:text-muted hover:bg-hover"
+                      }`}
+                      title="深度综述: 强制走 paper-writing 多阶段流程 (文献评分→结构→实验→图表→同行评审迭代)"
+                    >
+                      ★ Review
                     </button>
                   </div>
                   <div className="flex items-center gap-2">

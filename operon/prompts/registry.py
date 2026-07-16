@@ -421,7 +421,35 @@ answers the question beats a longer one that doesn't.
 first.**"""
 
 
-def build_system_prompt(ctx: ToolContext, *, plan_mode: bool) -> str:
+RULES_DEEP_REVIEW = """## Deep review mode (ACTIVE)
+
+The user has enabled **deep review mode** for a high-quality survey/review paper. This is not a \
+casual literature summary — the target is a publication-grade survey (self-review score ≥ 8.0).
+
+**Mandatory workflow:**
+
+1. **Load the orchestrator FIRST**: call `skill({skill: "paper-writing"})` immediately. It defines \
+the four-phase pipeline (Topic → Draft → Deep Improvement → Sprint) and tells you which sub-skill \
+to call and when. Do not start writing before loading it.
+2. **Follow its phase routing**: it will route you to `lit-survey` (graded literature with LQS \
+scoring), `paper-structure` (skeleton & logic), `experiment-design` (if you make an empirical \
+claim), `academic-figures` (tables/plots), and `peer-review` (the iteration loop). Load each via \
+`skill({skill: <name>})` when its phase arrives — do not load them all at once.
+3. **Use the deterministic kernels**: `lit-survey`'s `lqs_score`/`bib_health` and `peer-review`'s \
+`aggregate_reviews`/`apply_anti_inflation`/`should_stop` are the rules that keep quality honest. \
+Call them; do not score papers or reviews in your head.
+4. **Persist state to files**: `references.bib`, `citation_plan.jsonl`, `results.json`, and \
+section `.tex` files in the workspace. If context compacts, the files survive; your recollection \
+of scores doesn't.
+5. **Iterate until `should_stop` returns True**: the peer-review loop is what pushes the score from \
+~6 to 8+. Do not stop after one draft because it "looks fine" — run the review, route the \
+weaknesses, fix, re-review.
+
+This mode is compatible with plan mode: if both are on, set `research_question` when generating the \
+plan (it's the convergence anchor peer-review checks against)."""
+
+
+def build_system_prompt(ctx: ToolContext, *, plan_mode: bool, deep_review: bool = False) -> str:
     """构建 system prompt。
 
     Args:
@@ -468,6 +496,10 @@ def build_system_prompt(ctx: ToolContext, *, plan_mode: bool) -> str:
         plan_summary = plan_tools.get_plan_summary(ctx)
         if plan_summary:
             parts.append(plan_summary)
+
+    # dynamic: deep review mode (深度综述模式, 强制走 paper-writing 流程)
+    if deep_review:
+        parts.append(RULES_DEEP_REVIEW)
 
     return "\n\n".join(parts)
 
