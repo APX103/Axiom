@@ -136,6 +136,13 @@ class Agent:
         # 初始化: 用户消息入历史
         self.frame.messages.append(Message(role=Role.USER, content=user_input))
         self.frame.task_summary = user_input[:200]
+        # 恢复 ask_user: 用户带着回答回来, 清掉 AWAITING_USER_RESPONSE 回到 PROCESSING,
+        # 否则 _run_loop 顶部的哨兵会立即 return, 回答永远不被处理。
+        if self.frame.status == FrameStatus.AWAITING_USER_RESPONSE:
+            self.frame.status = FrameStatus.PROCESSING
+            # 清掉挂起的问题, 避免后续 complete 事件重复上报
+            if getattr(self.ctx, "pending_ask", None) is not None:
+                self.ctx.pending_ask = None
         await self.callbacks.on_start(self.frame)
 
         # 记忆召回: 用用户消息做 BM25 搜索, 注入 [Memory] 块

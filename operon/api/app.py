@@ -475,10 +475,18 @@ def create_app() -> FastAPI:
         except Exception as e:
             raise HTTPException(404, f"session not found: {e}") from e
         result = await manager.run(sid, req.prompt)
+        # ask_user 时把问题/选项带上 (与 SSE complete 事件一致)
+        pending_ask = None
+        if result.awaiting == "user_response":
+            active = manager._sessions.get(sid)
+            pa = getattr(active.ctx, "pending_ask", None) if active else None
+            if pa is not None:
+                pending_ask = {"question": pa.question, "options": list(pa.options)}
         return {
             "kind": result.kind.value,
             "final_text": result.final_text,
             "awaiting": result.awaiting,
+            "pending_ask": pending_ask,
             "error": result.error,
             "usage": result.usage,
             "iterations": result.iterations,

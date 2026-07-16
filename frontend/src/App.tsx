@@ -398,6 +398,18 @@ function Workbench() {
                   Axiom 正在思考…
                 </div>
               )}
+            {session.status === "awaiting" &&
+              session.awaiting === "user_response" &&
+              session.pendingAsk && (
+                <AskUserCard
+                  question={session.pendingAsk.question}
+                  options={session.pendingAsk.options}
+                  onAnswer={(ans) => {
+                    if (!sid) return;
+                    session.start(sid, ans);
+                  }}
+                />
+              )}
           </div>
 
           {/* 悬浮输入区 - SciForge 风格药丸条 */}
@@ -780,6 +792,59 @@ function UsageFooter({ usage }: { usage: { in: number; out: number } }) {
   );
 }
 
+function AskUserCard({
+  question,
+  options,
+  onAnswer,
+}: {
+  question: string;
+  options: string[];
+  onAnswer: (ans: string) => void;
+}) {
+  const [text, setText] = useState("");
+  return (
+    <div className="max-w-3xl mx-auto mt-6 p-4 rounded-xl border border-accent/30 bg-accent/5">
+      <div className="flex items-start gap-2 mb-3">
+        <span className="text-accent text-sm mt-0.5">❓</span>
+        <div className="text-sm text-default leading-relaxed whitespace-pre-wrap">{question}</div>
+      </div>
+      {options.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-3">
+          {options.map((opt) => (
+            <button
+              key={opt}
+              onClick={() => onAnswer(opt)}
+              className="text-xs px-3 py-2 rounded-lg bg-card hover:bg-elevated text-default border border-border transition-colors"
+            >
+              {opt}
+            </button>
+          ))}
+        </div>
+      )}
+      <div className="flex items-center gap-2">
+        <input
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && text.trim()) {
+              onAnswer(text.trim());
+            }
+          }}
+          placeholder="输入回答…"
+          className="flex-1 px-3 py-2 text-sm bg-card rounded-lg border border-border text-default placeholder:text-faint focus:outline-none focus:border-accent"
+        />
+        <button
+          onClick={() => text.trim() && onAnswer(text.trim())}
+          disabled={!text.trim()}
+          className="px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-inverse text-sm font-medium disabled:opacity-40 transition-colors"
+        >
+          回答
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function Welcome({ onPick }: { onPick: (t: string) => void }) {
   const examples = [
     "推导史瓦西黑洞的霍金辐射温度公式，并画出 T-M 关系曲线",
@@ -816,8 +881,7 @@ function Welcome({ onPick }: { onPick: (t: string) => void }) {
   );
 }
 
-function EmptyState({ icon, text, sub }: { icon: string; text: string; sub: string }) {
-  return (
+function EmptyState({ icon, text, sub }: { icon: string; text: string; sub: string }) {  return (
     <div className="text-center py-10 px-4">
       {icon && <div className="text-2xl mb-2 opacity-40">{icon}</div>}
       <div className="text-[13px] text-muted">{text}</div>

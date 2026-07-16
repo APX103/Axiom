@@ -105,8 +105,13 @@ export type WSEvent =
   | { type: "tool_calls"; calls: ToolCall[] }
   | { type: "tool_results"; results: ToolResult[] }
   | { type: "notice"; event: string; detail: string }
-  | { type: "complete"; kind: string; final_text: string; awaiting: string | null; error: string | null; usage: Record<string, number>; iterations: number; frame_status: string; plan: PlanSnapshot | null; artifacts: Record<string, ArtifactInfo> }
+  | { type: "complete"; kind: string; final_text: string; awaiting: string | null; pending_ask: PendingAsk | null; error: string | null; usage: Record<string, number>; iterations: number; frame_status: string; plan: PlanSnapshot | null; artifacts: Record<string, ArtifactInfo> }
   | { type: "error"; message: string };
+
+export interface PendingAsk {
+  question: string;
+  options: string[];
+}
 
 export interface ToolCall {
   id: string;
