@@ -33,6 +33,15 @@ url = "https://open.bigmodel.cn/api/mcp/web_search_prime/mcp"
 [mcp_servers.headers]
 Authorization = "Bearer 在这里填MCP的token"
 
+# ---- 审稿 / 收敛审查 (可选) ----
+# 开启后 agent 长任务会触发 reviewer checkpoint, 自动检查 fabricated citation /
+# 后半段跑偏等问题。reviewer_model 不填则使用 [models].reviewer, 仍不填则用主模型。
+[verification]
+enabled = false
+# reviewer_model = "step-3.7-flash"
+# max_consecutive_bounces = 3
+# min_checkpoint_interval_ms = 30000
+
 # ---- 数据源 API keys (可选) ----
 [api_keys]
 # OpenAlex: 不填也能用 (走 mailto 礼仪); 填了更稳

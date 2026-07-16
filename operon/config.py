@@ -87,9 +87,11 @@ class VerificationConfig(BaseModel):
     """验证 harness 配置。对照原版 0039.js:223-229 [verification]。
 
     enabled 默认 False: 需要时显式开启 (避免单元测试/简单场景自动审稿)。
+    reviewer_model: Reviewer 模型名; 不填则使用 [models].reviewer, 仍不填则用会话主模型。
     """
 
     enabled: bool = False
+    reviewer_model: str | None = None
     reviewer_max_iterations: int = 20
     reviewer_operon_budget: int = 8  # 原 0039.js:229
     shadow_reviewer: bool = False  # 原版 release 关闭,对应 0871.js:996

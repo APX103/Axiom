@@ -26,6 +26,17 @@ export interface MCPServer {
   enabled: boolean;
 }
 
+export interface VerificationConfig {
+  enabled: boolean;
+  reviewer_model?: string;
+  reviewer_max_iterations?: number;
+  reviewer_operon_budget?: number;
+  shadow_reviewer?: boolean;
+  bookmarks_enabled?: boolean;
+  max_consecutive_bounces?: number;
+  min_checkpoint_interval_ms?: number;
+}
+
 export interface AppSettings {
   version: number;
   llm_providers: LLMProvider[];
@@ -38,6 +49,7 @@ export interface AppSettings {
   load_claude_skills: boolean;
   load_project_skills: boolean;
   skill_extra_dirs: string[];
+  verification: VerificationConfig;
 }
 
 export interface SkillInfo {
@@ -118,6 +130,10 @@ export interface PlanStep {
 export interface PlanSnapshot {
   steps: PlanStep[];
   approved: boolean;
+  research_question?: string;
+  scope?: string;
+  desired_outputs?: string[];
+  feasibility?: { confidence: string; rationale: string };
 }
 
 export interface ArtifactInfo {

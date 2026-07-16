@@ -2,7 +2,7 @@
 // 配置保存到后端, 后端持久化到 settings.json; localStorage 仅作缓存。
 import { useEffect, useState } from "react";
 import { saveSettings, listSkills, getMcpTools, listMemories, deleteMemory } from "../api";
-import type { AppSettings, LLMProvider, MCPServer, SkillInfo, McpServerStatus, MemoryInfo } from "../types";
+import type { AppSettings, LLMProvider, MCPServer, SkillInfo, McpServerStatus, MemoryInfo, VerificationConfig } from "../types";
 
 const STORAGE_KEY = "operon-py-app-config";
 
@@ -29,6 +29,10 @@ function newMcp(): MCPServer {
     key: "",
     enabled: false,
   };
+}
+
+function newVerification(): VerificationConfig {
+  return { enabled: false };
 }
 
 function migrateOldConfig(old: Record<string, unknown>): FullConfig {
@@ -65,6 +69,7 @@ function migrateOldConfig(old: Record<string, unknown>): FullConfig {
     load_claude_skills: true,
     load_project_skills: true,
     skill_extra_dirs: [],
+    verification: newVerification(),
   };
 }
 
@@ -95,6 +100,7 @@ export function loadConfig(): FullConfig {
     load_claude_skills: true,
     load_project_skills: true,
     skill_extra_dirs: [],
+    verification: newVerification(),
   };
 }
 
@@ -130,6 +136,7 @@ export function fromApiSettings(raw: Record<string, unknown>): FullConfig {
     load_claude_skills: raw.load_claude_skills !== false,
     load_project_skills: raw.load_project_skills !== false,
     skill_extra_dirs: (raw.skill_extra_dirs as string[]) || [],
+    verification: (raw.verification as VerificationConfig) || newVerification(),
   };
 }
 
@@ -141,6 +148,7 @@ export function toApiSettings(c: FullConfig): Record<string, unknown> {
       ...s,
       headers: s.key ? { Authorization: `Bearer ${s.key}` } : {},
     })),
+    verification: c.verification,
   };
 }
 
@@ -790,6 +798,44 @@ export function SettingsModal({
                   <div className="text-[10px] text-faint">先规划后执行</div>
                 </div>
               </label>
+
+              {/* 审稿 / 收敛审查 */}
+              <div className="p-3 rounded-lg bg-page space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-sm text-default">审稿 (Verification)</div>
+                    <div className="text-[10px] text-faint">长任务中自动触发 reviewer checkpoint, 检查引用与跑偏</div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={cfg.verification.enabled}
+                    onChange={(e) =>
+                      setCfg((c) => ({
+                        ...c,
+                        verification: { ...c.verification, enabled: e.target.checked },
+                      }))
+                    }
+                    className="w-4 h-4 rounded"
+                    style={{ accentColor: "var(--accent)" }}
+                  />
+                </div>
+                <label className="block">
+                  <span className="text-[10px] text-faint">Reviewer 模型 (可选)</span>
+                  <input
+                    type="text"
+                    value={cfg.verification.reviewer_model || ""}
+                    placeholder="不填则使用主模型"
+                    onChange={(e) =>
+                      setCfg((c) => ({
+                        ...c,
+                        verification: { ...c.verification, reviewer_model: e.target.value || undefined },
+                      }))
+                    }
+                    className="mt-1 w-full px-2.5 py-1.5 bg-card rounded-md text-xs font-mono text-default placeholder:text-faint focus:outline-none input-glow border border-border"
+                  />
+                </label>
+              </div>
+
               <UpdateCheck />
             </div>
           )}

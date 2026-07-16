@@ -18,7 +18,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from operon.config import ModelTier, ModelsConfig, Settings
+from operon.config import ModelTier, ModelsConfig, Settings, VerificationConfig
 
 
 class LLMProvider(BaseModel):
@@ -62,6 +62,8 @@ class AppSettings(BaseModel):
     load_project_skills: bool = True
     # 额外自定义 skill 目录路径列表 (工具级配置,所有会话共享)。
     skill_extra_dirs: list[str] = Field(default_factory=list)
+    # 审稿 / 收敛审查配置 (对应 operon.config.VerificationConfig)
+    verification: VerificationConfig = Field(default_factory=VerificationConfig)
 
 
 # ---- key 脱敏 helpers ----
@@ -175,6 +177,8 @@ def app_settings_to_config_settings(app: AppSettings, data_dir: Path | None = No
     if app.workspace:
         kwargs["data_dir"] = Path(app.workspace).expanduser().resolve()
 
+    kwargs["verification"] = app.verification
+
     return Settings(**kwargs)
 
 
@@ -218,6 +222,7 @@ def config_settings_to_app_settings(settings: Settings) -> AppSettings:
         workspace=str(settings.data_dir) if settings.data_dir else None,
         plan_mode=False,
         default_model_tier=settings.default_model_tier,
+        verification=settings.verification,
     )
 
 

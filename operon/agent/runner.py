@@ -620,25 +620,49 @@ class Agent:
         """初始化 Verifier (验证 harness)。对照原版 _initCollaborators (0871.js:968)。"""
         if self._verifier is not None:
             return
-        from operon.config import VerificationConfig
+        from operon.config import VerificationConfig as SettingsVerificationConfig
+        from operon.config import load_settings
+        from operon.verify.verifier import VerificationConfig as VerifierConfig
         from operon.verify.verifier import Verifier
 
-        cfg = getattr(self.ctx, "verification_config", None) or VerificationConfig()
+        settings_cfg = (
+            getattr(self.ctx, "verification_config", None) or SettingsVerificationConfig()
+        )
         # 收敛自动触发: plan 钉了 research_question 时, 即使 cfg.enabled=False 也开启 verifier,
         # 让 reviewer 检查后半段是否跑偏。普通问答/代码任务 (无 research_question) 不受影响。
         has_anchor = bool(getattr(self.ctx.plan, "research_question", None))
-        if not cfg.enabled and not has_anchor:
+        if not settings_cfg.enabled and not has_anchor:
             return
-        if not cfg.enabled and has_anchor:
+        if not settings_cfg.enabled and has_anchor:
             # 复制一份并开启, 不改原 cfg (避免污染共享配置)。
-            # 注意 VerificationConfig 是 Pydantic BaseModel (operon/config.py), 不是 dataclass。
-            cfg = cfg.model_copy(update={"enabled": True})
+            settings_cfg = settings_cfg.model_copy(update={"enabled": True})
+
+        # Reviewer 模型: 优先 [verification].reviewer_model, 其次 [models].reviewer.model,
+        # 最后回退到会话主模型。
+        settings = load_settings()
+        reviewer_model = settings_cfg.reviewer_model
+        if not reviewer_model and settings.models and settings.models.reviewer:
+            reviewer_model = settings.models.reviewer.model
+        if not reviewer_model:
+            reviewer_model = self.model
+
+        # operon.config.VerificationConfig (Pydantic settings) 与
+        # operon.verify.verifier.VerificationConfig (dataclass) 字段不同, 不能直接混用。
+        # 这里从 settings 取出通用字段, 构造 verifier 专用配置。
+        verifier_cfg = VerifierConfig(
+            enabled=settings_cfg.enabled,
+            reviewer_model=reviewer_model,
+            reviewer_max_iterations=settings_cfg.reviewer_max_iterations,
+            min_checkpoint_interval_ms=settings_cfg.min_checkpoint_interval_ms,
+            max_consecutive_bounces=settings_cfg.max_consecutive_bounces,
+        )
+
         self._verifier = Verifier(
             llm=self.llm,
             frame_service=self.frame_service,
             frame=self.frame,
-            config=cfg,
-            reviewer_model=cfg.reviewer_model or self.model,
+            config=verifier_cfg,
+            reviewer_model=reviewer_model,
             plan=self.ctx.plan,
         )
 

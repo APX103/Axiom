@@ -8,7 +8,7 @@ interface Props {
   minWidth: number;
   maxWidth: number;
   storageKey: string;
-  children: React.ReactNode;
+  children: React.ReactNode | ((toggleCollapsed: () => void) => React.ReactNode);
   className?: string;
 }
 
@@ -83,10 +83,12 @@ export function ResizableSidebar({
     );
   }
 
+  const isFunctionChildren = typeof children === "function";
+
   return (
     <aside
       className={`relative shrink-0 h-full bg-subtle flex flex-col ${
-        side === "left" ? "pr-10" : "pl-10"
+        isFunctionChildren ? "" : side === "left" ? "pr-10" : "pl-10"
       } ${className}`}
       style={{
         width,
@@ -96,16 +98,18 @@ export function ResizableSidebar({
             : "-1px 0 0 0 rgba(15,23,42,0.04)",
       }}
     >
-      {children}
-      <button
-        onClick={toggleCollapsed}
-        className={`absolute top-3 z-10 w-7 h-7 rounded-md flex items-center justify-center text-faint hover:text-muted hover:bg-hover transition-colors ${
-          side === "left" ? "right-2" : "left-2"
-        }`}
-        title={side === "left" ? "收起左栏" : "收起右栏"}
-      >
-        {side === "left" ? <ChevronLeftIcon /> : <ChevronRightIcon />}
-      </button>
+      {isFunctionChildren ? children(toggleCollapsed) : children}
+      {!isFunctionChildren && (
+        <button
+          onClick={toggleCollapsed}
+          className={`absolute top-3 z-10 w-7 h-7 rounded-md flex items-center justify-center text-faint hover:text-muted hover:bg-hover transition-colors ${
+            side === "left" ? "right-2" : "left-2"
+          }`}
+          title={side === "left" ? "收起左栏" : "收起右栏"}
+        >
+          {side === "left" ? <ChevronLeftIcon /> : <ChevronRightIcon />}
+        </button>
+      )}
       <div
         onMouseDown={startDrag}
         className={`absolute top-0 bottom-0 w-1 cursor-col-resize hover:bg-accent/40 transition-colors ${

@@ -156,6 +156,29 @@ class SessionManager:
         except Exception:
             logger.exception("Failed to update title for session %s", sid)
 
+    async def _db_save_plan(self, sid: str, plan: Any) -> None:
+        """把 plan 快照持久化到 sessions 表。"""
+        if not self.db_session_factory:
+            return
+        try:
+            import json
+            from dataclasses import asdict
+
+            from sqlalchemy import update
+
+            from operon.db.schema import SessionRecord
+
+            snapshot = _plan_snapshot(plan)
+            async with self.db_session_factory() as db:
+                await db.execute(
+                    update(SessionRecord)
+                    .where(SessionRecord.id == sid)
+                    .values(plan_data=json.dumps(snapshot, ensure_ascii=False))
+                )
+                await db.commit()
+        except Exception:
+            logger.exception("Failed to persist plan for session %s", sid)
+
     async def _db_list_sessions(self) -> list[dict[str, Any]]:
         """从 DB 读取所有会话记录。"""
         if not self.db_session_factory:
@@ -406,6 +429,7 @@ class SessionManager:
             if msg_count_before == 0:
                 await self._db_update_title(sid, prompt)
 
+        await self._db_save_plan(sid, active.ctx.plan)
         await self._db_touch_session(sid)
         return result
 
@@ -415,6 +439,7 @@ class SessionManager:
 
         active = self._sessions[sid]
         await plan_tools.approve_plan(active.ctx)
+        await self._db_save_plan(sid, active.ctx.plan)
         return {"approved": True, "steps": active.ctx.plan.steps}
 
     def session_state(self, sid: str) -> dict[str, Any]:
@@ -427,9 +452,7 @@ class SessionManager:
             "status": f.status.value,
             "task_summary": f.task_summary,
             "plan_mode": active.session.config.plan_mode,
-            "plan": {"steps": active.ctx.plan.steps, "approved": active.ctx.plan.approved}
-            if active.ctx.plan.steps
-            else None,
+            "plan": _plan_snapshot(active.ctx.plan),
             "artifacts": active.ctx.artifacts,
             "messages": [
                 {
@@ -454,7 +477,7 @@ class SessionManager:
             "status": rec.get("status", "archived"),
             "task_summary": rec.get("title"),
             "plan_mode": rec.get("plan_mode", False),
-            "plan": None,
+            "plan": _parse_plan_data(rec.get("plan_data")),
             "artifacts": {},
             "messages": messages,
         }
@@ -499,6 +522,30 @@ class SessionManager:
                     logger.info("Removed workspace dir for session %s: %s", sid, ws)
             except Exception:
                 logger.exception("Failed to remove workspace dir for session %s", sid)
+
+
+def _plan_snapshot(plan: Any) -> dict[str, Any] | None:
+    """把 PlanState 转成前端可用的 plan 快照。"""
+    if not plan or not plan.steps:
+        return None
+    try:
+        from dataclasses import asdict
+
+        return asdict(plan)
+    except Exception:
+        return {"steps": plan.steps, "approved": plan.approved}
+
+
+def _parse_plan_data(raw: str | None) -> dict[str, Any] | None:
+    """解析 DB 里的 plan_data JSON。"""
+    if not raw:
+        return None
+    try:
+        import json
+
+        return json.loads(raw)
+    except Exception:
+        return None
 
 
 def _serialize_content(content: Any) -> Any:

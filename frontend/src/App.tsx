@@ -312,51 +312,62 @@ function Workbench() {
       <div className="flex-1 flex overflow-hidden">
         {/* 左: 项目/会话侧边栏 - SciForge 风格 */}
         <ResizableSidebar side="left" defaultWidth={224} minWidth={180} maxWidth={400} storageKey="left">
-          <div className="p-2.5">
-            <button
-              onClick={handleNewSession}
-              className="w-full h-9 rounded-lg bg-accent hover:bg-accent-hover text-inverse text-sm font-medium shadow-sm transition-all active:scale-[0.98] flex items-center justify-center gap-1.5"
-            >
-              <PlusIcon width={14} height={14} />
-              新会话
-            </button>
-          </div>
+          {(toggleCollapsed) => (
+            <>
+              <div className="p-2.5 flex items-center gap-2">
+                <button
+                  onClick={handleNewSession}
+                  className="flex-1 h-9 rounded-lg bg-accent hover:bg-accent-hover text-inverse text-sm font-medium shadow-sm transition-all active:scale-[0.98] flex items-center justify-center gap-1.5"
+                >
+                  <PlusIcon width={14} height={14} />
+                  新会话
+                </button>
+                <button
+                  onClick={toggleCollapsed}
+                  className="shrink-0 w-7 h-9 rounded-lg flex items-center justify-center text-faint hover:text-muted hover:bg-hover transition-colors border border-border"
+                  title="收起左栏"
+                >
+                  <ChevronLeftIcon width={14} height={14} />
+                </button>
+              </div>
 
-          <div className="px-2.5 py-2">
-            <div className="text-[10px] font-medium text-faint uppercase tracking-wider px-2 mb-1.5">工作区</div>
-            <nav className="space-y-0.5">
-              <SidebarItem icon={<ChatIcon />} label="会话" active={sidebarTab === "sessions"} onClick={() => setSidebarTab("sessions")} />
-              <SidebarItem icon={<FolderIcon />} label="项目文件" active={sidebarTab === "files"} onClick={() => setSidebarTab("files")} />
-            </nav>
-          </div>
+              <div className="px-2.5 py-2">
+                <div className="text-[10px] font-medium text-faint uppercase tracking-wider px-2 mb-1.5">工作区</div>
+                <nav className="space-y-0.5">
+                  <SidebarItem icon={<ChatIcon />} label="会话" active={sidebarTab === "sessions"} onClick={() => setSidebarTab("sessions")} />
+                  <SidebarItem icon={<FolderIcon />} label="项目文件" active={sidebarTab === "files"} onClick={() => setSidebarTab("files")} />
+                </nav>
+              </div>
 
-          <div className="flex-1 overflow-y-auto px-2.5 py-1 min-h-0">
-            {sidebarTab === "sessions" ? (
-              sessions.length === 0 ? (
-                <EmptyState icon="" text="暂无会话" sub="点击上方开始新会话" />
-              ) : (
-                <div className="space-y-0.5">
-                  {sessions.map((s) => (
-                    <SessionItem
-                      key={s.id}
-                      info={s}
-                      active={s.id === sid}
-                      running={s.id === sid && session.status === "running"}
-                      iteration={s.id === sid ? session.iteration : 0}
-                      onClick={() => switchSession(s.id)}
-                      onDelete={(e) => handleDeleteSession(s.id, e)}
-                    />
-                  ))}
-                </div>
-              )
-            ) : (
-              <ProjectTree sid={sid} />
-            )}
-          </div>
+              <div className="flex-1 overflow-y-auto px-2.5 py-1 min-h-0">
+                {sidebarTab === "sessions" ? (
+                  sessions.length === 0 ? (
+                    <EmptyState icon="" text="暂无会话" sub="点击上方开始新会话" />
+                  ) : (
+                    <div className="space-y-0.5">
+                      {sessions.map((s) => (
+                        <SessionItem
+                          key={s.id}
+                          info={s}
+                          active={s.id === sid}
+                          running={s.id === sid && session.status === "running"}
+                          iteration={s.id === sid ? session.iteration : 0}
+                          onClick={() => switchSession(s.id)}
+                          onDelete={(e) => handleDeleteSession(s.id, e)}
+                        />
+                      ))}
+                    </div>
+                  )
+                ) : (
+                  <ProjectTree sid={sid} />
+                )}
+              </div>
 
-          <div className="p-2.5 mt-auto">
-            <UsageFooter usage={session.usage} />
-          </div>
+              <div className="p-2.5 mt-auto">
+                <UsageFooter usage={session.usage} />
+              </div>
+            </>
+          )}
         </ResizableSidebar>
 
         {/* 中: 对话流 */}
@@ -379,6 +390,14 @@ function Workbench() {
                 ⚠ {session.error}
               </div>
             )}
+            {session.status === "running" &&
+              (session.messages.length === 0 ||
+                session.messages[session.messages.length - 1].role !== "assistant") && (
+                <div className="max-w-3xl mx-auto mt-6 flex items-center gap-2 text-sm text-muted">
+                  <span className="w-2 h-2 rounded-full bg-accent animate-pulse" />
+                  Axiom 正在思考…
+                </div>
+              )}
           </div>
 
           {/* 悬浮输入区 - SciForge 风格药丸条 */}
@@ -454,21 +473,34 @@ function Workbench() {
 
         {/* 右: 工作区 + 验证 */}
         <ResizableSidebar side="right" defaultWidth={256} minWidth={200} maxWidth={480} storageKey="right">
-          <div className="flex-1 overflow-hidden">
-            <WorkspacePanel
-              artifacts={session.artifacts}
-              sid={sid}
-              onViewPaper={() => setShowPaper(true)}
-            />
-          </div>
-          <div className="flex-1 overflow-hidden">
-            <PlanPanel
-              plan={session.plan}
-              status={session.status}
-              awaiting={session.awaiting}
-              onApprove={onApprove}
-            />
-          </div>
+          {(toggleCollapsed) => (
+            <>
+              <div className="px-3 py-2 flex items-center justify-end border-b border-border shrink-0">
+                <button
+                  onClick={toggleCollapsed}
+                  className="w-7 h-7 rounded-lg flex items-center justify-center text-faint hover:text-muted hover:bg-hover transition-colors border border-border"
+                  title="收起右栏"
+                >
+                  <ChevronRightIcon width={14} height={14} />
+                </button>
+              </div>
+              <div className="flex-1 overflow-hidden">
+                <WorkspacePanel
+                  artifacts={session.artifacts}
+                  sid={sid}
+                  onViewPaper={() => setShowPaper(true)}
+                />
+              </div>
+              <div className="flex-1 overflow-hidden">
+                <PlanPanel
+                  plan={session.plan}
+                  status={session.status}
+                  awaiting={session.awaiting}
+                  onApprove={onApprove}
+                />
+              </div>
+            </>
+          )}
         </ResizableSidebar>
       </div>
 
@@ -878,6 +910,22 @@ function PlusIcon({ width = 14, height = 14 }: { width?: number; height?: number
     <svg width={width} height={height} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <line x1="12" y1="5" x2="12" y2="19" />
       <line x1="5" y1="12" x2="19" y2="12" />
+    </svg>
+  );
+}
+
+function ChevronLeftIcon({ width = 14, height = 14 }: { width?: number; height?: number }) {
+  return (
+    <svg width={width} height={height} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="15 18 9 12 15 6" />
+    </svg>
+  );
+}
+
+function ChevronRightIcon({ width = 14, height = 14 }: { width?: number; height?: number }) {
+  return (
+    <svg width={width} height={height} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="9 18 15 12 9 6" />
     </svg>
   );
 }

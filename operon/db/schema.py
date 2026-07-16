@@ -331,6 +331,8 @@ class SessionRecord(Base):
     model: Mapped[str | None] = mapped_column(String(255), nullable=True)
     plan_mode: Mapped[bool] = mapped_column(default=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="active")
+    # 计划状态快照 (PlanState 的 JSON 序列化), 用于会话从 DB 恢复时重建 plan
+    plan_data: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(default=_now)
     updated_at: Mapped[datetime] = mapped_column(default=_now, onupdate=_now)
 
