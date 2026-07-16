@@ -17,6 +17,7 @@ pytest.importorskip("aiosqlite")
 
 from operon.api.sessions import SessionManager, _serialize_content
 from operon.llm.messages import Message, Role, TextBlock, ThinkingBlock, ToolUseBlock
+from operon.tools.context import PlanState
 
 # ---------- _serialize_content 单测 ----------
 
@@ -181,3 +182,131 @@ async def test_db_roundtrip_preserves_harness_notice(manager: SessionManager):
     # 普通消息: 不带 harness_notice 标记
     assert "harness_notice" not in loaded[1]
     assert loaded[1]["content"] == "你好"
+
+
+# ---------- 会话恢复 (restore) ----------
+
+
+@pytest.mark.asyncio
+async def test_restore_session_from_db_and_continue(tmp_path: Path, monkeypatch):
+    """会话被淘汰/重启后, 能从 DB 恢复运行时状态并继续对话。
+
+    覆盖核心路径:
+    - 从 DB 读回 SessionRecord / messages / plan_data
+    - 重建 LLM client + Session + ToolContext
+    - 把历史消息直接拼回 ctx.frame.messages
+    - 恢复 PlanState
+    - 继续 run 时新消息排在已有上下文之后
+    """
+    import sys
+
+    import operon.config  # noqa: F401
+    import operon.settings  # noqa: F401
+    from operon.config import ModelsConfig, ModelTier, RollingCompactConfig, Settings
+    from operon.db.session import init_engine, session_factory
+    from operon.llm.base import LLMClient
+    from operon.llm.messages import LLMResponse, StopReason, TokenUsage
+    from operon.settings import AppSettings
+
+    class FakeLLM(LLMClient):
+        async def chat(
+            self,
+            messages,
+            *,
+            system=None,
+            tools=None,
+            model=None,
+            max_tokens=None,
+            temperature=None,
+            **kwargs,
+        ):
+            return LLMResponse(
+                content=[TextBlock(text="继续回答")],
+                stop_reason=StopReason.END_TURN,
+                model="test-model",
+                usage=TokenUsage(input_tokens=1, output_tokens=1),
+            )
+
+        async def chat_stream(self, **kwargs):
+            raise NotImplementedError
+
+        def count_tokens(self, text: str) -> int:
+            return max(1, len(text) // 4)
+
+        async def close(self) -> None:
+            pass
+
+    settings = Settings(
+        data_dir=tmp_path,
+        rolling_compact=RollingCompactConfig(enabled=False),
+        models=ModelsConfig(
+            large=ModelTier(
+                model="test-model",
+                base_url="http://localhost:9999",
+                api_key="sk-test",
+                context_window=256000,
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        sys.modules["operon.config"], "load_settings", lambda _path=None: settings
+    )
+    monkeypatch.setattr(
+        sys.modules["operon.settings"], "get_app_settings", lambda _dd: AppSettings()
+    )
+
+    engine = await init_engine(f"sqlite:///{tmp_path / 'sessions.db'}")
+    factory = session_factory(engine)
+    mgr = SessionManager(db_session_factory=factory)
+
+    # 创建会话并落库一些历史消息 + plan
+    active = await mgr.create(
+        llm=FakeLLM(),
+        workspace=tmp_path / "workspaces" / "sess1",
+        sid="sess1",
+        model="test-model",
+        data_dir=tmp_path,
+    )
+    active.ctx.frame.messages.append(Message(role=Role.USER, content="hello"))
+    await mgr._db_save_messages(
+        "sess1",
+        [{"role": "user", "content": "hello", "harness_notice": None}],
+    )
+    await mgr._db_save_plan(
+        "sess1",
+        PlanState(
+            steps=[{"id": "s1", "description": "step 1", "status": "done"}],
+            approved=True,
+        ),
+    )
+
+    # 模拟会话被淘汰出内存 / 后端重启
+    del mgr._sessions["sess1"]
+
+    # 从 DB 恢复
+    restored = await mgr.get_or_restore("sess1")
+    assert restored.id == "sess1"
+    assert restored.session.config.model == "test-model"
+    assert len(restored.ctx.frame.messages) == 1
+    assert restored.ctx.frame.messages[0].role == Role.USER
+    assert restored.ctx.frame.messages[0].content == "hello"
+    assert restored.ctx.plan.approved is True
+    assert restored.ctx.plan.steps[0]["description"] == "step 1"
+    # 新消息 seq 不能冲突
+    assert restored._msg_seq == 1
+
+    # 继续对话: run 应该基于已有上下文继续, 而不是报 404
+    # (restore 用 settings 重建了 OpenAICompatClient; 测试中把它替换成 FakeLLM 验证续跑)
+    restored.session.llm = FakeLLM()
+    result = await mgr.run("sess1", "next")
+    assert result.error is None
+    # [hello, next, assistant 继续回答]
+    assert len(restored.ctx.frame.messages) == 3
+    assert restored.ctx.frame.messages[-1].role == Role.ASSISTANT
+    assert restored.ctx.frame.messages[-2].role == Role.USER
+    # 新消息已落库
+    db_msgs = await mgr._db_load_messages("sess1")
+    assert len(db_msgs) == 3
+    assert db_msgs[-2]["role"] == "user"
+    assert db_msgs[-2]["content"] == "next"
+    assert db_msgs[-1]["role"] == "assistant"
