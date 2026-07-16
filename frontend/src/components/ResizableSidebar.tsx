@@ -85,7 +85,9 @@ export function ResizableSidebar({
 
   return (
     <aside
-      className={`relative shrink-0 h-full bg-subtle flex flex-col ${className}`}
+      className={`relative shrink-0 h-full bg-subtle flex flex-col ${
+        side === "left" ? "pr-10" : "pl-10"
+      } ${className}`}
       style={{
         width,
         boxShadow:
@@ -97,8 +99,8 @@ export function ResizableSidebar({
       {children}
       <button
         onClick={toggleCollapsed}
-        className={`absolute top-3 z-10 w-6 h-6 rounded-md flex items-center justify-center text-faint hover:text-muted hover:bg-hover transition-colors ${
-          side === "left" ? "right-1.5" : "left-1.5"
+        className={`absolute top-3 z-10 w-7 h-7 rounded-md flex items-center justify-center text-faint hover:text-muted hover:bg-hover transition-colors ${
+          side === "left" ? "right-2" : "left-2"
         }`}
         title={side === "left" ? "收起左栏" : "收起右栏"}
       >

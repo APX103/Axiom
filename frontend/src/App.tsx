@@ -427,13 +427,24 @@ function Workbench() {
                     <span className="text-[11px] text-faint">
                       {config.llm_providers.find((p) => p.enabled)?.model || "未配置"}
                     </span>
-                    <button
-                      onClick={send}
-                      disabled={!input.trim() || session.status === "running"}
-                      className="w-8 h-8 rounded-full bg-accent hover:bg-accent-hover disabled:bg-card disabled:text-faint text-inverse flex items-center justify-center transition-all active:scale-[0.98]"
-                    >
-                      <SendIcon />
-                    </button>
+                    {session.status === "running" ? (
+                      <button
+                        onClick={session.stop}
+                        className="w-8 h-8 rounded-full bg-error hover:bg-error/90 text-inverse flex items-center justify-center transition-all active:scale-[0.98]"
+                        title="停止生成"
+                      >
+                        <StopIcon />
+                      </button>
+                    ) : (
+                      <button
+                        onClick={send}
+                        disabled={!input.trim()}
+                        className="w-8 h-8 rounded-full bg-accent hover:bg-accent-hover disabled:bg-card disabled:text-faint text-inverse flex items-center justify-center transition-all active:scale-[0.98]"
+                        title="发送"
+                      >
+                        <SendIcon />
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -545,10 +556,13 @@ function SessionItem({
       })
     : "";
 
+  const [hovered, setHovered] = useState(false);
   return (
     <div
       onClick={onClick}
-      className={`group flex items-start gap-2 px-2.5 py-2 cursor-pointer rounded-lg transition-all ${
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      className={`flex items-start gap-2 px-2.5 py-2 cursor-pointer rounded-lg transition-all ${
         active
           ? "bg-accent/15"
           : "hover:bg-hover"
@@ -573,7 +587,9 @@ function SessionItem({
       </div>
       <button
         onClick={onDelete}
-        className="opacity-0 group-hover:opacity-100 shrink-0 mt-0.5 p-0.5 text-faint hover:text-error rounded transition-all"
+        className={`shrink-0 mt-0.5 p-0.5 text-faint hover:text-error rounded transition-all ${
+          hovered ? "opacity-100" : "opacity-0"
+        }`}
         title="删除"
       >
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -587,6 +603,7 @@ function SessionItem({
 function ProjectTree({ sid }: { sid: string | null }) {
   const [files, setFiles] = useState<{ path: string; size: number; name: string }[]>([]);
   const [refreshTick, setRefreshTick] = useState(0);
+  const [hovered, setHovered] = useState<string | null>(null);
   useEffect(() => {
     if (!sid) {
       setFiles([]);
@@ -628,12 +645,17 @@ function ProjectTree({ sid }: { sid: string | null }) {
   }
 
   return (
-    <div className="space-y-0.5">
+    <div
+      className="space-y-0.5"
+      onMouseLeave={() => setHovered(null)}
+      onScroll={() => setHovered(null)}
+    >
       {files.map((f) => (
         <div
           key={f.path}
-          className="group flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-hover cursor-pointer text-xs"
+          className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-hover cursor-pointer text-xs"
           onClick={() => window.open(`${apiBase()}/sessions/${sid}/files/${encodeURIComponent(f.path)}`, "_blank")}
+          onMouseEnter={() => setHovered(f.path)}
         >
           <FileIcon path={f.path} />
           <span className="flex-1 truncate text-muted">{f.name}</span>
@@ -642,7 +664,9 @@ function ProjectTree({ sid }: { sid: string | null }) {
               e.stopPropagation();
               handleDelete(f.path);
             }}
-            className="opacity-0 group-hover:opacity-100 text-faint hover:text-error p-0.5 rounded transition-all"
+            className={`text-faint hover:text-error p-0.5 rounded transition-all ${
+              hovered === f.path ? "opacity-100" : "opacity-0"
+            }`}
             title="删除"
           >
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -837,6 +861,14 @@ function SendIcon() {
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <line x1="22" y1="2" x2="11" y2="13" />
       <polygon points="22 2 15 22 11 13 2 9 22 2" />
+    </svg>
+  );
+}
+
+function StopIcon() {
+  return (
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+      <rect x="4" y="4" width="16" height="16" rx="2" />
     </svg>
   );
 }

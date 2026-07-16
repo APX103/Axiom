@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import "katex/dist/katex.min.css";
 import { parseTex, formatBibEntry } from "../tex";
-import { apiBase, downloadFile } from "../api";
+import { apiBase, openInFileManager } from "../api";
 
 interface Props {
   sid: string;
@@ -91,8 +91,8 @@ export function PaperView({ sid, onClose }: Props) {
       .filter((r) => r.text); // 残缺/缺失条目不显示, 避免裸 key
   }, [doc]);
 
-  const download = (path: string) => {
-    downloadFile(sid, path);
+  const openDir = (path: string) => {
+    openInFileManager(sid, path);
   };
 
   if (loading && !tex)
@@ -141,10 +141,11 @@ export function PaperView({ sid, onClose }: Props) {
             .map((p) => (
               <button
                 key={p.path}
-                onClick={() => download(p.path)}
+                onClick={() => openDir(p.path)}
                 className="text-xs px-3 py-1.5 rounded-lg bg-accent hover:bg-accent-hover text-inverse font-mono"
+                title="打开文件所在目录"
               >
-                ⬇ {p.path.split("/").pop()}
+                📁 {p.path.split("/").pop()}
               </button>
             ))}
         </div>

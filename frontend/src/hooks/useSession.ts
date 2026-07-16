@@ -177,6 +177,14 @@ export function useSession() {
     }
   }, []);
 
+  const stop = useCallback(() => {
+    // 关闭 SSE 连接会触发后端 asyncio.CancelledError, 从而取消 agent run_task
+    closeConnection();
+    setStatus("idle");
+    setError(null);
+    curRef.current = null;
+  }, [closeConnection]);
+
   // 组件卸载时关闭 SSE 连接
   useEffect(() => {
     return () => closeConnection();
@@ -304,6 +312,7 @@ export function useSession() {
     error,
     awaiting,
     start,
+    stop,
     reset,
     setPlan,
     setStatus,

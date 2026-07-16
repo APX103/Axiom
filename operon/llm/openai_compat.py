@@ -15,7 +15,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
+import logging
 from collections.abc import AsyncIterator
 from typing import Any
 
@@ -30,6 +32,8 @@ from .message_adapter import (
 )
 from .messages import LLMResponse, Message, ToolDefinition
 from .token_counter import TokenCounter
+
+logger = logging.getLogger(__name__)
 
 
 class OpenAICompatClient(LLMClient):
@@ -48,11 +52,15 @@ class OpenAICompatClient(LLMClient):
         token_counter: TokenCounter | None = None,
         extra_headers: dict[str, str] | None = None,
         transport: httpx.AsyncBaseTransport | None = None,
+        max_retries: int = 3,
+        retry_backoff: float = 1.0,
     ):
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
         self.default_model = model
         self.token_counter = token_counter or TokenCounter()
+        self.max_retries = max_retries
+        self.retry_backoff = retry_backoff
         self._client = httpx.AsyncClient(
             base_url=self.base_url,
             headers={
@@ -63,6 +71,42 @@ class OpenAICompatClient(LLMClient):
             timeout=timeout,
             transport=transport,
         )
+
+    def _is_retryable(self, exc: BaseException) -> bool:
+        """判断异常是否值得重试。"""
+        if isinstance(exc, httpx.HTTPStatusError):
+            # 429 限流 + 常见网关/上游错误
+            return exc.response.status_code in (429, 502, 503, 504)
+        return isinstance(
+            exc,
+            (
+                httpx.ConnectError,
+                httpx.TimeoutException,
+                httpx.NetworkError,
+                httpx.RemoteProtocolError,
+            ),
+        )
+
+    async def _sleep_before_retry(self, exc: BaseException, attempt: int) -> None:
+        """根据 Retry-After 头或指数退避计算等待时间。"""
+        retry_after: float | None = None
+        if isinstance(exc, httpx.HTTPStatusError):
+            ra = exc.response.headers.get("retry-after")
+            if ra:
+                try:
+                    retry_after = float(ra)
+                except ValueError:
+                    pass
+        wait = retry_after if retry_after is not None else self.retry_backoff * (2 ** attempt)
+        wait = min(wait, 60.0)  # 最多等 60s, 避免恶意头导致长时间阻塞
+        logger.warning(
+            "LLM request failed (%s), retrying in %.1fs (attempt %d/%d)",
+            type(exc).__name__,
+            wait,
+            attempt + 1,
+            self.max_retries,
+        )
+        await asyncio.sleep(wait)
 
     async def chat(
         self,
@@ -88,9 +132,19 @@ class OpenAICompatClient(LLMClient):
             payload["tool_choice"] = kwargs.pop("tool_choice", "auto")
         payload.update(kwargs)
 
-        resp = await self._client.post("/chat/completions", json=payload)
-        resp.raise_for_status()
-        return response_from_openai(resp.json())
+        last_exc: BaseException | None = None
+        for attempt in range(self.max_retries + 1):
+            try:
+                resp = await self._client.post("/chat/completions", json=payload)
+                resp.raise_for_status()
+                return response_from_openai(resp.json())
+            except Exception as e:
+                last_exc = e
+                if attempt < self.max_retries and self._is_retryable(e):
+                    await self._sleep_before_retry(e, attempt)
+                    continue
+                break
+        raise last_exc or RuntimeError("LLM request failed")
 
     async def chat_stream(
         self,
@@ -125,27 +179,42 @@ class OpenAICompatClient(LLMClient):
             payload["tool_choice"] = kwargs.pop("tool_choice", "auto")
         payload.update(kwargs)
 
-        agg = StreamAggregator(model=model or self.default_model)
-        # 用 client.stream 逐行读 SSE 响应
-        async with self._client.stream("POST", "/chat/completions", json=payload) as resp:
-            resp.raise_for_status()
-            async for line in resp.aiter_lines():
-                line = line.strip()
-                if not line or not line.startswith("data:"):
+        last_exc: BaseException | None = None
+        for attempt in range(self.max_retries + 1):
+            agg = StreamAggregator(model=model or self.default_model)
+            yielded = 0
+            try:
+                # 用 client.stream 逐行读 SSE 响应
+                async with self._client.stream("POST", "/chat/completions", json=payload) as resp:
+                    resp.raise_for_status()
+                    async for line in resp.aiter_lines():
+                        line = line.strip()
+                        if not line or not line.startswith("data:"):
+                            continue
+                        data = line[5:].strip()
+                        if data == "[DONE]":
+                            break
+                        try:
+                            chunk = json.loads(data)
+                        except json.JSONDecodeError:
+                            continue
+                        text_delta, reasoning_delta = agg.feed(chunk)
+                        if reasoning_delta:
+                            yielded += 1
+                            yield {"type": "reasoning", "delta": reasoning_delta}
+                        if text_delta:
+                            yielded += 1
+                            yield {"type": "text", "delta": text_delta}
+                yield {"type": "final", "response": agg.finalize()}
+                return
+            except Exception as e:
+                last_exc = e
+                # 已经吐出内容就中途失败,不重试,避免重复输出
+                if attempt < self.max_retries and self._is_retryable(e) and yielded == 0:
+                    await self._sleep_before_retry(e, attempt)
                     continue
-                data = line[5:].strip()
-                if data == "[DONE]":
-                    break
-                try:
-                    chunk = json.loads(data)
-                except json.JSONDecodeError:
-                    continue
-                text_delta, reasoning_delta = agg.feed(chunk)
-                if reasoning_delta:
-                    yield {"type": "reasoning", "delta": reasoning_delta}
-                if text_delta:
-                    yield {"type": "text", "delta": text_delta}
-        yield {"type": "final", "response": agg.finalize()}
+                break
+        raise last_exc or RuntimeError("LLM stream request failed")
 
     def count_tokens(self, text: str) -> int:
         return self.token_counter.count(text)

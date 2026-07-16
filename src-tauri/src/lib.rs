@@ -168,12 +168,14 @@ async fn start_backend(app_handle: &tauri::AppHandle, port: u16) -> std::io::Res
     args.push(port.to_string());
 
     let mut cmd = Command::new(&bin);
+    let data_dir = ensure_data_dir();
+    // 让 Tauri 主进程也持有相同的数据目录，后续 Rust 命令（如打开文件位置）能直接读取
+    std::env::set_var("OPERON_DATA_DIR", &data_dir);
     cmd.args(&args)
         .current_dir(&work_dir)
         .env("OPERON_DATA_DIR", {
-            let dir = ensure_data_dir();
-            eprintln!("[axiom] OPERON_DATA_DIR = {:?}", dir);
-            dir
+            eprintln!("[axiom] OPERON_DATA_DIR = {:?}", data_dir);
+            data_dir
         })
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
@@ -257,16 +259,10 @@ fn check_update(current: String) -> Result<Option<(String, String)>, String> {
 /// 直接打开 Finder (macOS) / Explorer (Win) 定位到该文件。
 ///
 /// path: 相对于 session 工作区的路径 (如 "main.tex" 或 "out/fig.pdf")
-/// data_dir: OPERON_DATA_DIR (lib.rs 启动后端时设的环境变量, 这里读同一个)
 #[tauri::command]
 fn open_in_file_manager(sid: String, path: String) -> Result<(), String> {
-    // data_dir: 优先 OPERON_DATA_DIR 环境变量, 回退 ~/.axiom
-    let data_dir = std::env::var("OPERON_DATA_DIR")
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| {
-            let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
-            PathBuf::from(home).join(".axiom")
-        });
+    // 用 ensure_data_dir() 保证和后端写文件的位置一致, 不依赖环境变量
+    let data_dir = ensure_data_dir();
     let abs = data_dir.join("workspaces").join(&sid).join(&path);
 
     if !abs.exists() {
@@ -277,29 +273,29 @@ fn open_in_file_manager(sid: String, path: String) -> Result<(), String> {
 
     #[cfg(target_os = "macos")]
     {
-        // open -R 在 Finder 里定位并高亮选中文件
+        // -R 会在 Finder 中选中该文件并打开所在目录, 比只打开目录更直观
         let status = std::process::Command::new("open")
-            .args(["-R", &abs.to_string_lossy()])
+            .arg("-R")
+            .arg(&abs)
             .status()
             .map_err(|e| format!("failed to open Finder: {}", e))?;
         if !status.success() {
-            return Err("open -R failed".to_string());
+            return Err("open directory failed".to_string());
         }
     }
     #[cfg(target_os = "windows")]
     {
-        // explorer /select,"C:\path\to\file"
+        // /select 会选中文件
         let status = std::process::Command::new("explorer")
-            .args(["/select,", &abs.to_string_lossy()])
+            .arg(format!("/select,{}", abs.display()))
             .status()
             .map_err(|e| format!("failed to open Explorer: {}", e))?;
         if !status.success() {
-            return Err("explorer /select failed".to_string());
+            return Err("explorer open directory failed".to_string());
         }
     }
     #[cfg(target_os = "linux")]
     {
-        // xdg-open 打开父目录 (无法精确定位)
         let parent = abs.parent().unwrap_or_else(|| std::path::Path::new("."));
         let status = std::process::Command::new("xdg-open")
             .arg(parent)

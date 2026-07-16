@@ -1,7 +1,7 @@
 // 工作区面板: 展示 agent 产出的文件 (artifacts) + 实际工作区文件。
 // .tex/.pdf 可点击查看/下载/删除。
 import { useEffect, useState } from "react";
-import { deleteFile, apiBase, downloadFile } from "../api";
+import { deleteFile, apiBase, openInFileManager } from "../api";
 import type { ArtifactInfo } from "../types";
 
 export function WorkspacePanel({
@@ -15,6 +15,7 @@ export function WorkspacePanel({
 }) {
   const [files, setFiles] = useState<{ path: string; size: number; name: string }[]>([]);
   const [refreshTick, setRefreshTick] = useState(0);
+  const [hoveredPath, setHoveredPath] = useState<string | null>(null);
   const entries = Object.entries(artifacts);
 
   useEffect(() => {
@@ -71,15 +72,37 @@ export function WorkspacePanel({
           </button>
         )}
       </div>
-      <div className="flex-1 overflow-y-auto p-2">
+      <div
+        className="flex-1 overflow-y-auto p-2"
+        onMouseLeave={() => setHoveredPath(null)}
+        onScroll={() => setHoveredPath(null)}
+      >
         {files.length === 0 && entries.length === 0 ? (
           <EmptyHint text="还没有产物" sub="agent 写入的文件会显示在这里" />
         ) : (
           <ul className="space-y-0.5">
             {files.length > 0
-              ? files.map((f) => <FileItem key={f.path} path={f.path} size={f.size} sid={sid} onDelete={handleDelete} />)
+              ? files.map((f) => (
+                  <FileItem
+                    key={f.path}
+                    path={f.path}
+                    size={f.size}
+                    sid={sid}
+                    hovered={hoveredPath === f.path}
+                    onHover={() => setHoveredPath(f.path)}
+                    onDelete={handleDelete}
+                  />
+                ))
               : entries.map(([path, info]) => (
-                  <FileItem key={path} path={path} size={info.size} sid={sid} onDelete={handleDelete} />
+                  <FileItem
+                    key={path}
+                    path={path}
+                    size={info.size}
+                    sid={sid}
+                    hovered={hoveredPath === path}
+                    onHover={() => setHoveredPath(path)}
+                    onDelete={handleDelete}
+                  />
                 ))}
           </ul>
         )}
@@ -92,11 +115,15 @@ function FileItem({
   path,
   size,
   sid,
+  hovered,
+  onHover,
   onDelete,
 }: {
   path: string;
   size: number;
   sid: string | null;
+  hovered: boolean;
+  onHover: () => void;
   onDelete: (path: string) => void;
 }) {
   const isViewable = /\.(tex|md|txt|py|csv|json|bib|js|ts|tsx|jsx|html|css|yaml|yml|xml|sh)$/.test(path);
@@ -104,9 +131,14 @@ function FileItem({
   const view = () => {
     if (sid && isViewable) window.open(`${apiBase()}/sessions/${sid}/files/${encodeURIComponent(path)}`, "_blank");
   };
-  const download = async (e: React.MouseEvent) => {
+  const openDir = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (sid) await downloadFile(sid, path);
+    if (!sid) return;
+    try {
+      await openInFileManager(sid, path);
+    } catch (e) {
+      alert(`打开文件位置失败: ${e instanceof Error ? e.message : String(e)}`);
+    }
   };
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -114,10 +146,11 @@ function FileItem({
   };
   return (
     <li
-      className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg group ${
+      className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg ${
         isViewable ? "hover:bg-hover cursor-pointer" : ""
       }`}
       onClick={view}
+      onMouseEnter={onHover}
     >
       <div className="flex items-center gap-2 min-w-0">
         <FileIcon path={path} isDoc={isDoc} />
@@ -126,15 +159,19 @@ function FileItem({
       <div className="flex items-center gap-1 shrink-0">
         <span className="text-[10px] text-faint font-mono">{formatSize(size)}</span>
         <button
-          onClick={download}
-          className="opacity-0 group-hover:opacity-100 text-[10px] text-faint hover:text-accent p-1 rounded transition-all"
-          title="下载"
+          onClick={openDir}
+          className={`text-[10px] text-faint hover:text-accent p-1 rounded transition-all ${
+            hovered ? "opacity-100" : "opacity-0"
+          }`}
+          title="打开文件所在目录"
         >
-          <DownloadIcon />
+          <FolderOpenIcon />
         </button>
         <button
           onClick={handleDelete}
-          className="opacity-0 group-hover:opacity-100 text-[10px] text-faint hover:text-error p-1 rounded transition-all"
+          className={`text-[10px] text-faint hover:text-error p-1 rounded transition-all ${
+            hovered ? "opacity-100" : "opacity-0"
+          }`}
           title="删除"
         >
           <TrashIcon />
@@ -202,12 +239,12 @@ function FolderIcon() {
   );
 }
 
-function DownloadIcon() {
+function FolderOpenIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-      <polyline points="7 10 12 15 17 10" />
-      <line x1="12" y1="15" x2="12" y2="3" />
+      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2v4" />
+      <path d="M2 10h20" />
+      <path d="M9 15l3-3 3 3" />
     </svg>
   );
 }
