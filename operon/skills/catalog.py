@@ -83,17 +83,31 @@ def load_builtin_skills() -> list[Skill]:
     """加载内置 skill — 从 operon-py/skills/ 目录的真实 SKILL.md。
 
     对照原版: 原版内置 skill 在 44MB assets.tar 里 (./skills/<name>/SKILL.md)。
-    本项目从原版提取了 13 个通用 skill (排除 16 个生物领域 skill) 到 operon-py/skills/。
+    本项目从原版提取了通用 skill 到 operon-py/skills/。
     每个含真实指令 + 可选 kernel.py sidecar。
+
+    路径解析 (两种部署形态都要支持):
+    1. PyInstaller 打包后: skills/ 在 spec 里被加进 datas, 解压到 _MEIPASS/skills/。
+       用 sys._MEIPASS 定位 (frozen 时 sys.frozen=True)。
+    2. 源码运行: 相对 catalog.py 的 ../../skills/skills/。
     """
     from pathlib import Path
+    import sys
 
     from .parser import parse_skill_md
 
-    # 内置 skill 目录 (打包在 operon-py/skills/skills/)
-    builtin_root = Path(__file__).resolve().parent.parent.parent / "skills" / "skills"
+    # 候选 roots: PyInstaller 解压目录优先, 回退源码相对路径
+    candidates: list[Path] = []
+    if getattr(sys, "frozen", False):
+        meipass = getattr(sys, "_MEIPASS", None)
+        if meipass:
+            candidates.append(Path(meipass) / "skills" / "skills")
+    candidates.append(Path(__file__).resolve().parent.parent.parent / "skills" / "skills")
+
+    builtin_root: Path | None = next((c for c in candidates if c.exists()), None)
     skills: list[Skill] = []
-    if not builtin_root.exists():
+    if builtin_root is None:
+        logger.warning("builtin skills directory not found in: %s", candidates)
         return skills
     for child in sorted(builtin_root.iterdir()):
         if not child.is_dir() or child.name.startswith("."):
@@ -108,3 +122,40 @@ def load_builtin_skills() -> list[Skill]:
         except Exception as e:
             logger.warning("failed to load builtin skill %s: %s", child.name, e)
     return skills
+
+
+def _builtin_root() -> Path | None:
+    """返回 builtin skills 根目录 (PyInstaller _MEIPASS 优先, 回退源码路径)。"""
+    import sys
+
+    candidates: list[Path] = []
+    if getattr(sys, "frozen", False):
+        meipass = getattr(sys, "_MEIPASS", None)
+        if meipass:
+            candidates.append(Path(meipass) / "skills" / "skills")
+    candidates.append(Path(__file__).resolve().parent.parent.parent / "skills" / "skills")
+    return next((c for c in candidates if c.exists()), None)
+
+
+def ensure_user_skills_copy(data_dir: Path) -> Path | None:
+    """首次启动时把 builtin skills copy 一份到 <data_dir>/skills/。
+
+    目的: 让用户在设置面板里看到、可编辑内置 skills (否则打包后用户不可见)。
+    只在目标目录不存在时 copy (不覆盖用户已修改的副本)。
+    返回 copy 到的路径 (或已存在的路径)。
+    """
+    src = _builtin_root()
+    if src is None:
+        return None
+    dst = data_dir / "skills"
+    if dst.exists():
+        return dst  # 已 copy 过 (用户可能改过), 不覆盖
+    try:
+        import shutil
+
+        shutil.copytree(src, dst)
+        logger.info("copied builtin skills to %s", dst)
+        return dst
+    except Exception as e:
+        logger.warning("failed to copy builtin skills to %s: %s", dst, e)
+        return None

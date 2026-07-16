@@ -118,13 +118,31 @@ class Session:
                     "artifact DB load failed, starting with empty store: %s", e
                 )
 
-        # 初始化 Skill 目录 (阶段 5): 扫工作区 .claude/skills + 内置
-        from operon.skills.catalog import SkillCatalog, load_builtin_skills
+        # 初始化 Skill 目录 (阶段 5): 扫工作区 .claude/skills + data_dir/skills + 内置
+        from operon.skills.catalog import (
+            SkillCatalog,
+            ensure_user_skills_copy,
+            load_builtin_skills,
+        )
+
+        # 首次启动: 把 builtin skills copy 到 data_dir/skills/ (让用户可见/可编辑)
+        user_skills_dir = None
+        if config.db_session_factory is not None and config.workspace is not None:
+            # data_dir 通常是 config.workspace 的父级 (见 settings)
+            data_dir = config.workspace.resolve()
+            user_skills_dir = ensure_user_skills_copy(data_dir)
 
         skills_root = config.workspace.resolve() / ".claude" / "skills"
         catalog = SkillCatalog(skills_root if skills_root.exists() else None)
-        for s in load_builtin_skills():
-            catalog.add(s)
+        # 若用户副本存在, 扫它 (用户编辑过的副本优先于内置); 否则加载内置
+        if user_skills_dir and user_skills_dir.exists():
+            user_catalog = SkillCatalog(user_skills_dir)
+            user_catalog.scan()
+            for s in user_catalog.list():
+                catalog.add(s)
+        else:
+            for s in load_builtin_skills():
+                catalog.add(s)
         # 应用用户在设置面板中禁用的 skills
         if config.disabled_skills:
             catalog.set_disabled(config.disabled_skills)
