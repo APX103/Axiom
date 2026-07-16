@@ -86,8 +86,9 @@ export function PaperView({ sid, onClose }: Props) {
       .sort(([, a], [, b]) => a - b)
       .map(([key, num]) => {
         const entry = doc.references.find((r) => r.key === key);
-        return { key, num, text: entry ? formatBibEntry(entry) : key };
-      });
+        return { key, num, text: entry ? formatBibEntry(entry) : "" };
+      })
+      .filter((r) => r.text); // 残缺/缺失条目不显示, 避免裸 key
   }, [doc]);
 
   const download = (path: string) => {

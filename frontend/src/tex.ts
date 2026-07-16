@@ -55,8 +55,17 @@ function parseBibtex(bib: string): BibEntry[] {
   return entries;
 }
 
-/** 格式化一个 bib 条目为可读引用文本。 */
+/** 判断 bib 条目是否"完整" (有可读的引用信息)。
+ * author+title+year 至少有 2 个 — 否则渲染出来只是个无意义的 key, 不该显示。 */
+function isCompleteEntry(e: BibEntry): boolean {
+  const f = e.fields;
+  const has = [f.author, f.title, f.year].filter((v) => v && String(v).trim()).length;
+  return has >= 2;
+}
+
+/** 格式化一个 bib 条目为可读引用文本。残缺条目返回空串 (不显示)。 */
 export function formatBibEntry(e: BibEntry): string {
+  if (!isCompleteEntry(e)) return ""; // 残缺条目不显示, 避免裸 key 污染列表
   const f = e.fields;
   const authors = f.author || "";
   const title = f.title || "";
@@ -74,7 +83,7 @@ export function formatBibEntry(e: BibEntry): string {
   if (venue) out += `${venue}`;
   if (vol || pages) out += `${vol}${pages}`;
   if (year) out += `, ${year}`;
-  return out.trim() || e.key;
+  return out.trim();
 }
 
 /** 提取 \cmd{...},用平衡花括号匹配 (支持嵌套)。返回首个匹配的内容(去外层括号)。 */
@@ -120,8 +129,11 @@ export function parseTex(tex: string, bib?: string): ParsedDoc {
   body = body.replace(/\\bibliographystyle\{[^}]*\}/g, "");
   body = body.replace(/\\bibliography\{[^}]*\}/g, "");
 
-  // 解析 bib + 构建引用编号 (按正文首次出现顺序)
+  // 解析 bib + 构建引用编号 (按正文首次出现顺序)。
+  // 只给"bib 里有完整条目"的 key 分配编号 — 否则正文会显示 [?]、
+  // 参考文献列表会冒出裸 key (如 uddin2026mechanical), 浪费读者时间。
   const references: BibEntry[] = bib ? parseBibtex(bib) : [];
+  const refByKey = new Map(references.map((r) => [r.key, r]));
   _citeMap = {};
   let nextNum = 1;
   const citeRe = /\\cite[ptp]*\{([^}]+)\}|\\cite\{([^}]+)\}/g;
@@ -129,7 +141,12 @@ export function parseTex(tex: string, bib?: string): ParsedDoc {
   while ((cm = citeRe.exec(cleaned))) {
     const keys = (cm[1] || cm[2]).split(",").map((k) => k.trim());
     for (const k of keys) {
-      if (!_citeMap[k]) _citeMap[k] = nextNum++;
+      if (_citeMap[k]) continue;
+      const entry = refByKey.get(k);
+      if (entry && isCompleteEntry(entry)) {
+        _citeMap[k] = nextNum++;
+      }
+      // 无完整条目的 key 不分配编号 → 正文渲染成 [?] (citeRe 处理)
     }
   }
 

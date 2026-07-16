@@ -75,3 +75,5 @@ Two files in the workspace:
 - `citation_plan.jsonl` — one line per cited paper: `{key, lqs, tier, level (A/B/C), intended_section, doi}`. This is the bridge to `paper-structure`: it tells the writing phase where each citation lands.
 
 Keep `\cite{key}` in the `.tex` and `@article{key,...}` in the `.bib` perfectly in sync — a key in one but not the other renders as `[?]`.
+
+**Never cite a paper you can't fully document.** Every `\cite{key}` must point to a `.bib` entry with at least **author + title + year + journal/venue** (DOI if available). If you can't retrieve those fields for a paper, **do not cite it** — drop it and find one you can verify. A reference that shows up as a bare key (`uddin2026mechanical`) or with missing author/title is worse than no reference: it wastes the reader's time and signals fabrication. Before saving, grep your `.tex` cite keys against the `.bib` entries and remove any cite whose key has no complete entry.
