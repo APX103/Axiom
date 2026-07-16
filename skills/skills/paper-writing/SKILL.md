@@ -44,7 +44,7 @@ Goal: a complete, compiling draft end-to-end. Breadth over depth.
 | 5 | verify citations → compile → `peer-review` | first score (expect 5.5-6.5) |
 | 6 | route fixes → compile | revised draft |
 
-**Compile after every iteration that changes .tex.** A draft that doesn't compile is not a draft — it's a text file. Catch structural breakage early.
+**Compile after every iteration that changes .tex.** A draft that doesn't compile is not a draft — it's a text file. Catch structural breakage early. Call `compile_pdf("main.tex")` to build a PDF (uses the Tectonic engine; auto-runs bibtex + multiple passes, downloads missing packages on first use). A compiled PDF is the final deliverable the user opens.
 
 ## Phase 2 — Deep improvement (iterations 7–9, target: 7.5–8.0)
 

@@ -59,6 +59,13 @@ def register_all(registry: ToolRegistry, ctx: ToolContext) -> None:
         **edit_mod.EDIT_FILE_SPEC, handler=lambda **kw: edit_mod.edit_file(ctx, **kw)
     )
 
+    # LaTeX 编译 (.tex → PDF, 用 Tectonic)
+    from . import latex as latex_mod
+
+    registry.register(
+        **latex_mod.COMPILE_PDF_SPEC, handler=lambda **kw: latex_mod.compile_pdf(ctx, **kw)
+    )
+
     # plan mode
     registry.register(
         **plan.GENERATE_PLAN_SPEC, handler=lambda **kw: plan.generate_plan(ctx, **kw)
