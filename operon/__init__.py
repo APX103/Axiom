@@ -9,7 +9,22 @@
 
 from __future__ import annotations
 
-__version__ = "0.0.1"
+
+def _read_version() -> str:
+    """从 pyproject.toml 读取版本号, 避免硬编码。"""
+    try:
+        import tomllib
+        from pathlib import Path
+
+        path = Path(__file__).resolve().parent.parent / "pyproject.toml"
+        with open(path, "rb") as f:
+            data = tomllib.load(f)
+        return data.get("project", {}).get("version", "0.0.0")
+    except Exception:
+        return "0.0.0"
+
+
+__version__ = _read_version()
 
 from .config import Settings, load_settings
 from .llm.base import LLMClient

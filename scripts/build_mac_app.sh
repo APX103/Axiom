@@ -45,5 +45,6 @@ codesign --force --deep --sign - --entitlements "${ROOT}/src-tauri/entitlements.
   "${ROOT}/src-tauri/target/release/bundle/macos/Axiom.app" 2>&1
 
 echo "[build] done."
+VERSION=$(grep '^version' "${ROOT}/src-tauri/Cargo.toml" | head -1 | sed 's/.*= *"\(.*\)".*/\1/')
 echo "  App:  ${ROOT}/src-tauri/target/release/bundle/macos/Axiom.app"
-echo "  DMG:  ${ROOT}/src-tauri/target/release/bundle/dmg/Axiom_0.0.1_aarch64.dmg"
+echo "  DMG:  ${ROOT}/src-tauri/target/release/bundle/dmg/Axiom_${VERSION}_aarch64.dmg"

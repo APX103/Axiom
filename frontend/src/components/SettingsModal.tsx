@@ -1,7 +1,9 @@
 // 设置对话框: 配置 LLM Provider / MCP / Skills / 学术 API / 通用选项。
 // 配置保存到后端, 后端持久化到 settings.json; localStorage 仅作缓存。
 import { useEffect, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { saveSettings, listSkills, getMcpTools, listMemories, deleteMemory } from "../api";
+import { version as CURRENT_VERSION } from "../../package.json";
 import type { AppSettings, LLMProvider, MCPServer, SkillInfo, McpServerStatus, MemoryInfo, VerificationConfig } from "../types";
 
 const STORAGE_KEY = "operon-py-app-config";
@@ -905,9 +907,6 @@ function SkillCard({
   );
 }
 
-const CURRENT_VERSION = "0.0.2";
-const UPDATE_URL = "https://raw.githubusercontent.com/operonpy/axiom/main/VERSION";
-
 function UpdateCheck() {
   const [checking, setChecking] = useState(false);
   const [result, setResult] = useState<string | null>(null);
@@ -916,20 +915,17 @@ function UpdateCheck() {
     setChecking(true);
     setResult(null);
     try {
-      const resp = await fetch(UPDATE_URL, { cache: "no-store" });
-      if (!resp.ok) {
-        setResult("无法检查更新 (网络错误)");
-        return;
-      }
-      const latest = (await resp.text()).trim();
-      if (latest && latest !== CURRENT_VERSION) {
-        setResult(`发现新版本 ${latest} (当前 ${CURRENT_VERSION})`);
-        window.open("https://github.com/operonpy/axiom/releases", "_blank");
+      const result = await invoke<[string, string] | null>("check_update", {
+        current: CURRENT_VERSION,
+      });
+      if (result) {
+        setResult(`发现新版本 ${result[0]} (当前 ${CURRENT_VERSION})`);
+        window.open(result[1], "_blank");
       } else {
         setResult(`已是最新版本 (${CURRENT_VERSION})`);
       }
-    } catch {
-      setResult("检查更新失败");
+    } catch (e) {
+      setResult(`检查更新失败: ${e}`);
     } finally {
       setChecking(false);
     }

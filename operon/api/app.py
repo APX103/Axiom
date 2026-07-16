@@ -27,6 +27,7 @@ from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+import operon
 from operon.config import load_settings
 from operon.llm.openai_compat import OpenAICompatClient
 from operon.settings import (
@@ -102,7 +103,7 @@ def create_app() -> FastAPI:
             except Exception:
                 pass
 
-    app = FastAPI(title="operon-py API", version="0.0.1", lifespan=lifespan)
+    app = FastAPI(title="operon-py API", version=operon.__version__, lifespan=lifespan)
     # 允许前端跨域 (开发时前端在 5173,后端在 8000)
     app.add_middleware(
         CORSMiddleware,
@@ -114,7 +115,7 @@ def create_app() -> FastAPI:
     # ---- 健康检查 ----
     @app.get("/api/health")
     async def health() -> dict[str, str]:
-        return {"status": "ok", "version": "0.0.2"}
+        return {"status": "ok", "version": operon.__version__}
 
     # ---- 配置摘要 (前端据此判断后端是否已配好 LLM, 跳过手填弹窗) ----
     @app.get("/api/config")
