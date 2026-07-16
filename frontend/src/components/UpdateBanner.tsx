@@ -3,8 +3,8 @@
 
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { version as CURRENT_VERSION } from "../../package.json";
 
-const CURRENT_VERSION = "0.0.2"; // 与 tauri.conf.json / package.json 保持一致
 const CHECK_INTERVAL_MS = 1000 * 60 * 60; // 每小时检查一次
 
 export function UpdateBanner() {

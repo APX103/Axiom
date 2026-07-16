@@ -33,6 +33,37 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Verify version consistency
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          # 从 tag (v0.0.12) strip 掉前导 v 得到期望版本
+          EXPECTED="${TAG#v}"
+          echo "Expected version (from tag): $EXPECTED"
+
+          PKG=$(grep -E '^[[:space:]]*"version"' frontend/package.json | head -1 | sed -E 's/.*"version"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/')
+          PYPROJECT=$(grep -E '^version[[:space:]]*=' pyproject.toml | head -1 | sed -E 's/version[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/')
+          CARGO=$(grep -E '^version[[:space:]]*=' src-tauri/Cargo.toml | head -1 | sed -E 's/version[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/')
+          TAURI=$(grep -E '"version"' src-tauri/tauri.conf.json | head -1 | sed -E 's/.*"version"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/')
+
+          echo "frontend/package.json:       $PKG"
+          echo "pyproject.toml:              $PYPROJECT"
+          echo "src-tauri/Cargo.toml:        $CARGO"
+          echo "src-tauri/tauri.conf.json:   $TAURI"
+
+          fail=0
+          for v in "$PKG" "$PYPROJECT" "$CARGO" "$TAURI"; do
+            if [ "$v" != "$EXPECTED" ]; then
+              echo "::error::Version '$v' does not match tag '$EXPECTED'"
+              fail=1
+            fi
+          done
+          if [ "$fail" -ne 0 ]; then
+            echo "::error::Version mismatch — bump all of package.json / pyproject.toml / Cargo.toml / tauri.conf.json to $EXPECTED before tagging."
+            exit 1
+          fi
+          echo "All version files consistent with tag $EXPECTED."
+
       - name: Install Python
         uses: actions/setup-python@v5
         with:
@@ -108,12 +139,28 @@ jobs:
             echo "tag=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Generate latest.json
+        env:
+          TAG: ${{ steps.vars.outputs.tag }}
+        run: |
+          mkdir -p artifacts
+          # strip 前导 v (tag 形如 v0.0.12), version 字段用纯数字版本
+          VERSION="${TAG#v}"
+          cat > artifacts/latest.json <<EOF
+          {"version":"${VERSION}","url":"https://github.com/APX103/Axiom/releases/tag/${TAG}"}
+          EOF
+          echo "--- latest.json ---"
+          cat artifacts/latest.json
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.vars.outputs.tag }}
           name: Axiom ${{ steps.vars.outputs.tag }}
-          draft: true
+          # 不能是 draft: /releases/latest/download/latest.json 只对最新"正式"release 生效,
+          # draft release 在那个 URL 下是 404, 会导致 app 检查更新永远失败。
+          draft: false
           prerelease: false
           files: |
             artifacts/*-bundle/**/*
+            artifacts/latest.json

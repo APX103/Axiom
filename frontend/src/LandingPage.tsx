@@ -2,6 +2,7 @@
 // 复刻 Discovery Orbit 风格: 浅灰背景、蓝色强调、大标题、未签名 Mac App 安装说明
 
 import { useState } from "react";
+import { version as APP_VERSION } from "../package.json";
 
 export default function LandingPage() {
   const [copied, setCopied] = useState(false);
@@ -88,7 +89,7 @@ export default function LandingPage() {
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-6">
             <a
-              href="/Axiom_0.0.1_aarch64.dmg"
+              href={`/Axiom_${APP_VERSION}_aarch64.dmg`}
               className="group inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-full font-medium hover:bg-blue-700 transition-colors shadow-lg shadow-blue-600/20"
             >
               <span>下载 macOS · Apple Silicon</span>
@@ -110,7 +111,7 @@ export default function LandingPage() {
           </div>
 
           <div className="text-xs text-[#a1a1aa] mb-16">
-            v0.0.1 · beta · macOS 12+ · Local Runtime
+            v{APP_VERSION} · beta · macOS 12+ · Local Runtime
           </div>
 
           {/* 未签名安装提示 */}

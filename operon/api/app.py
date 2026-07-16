@@ -27,6 +27,7 @@ from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+import operon
 from operon.config import load_settings
 from operon.llm.openai_compat import OpenAICompatClient
 from operon.settings import (
@@ -102,7 +103,7 @@ def create_app() -> FastAPI:
             except Exception:
                 pass
 
-    app = FastAPI(title="operon-py API", version="0.0.1", lifespan=lifespan)
+    app = FastAPI(title="operon-py API", version=operon.__version__, lifespan=lifespan)
     # 允许前端跨域 (开发时前端在 5173,后端在 8000)
     app.add_middleware(
         CORSMiddleware,
@@ -114,7 +115,7 @@ def create_app() -> FastAPI:
     # ---- 健康检查 ----
     @app.get("/api/health")
     async def health() -> dict[str, str]:
-        return {"status": "ok", "version": "0.0.2"}
+        return {"status": "ok", "version": operon.__version__}
 
     # ---- 配置摘要 (前端据此判断后端是否已配好 LLM, 跳过手填弹窗) ----
     @app.get("/api/config")
@@ -380,7 +381,7 @@ def create_app() -> FastAPI:
         try:
             p.relative_to(ws.resolve())
         except ValueError:
-            raise HTTPException(403, "path outside workspace")
+            raise HTTPException(403, "path outside workspace") from None
         if not p.exists() or not p.is_file():
             raise HTTPException(404, "file not found")
         content = p.read_bytes()
@@ -425,7 +426,7 @@ def create_app() -> FastAPI:
         try:
             p.relative_to(ws)
         except ValueError:
-            raise HTTPException(403, "path outside workspace")
+            raise HTTPException(403, "path outside workspace") from None
         if not p.exists():
             raise HTTPException(404, "file not found")
 
@@ -468,9 +469,11 @@ def create_app() -> FastAPI:
     # ---- 运行 (非流式) ----
     @app.post("/api/sessions/{sid}/run")
     async def run_session(sid: str, req: RunReq) -> dict[str, Any]:
-        active = manager.get(sid)
-        if active is None:
-            raise HTTPException(404, "session not found")
+        # 若会话不在内存中 (已切换/重启), 自动从 DB 恢复
+        try:
+            await manager.get_or_restore(sid)
+        except Exception as e:
+            raise HTTPException(404, f"session not found: {e}") from e
         result = await manager.run(sid, req.prompt)
         return {
             "kind": result.kind.value,
@@ -484,17 +487,21 @@ def create_app() -> FastAPI:
     # ---- 批准 plan ----
     @app.post("/api/sessions/{sid}/approve")
     async def approve_plan(sid: str) -> dict[str, Any]:
-        if manager.get(sid) is None:
-            raise HTTPException(404, "session not found")
+        # 同样支持恢复后再审批
+        try:
+            await manager.get_or_restore(sid)
+        except Exception as e:
+            raise HTTPException(404, f"session not found: {e}") from e
         return await manager.approve_plan(sid)
 
     # ---- 流式运行 (WebSocket) ----
     @app.websocket("/api/sessions/{sid}/stream")
     async def stream(ws: WebSocket, sid: str) -> None:
-        active = manager.get(sid)
-        if active is None:
+        try:
+            active = await manager.get_or_restore(sid)
+        except Exception as e:
             await ws.accept()
-            await ws.send_json({"type": "error", "message": "session not found"})
+            await ws.send_json({"type": "error", "message": f"session not found: {e}"})
             await ws.close()
             return
 
@@ -550,15 +557,20 @@ def create_app() -> FastAPI:
 
         from fastapi.responses import StreamingResponse
 
-        active = manager.get(sid)
-        if active is None:
-            raise HTTPException(404, "session not found")
+        try:
+            active = await manager.get_or_restore(sid)
+        except Exception as e:
+            raise HTTPException(404, f"session not found: {e}") from e
         if not req.prompt:
             raise HTTPException(400, "no prompt")
         queue = active.callbacks.queue
 
         async def event_gen():
-            run_task = asyncio.create_task(manager.run(sid, req.prompt, plan_mode=req.plan_mode, deep_review=req.deep_review))
+            run_task = asyncio.create_task(
+                manager.run(
+                    sid, req.prompt, plan_mode=req.plan_mode, deep_review=req.deep_review
+                )
+            )
             try:
                 while True:
                     event = await queue.get()
@@ -571,7 +583,11 @@ def create_app() -> FastAPI:
                 run_task.cancel()
                 raise
             except Exception as e:
-                yield f"data: {_json.dumps({'type': 'error', 'message': f'{type(e).__name__}: {e}'}, ensure_ascii=False)}\n\n"
+                err = _json.dumps(
+                    {"type": "error", "message": f"{type(e).__name__}: {e}"},
+                    ensure_ascii=False,
+                )
+                yield f"data: {err}\n\n"
             finally:
                 if not run_task.done():
                     run_task.cancel()

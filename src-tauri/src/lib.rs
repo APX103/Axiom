@@ -206,11 +206,23 @@ async fn restart_backend(state: tauri::State<'_, AppState>, app_handle: tauri::A
     }
 }
 
-/// GitHub release 元数据 (我们只关心 tag_name 和 html_url)。
+/// release 上附加的 latest.json 元数据。
 #[derive(serde::Deserialize)]
-struct GhRelease {
-    tag_name: String,
-    html_url: String,
+struct LatestJson {
+    version: String,
+    url: String,
+}
+
+/// 构造带代理和超时配置的 ureq Agent。
+/// 会读取 ALL_PROXY / HTTPS_PROXY / HTTP_PROXY 环境变量。
+fn update_agent() -> ureq::Agent {
+    use std::time::Duration;
+    let mut config = ureq::Agent::config_builder()
+        .timeout_global(Some(Duration::from_secs(10)));
+    if let Some(proxy) = ureq::Proxy::try_from_env() {
+        config = config.proxy(Some(proxy));
+    }
+    config.build().into()
 }
 
 /// 简单的 semver 比较。要求版本字符串以 v 或数字开头。
@@ -228,26 +240,30 @@ fn is_newer(current: &str, latest: &str) -> bool {
     l > c
 }
 
-/// 检查 GitHub 是否有新版本。
-/// 入参 current: 当前版本号 (如 "0.0.2")。
+/// 检查 GitHub Release 是否有新版本。
+/// 不再直接调 GitHub API, 而是读取 release asset 上的 latest.json,
+/// 避免 api.github.com 的 rate limit 和部分网络环境下 API 不可用。
+/// 入参 current: 当前版本号 (如 package.json 里的 "0.0.11")。
 /// 返回: None = 没有更新; Some((version, url)) = 有新版本及其 Release 页面地址。
 #[tauri::command]
 fn check_update(current: String) -> Result<Option<(String, String)>, String> {
-    const REPO: &str = "APX103/Axiom";
-    let url = format!("https://api.github.com/repos/{}/releases/latest", REPO);
-    let resp = ureq::get(&url)
+    const LATEST_JSON_URL: &str =
+        "https://github.com/APX103/Axiom/releases/latest/download/latest.json";
+    let agent = update_agent();
+    let resp = agent
+        .get(LATEST_JSON_URL)
         .header("User-Agent", "Axiom-Updater")
-        .header("Accept", "application/vnd.github+json")
+        .header("Accept", "application/json")
         .call()
-        .map_err(|e| format!("failed to fetch latest release: {}", e))?;
+        .map_err(|e| format!("failed to fetch latest.json: {}", e))?;
 
-    let release: GhRelease = resp
+    let latest: LatestJson = resp
         .into_body()
         .read_json()
-        .map_err(|e| format!("failed to parse release: {}", e))?;
+        .map_err(|e| format!("failed to parse latest.json: {}", e))?;
 
-    if is_newer(&current, &release.tag_name) {
-        Ok(Some((release.tag_name, release.html_url)))
+    if is_newer(&current, &latest.version) {
+        Ok(Some((latest.version, latest.url)))
     } else {
         Ok(None)
     }

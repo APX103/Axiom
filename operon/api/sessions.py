@@ -19,10 +19,11 @@ from pathlib import Path
 from typing import Any
 
 from operon.agent.runner import Agent, RunResult
-from operon.agent.session import Session
+from operon.agent.session import Session, SessionConfig
 from operon.frames.service import FrameService
 from operon.llm.base import LLMClient
-from operon.tools.context import ToolContext
+from operon.llm.messages import Message, Role
+from operon.tools.context import PlanState, ToolContext
 
 from .callbacks import WSCallbacks
 
@@ -162,7 +163,6 @@ class SessionManager:
             return
         try:
             import json
-            from dataclasses import asdict
 
             from sqlalchemy import update
 
@@ -244,6 +244,26 @@ class SessionManager:
             logger.exception("Failed to load messages for session %s", sid)
             return []
 
+    async def _db_max_seq(self, sid: str) -> int:
+        """返回某会话已存消息的最大 seq, 无消息返回 -1。"""
+        if not self.db_session_factory:
+            return -1
+        try:
+            from sqlalchemy import func, select
+
+            from operon.db.schema import SessionMessage
+
+            async with self.db_session_factory() as db:
+                result = await db.execute(
+                    select(func.coalesce(func.max(SessionMessage.seq), -1)).where(
+                        SessionMessage.session_id == sid
+                    )
+                )
+                return result.scalar_one()
+        except Exception:
+            logger.exception("Failed to get max seq for session %s", sid)
+            return -1
+
     async def _db_delete_session(self, sid: str) -> None:
         """从 DB 删除会话及其消息 (级联)。"""
         if not self.db_session_factory:
@@ -306,8 +326,6 @@ class SessionManager:
         """
         import uuid
 
-        from operon.agent.session import SessionConfig
-
         if sid is None:
             sid = str(uuid.uuid4())[:12]
         callbacks = WSCallbacks()
@@ -342,6 +360,149 @@ class SessionManager:
         self._sessions[sid] = active
         self._evict_if_needed()
         await self._db_save_session(active)
+        return active
+
+    async def get_or_restore(self, sid: str) -> ActiveSession:
+        """获取活跃会话; 若已淘汰出内存, 则从 DB 重建运行时状态。"""
+        active = self._sessions.get(sid)
+        if active is not None:
+            return active
+        return await self.restore(sid)
+
+    async def restore(self, sid: str) -> ActiveSession:
+        """从 DB 恢复一个已归档/被淘汰的会话, 重建完整运行时状态。
+
+        恢复内容包括:
+        - workspace / model / plan_mode 等会话配置
+        - 历史消息 (直接拼接到 ctx.frame.messages)
+        - plan 状态 (PlanState)
+        - 会话级 skill / MCP / api_keys 取当前 settings (与原会话一致)
+
+        注意: 原会话若用请求体里临时传的 base_url/api_key 创建, 那些值未持久化,
+        恢复时会使用当前 settings 中的对应配置。
+        """
+        if not self.db_session_factory:
+            raise KeyError(f"session {sid} not found (no DB)")
+
+        from sqlalchemy import select
+
+        from operon.config import load_settings
+        from operon.db.schema import SessionRecord
+        from operon.llm.openai_compat import OpenAICompatClient
+        from operon.mcp.manager import MCPServerConfig
+        from operon.settings import get_app_settings
+
+        # 1. 读 DB 元数据
+        async with self.db_session_factory() as db:
+            result = await db.execute(select(SessionRecord).where(SessionRecord.id == sid))
+            rec = result.scalar_one_or_none()
+        if rec is None:
+            raise KeyError(f"session {sid} not found")
+
+        # 2. 用当前 settings 重建 LLM client; 优先匹配保存的 model 所在 tier
+        settings = load_settings()
+        saved_model = rec.model
+        tier = None
+        if settings.models:
+            # 先按 model 名找对应 tier
+            for name in ("large", "medium", "small", "kernel", "reviewer"):
+                t = getattr(settings.models, name, None)
+                if t and t.model == saved_model:
+                    tier = t
+                    break
+            # 找不到就用默认 tier
+            if tier is None:
+                tier = settings.models.tier(settings.default_model_tier)
+
+        if tier is None or not (tier.base_url and tier.api_key and tier.model):
+            raise RuntimeError(
+                f"无法恢复会话 {sid}: 当前 settings 缺少 LLM 配置 "
+                f"(需要 base_url + api_key + model)"
+            )
+
+        llm = OpenAICompatClient(
+            base_url=tier.base_url,
+            api_key=tier.api_key,
+            model=tier.model,
+        )
+
+        # 3. MCP / api_keys / skill 配置取当前 settings
+        mcp_servers = None
+        if settings.mcp_servers:
+            mcp_servers = [
+                MCPServerConfig(
+                    name=s.get("name", f"mcp-{i}"),
+                    url=s.get("url", ""),
+                    headers=s.get("headers", {}),
+                )
+                for i, s in enumerate(settings.mcp_servers)
+                if s.get("url")
+            ] or None
+
+        merged_keys = {k: v for k, v in settings.api_keys.items() if v} or None
+
+        app_cfg = get_app_settings(settings.data_dir_resolved())
+
+        workspace = Path(rec.workspace)
+
+        callbacks = WSCallbacks()
+        session = Session(
+            llm=llm,
+            config=SessionConfig(
+                workspace=workspace,
+                plan_mode=rec.plan_mode,
+                max_iterations=40,
+                model=tier.model,
+                context_window=tier.context_window,
+                mcp_servers=mcp_servers,
+                api_keys=merged_keys or {},
+                disabled_skills=app_cfg.disabled_skills or [],
+                db_session_factory=self.db_session_factory,
+                data_dir=settings.data_dir_resolved(),
+                load_claude_skills=app_cfg.load_claude_skills,
+                load_project_skills=app_cfg.load_project_skills,
+                skill_extra_dirs=app_cfg.skill_extra_dirs or [],
+            ),
+            callbacks=callbacks,
+        )
+        ctx = await session.prepare()
+
+        # 4. 把 DB 中的历史消息直接拼回 frame.messages
+        db_messages = await self._db_load_messages(sid)
+        for m in db_messages:
+            msg = Message(
+                role=Role(m["role"]),
+                content=m["content"],
+                _harness_notice=bool(m.get("harness_notice")),
+            )
+            ctx.frame.messages.append(msg)
+
+        # 5. 恢复 plan 状态
+        plan_snapshot = _parse_plan_data(rec.plan_data)
+        if plan_snapshot:
+            try:
+                ctx.plan = PlanState(**plan_snapshot)
+            except Exception:
+                logger.exception("Failed to restore plan for session %s", sid)
+
+        # 6. 回填元数据
+        if rec.title:
+            ctx.frame.task_summary = rec.title
+        ctx.frame.created_at = rec.created_at
+        ctx.frame.updated_at = rec.updated_at
+
+        active = ActiveSession(
+            id=sid,
+            session=session,
+            ctx=ctx,
+            callbacks=callbacks,
+            frame_service=session.frame_service,
+            mcp_manager=session.mcp_manager,
+            _msg_seq=await self._db_max_seq(sid) + 1,
+        )
+        self._sessions[sid] = active
+        self._evict_if_needed()
+        logger.info("Restored session %s from DB into memory", sid)
         return active
 
     def get(self, sid: str) -> ActiveSession | None:
@@ -437,7 +598,7 @@ class SessionManager:
         """批准 plan (从 awaiting_plan_approval 恢复)。"""
         from operon.tools.builtins import plan as plan_tools
 
-        active = self._sessions[sid]
+        active = await self.get_or_restore(sid)
         await plan_tools.approve_plan(active.ctx)
         await self._db_save_plan(sid, active.ctx.plan)
         return {"approved": True, "steps": active.ctx.plan.steps}

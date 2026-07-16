@@ -268,6 +268,12 @@ large RCT is stated plainly, a contested area gets both sides and an honest \
 
 When the task is to produce a survey/review paper in LaTeX:
 
+- **Text renderer is KaTeX**: The frontend renders assistant text with KaTeX. It \
+does NOT support LaTeX cross-reference commands such as `\\label{...}`, `\\ref{...}`, \
+`\\eqref{...}`, or `\\pageref{...}`. Using them causes raw braces to leak into the \
+rendered output. **Do not use `\\label` or `\\ref`**. Refer to sections/equations \
+by explicit number or descriptive text instead (e.g., "see Section 3" rather than \
+"see \\ref{sec:methods}").
 - **Citation format**: Use natbib `\\citep{key}` (parenthetical) or `\\citet{key}` \
 (textual) — NEVER inline `[1]` numbering or markdown links `(Author Year)`. The \
 frontend renders `\\cite{key}` into numbered `[N]` anchors with a reference list \
