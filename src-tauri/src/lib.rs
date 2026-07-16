@@ -251,6 +251,67 @@ fn check_update(current: String) -> Result<Option<(String, String)>, String> {
     }
 }
 
+/// 在系统文件管理器里打开并定位到工作区文件。
+///
+/// Tauri webview 里 window.open 触发不了下载, 所以"下载"按钮改为
+/// 直接打开 Finder (macOS) / Explorer (Win) 定位到该文件。
+///
+/// path: 相对于 session 工作区的路径 (如 "main.tex" 或 "out/fig.pdf")
+/// data_dir: OPERON_DATA_DIR (lib.rs 启动后端时设的环境变量, 这里读同一个)
+#[tauri::command]
+fn open_in_file_manager(sid: String, path: String) -> Result<(), String> {
+    // data_dir: 优先 OPERON_DATA_DIR 环境变量, 回退 ~/.axiom
+    let data_dir = std::env::var("OPERON_DATA_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| {
+            let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+            PathBuf::from(home).join(".axiom")
+        });
+    let abs = data_dir.join("workspaces").join(&sid).join(&path);
+
+    if !abs.exists() {
+        return Err(format!("file not found: {}", abs.display()));
+    }
+
+    eprintln!("[axiom] open in file manager: {}", abs.display());
+
+    #[cfg(target_os = "macos")]
+    {
+        // open -R 在 Finder 里定位并高亮选中文件
+        let status = std::process::Command::new("open")
+            .args(["-R", &abs.to_string_lossy()])
+            .status()
+            .map_err(|e| format!("failed to open Finder: {}", e))?;
+        if !status.success() {
+            return Err("open -R failed".to_string());
+        }
+    }
+    #[cfg(target_os = "windows")]
+    {
+        // explorer /select,"C:\path\to\file"
+        let status = std::process::Command::new("explorer")
+            .args(["/select,", &abs.to_string_lossy()])
+            .status()
+            .map_err(|e| format!("failed to open Explorer: {}", e))?;
+        if !status.success() {
+            return Err("explorer /select failed".to_string());
+        }
+    }
+    #[cfg(target_os = "linux")]
+    {
+        // xdg-open 打开父目录 (无法精确定位)
+        let parent = abs.parent().unwrap_or_else(|| std::path::Path::new("."));
+        let status = std::process::Command::new("xdg-open")
+            .arg(parent)
+            .status()
+            .map_err(|e| format!("failed to open file manager: {}", e))?;
+        if !status.success() {
+            return Err("xdg-open failed".to_string());
+        }
+    }
+    Ok(())
+}
+
 /// 向前端注入后端端口, 并导航到工作台 /app。
 /// 用 eval 注入端口到 localStorage (跨重载持久), 然后跳转 /app。
 fn inject_port_and_navigate(window: &WebviewWindow, port: u16) {
@@ -272,7 +333,7 @@ pub fn run() {
             backend: backend.clone(),
             backend_port: backend_port.clone(),
         })
-        .invoke_handler(tauri::generate_handler![restart_backend, check_update])
+        .invoke_handler(tauri::generate_handler![restart_backend, check_update, open_in_file_manager])
         .setup(move |app| {
             let window = app.get_webview_window("main").unwrap();
 

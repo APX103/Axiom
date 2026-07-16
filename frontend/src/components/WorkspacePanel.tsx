@@ -1,7 +1,7 @@
 // 工作区面板: 展示 agent 产出的文件 (artifacts) + 实际工作区文件。
 // .tex/.pdf 可点击查看/下载/删除。
 import { useEffect, useState } from "react";
-import { deleteFile, apiBase } from "../api";
+import { deleteFile, apiBase, downloadFile } from "../api";
 import type { ArtifactInfo } from "../types";
 
 export function WorkspacePanel({
@@ -104,9 +104,9 @@ function FileItem({
   const view = () => {
     if (sid && isViewable) window.open(`${apiBase()}/sessions/${sid}/files/${encodeURIComponent(path)}`, "_blank");
   };
-  const download = (e: React.MouseEvent) => {
+  const download = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (sid) window.open(`${apiBase()}/sessions/${sid}/files/${encodeURIComponent(path)}?download=true`, "_blank");
+    if (sid) await downloadFile(sid, path);
   };
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();

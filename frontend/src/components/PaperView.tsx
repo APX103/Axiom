@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import "katex/dist/katex.min.css";
 import { parseTex, formatBibEntry } from "../tex";
-import { apiBase } from "../api";
+import { apiBase, downloadFile } from "../api";
 
 interface Props {
   sid: string;
@@ -92,7 +92,7 @@ export function PaperView({ sid, onClose }: Props) {
   }, [doc]);
 
   const download = (path: string) => {
-    window.open(`${apiBase()}/sessions/${sid}/files/${encodeURIComponent(path)}?download=true`, "_blank");
+    downloadFile(sid, path);
   };
 
   if (loading && !tex)

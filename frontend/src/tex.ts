@@ -187,29 +187,47 @@ function bodyToHtml(body: string): string {
 
   // display math \[...\] 可跨行, 先整体提取成占位行, 避免被逐行处理拆碎
   body = body.replace(/\\\[([\s\S]*?)\\\]/g, (_whole, expr: string) => {
-    const rendered = katexRender(expr.trim(), true);
+    const rendered = katexRender(expr.trim(), true).replace(/\n/g, "@@NL@@");
     return `\n@@DISPLAYMATH@@${rendered}@@/DISPLAYMATH@@\n`;
   });
 
   // 数学环境 (equation/align/gather/displaymath 等): 整块提取成 display-math 占位行
-  // KaTeX 不认 \begin/\end, 这里剥出内部表达式喂给 katexRender;
-  // align 等多行公式取内部各行 (去首尾空白), 用换行分隔以支持 aligned 环境
+  // KaTeX 不认 \begin/\end, 这里转成 KaTeX 支持的 aligned/gathered 环境。
   body = body.replace(
     /\\begin\{(equation\*?|align\*?|gather\*?|displaymath|eqnarray\*?)\}([\s\S]*?)\\end\{\1\}/g,
-    (_whole, _env: string, inner: string) => {
-      const expr = inner
-        .split("\n")
-        .map((l) => l.replace(/^\s*&?\s*/, "").replace(/\s*&?\s*$/, "").trim())
-        .filter((l) => l.length > 0)
-        .join("\\\\\n");
-      const rendered = katexRender(expr, true);
+    (_whole, env: string, inner: string) => {
+      const raw = inner.trim();
+      let expr: string;
+      if (env.startsWith("align") || env.startsWith("eqnarray")) {
+        // align/eqnarray 的 & 对齐语法与 aligned 相同, 按 \\ 拆行后整体包裹
+        const rows = raw
+          .split("\\\\")
+          .map((r) => r.trim())
+          .filter(Boolean);
+        expr = `\\begin{aligned}${rows.join("\\\\\n")}\\end{aligned}`;
+      } else if (env.startsWith("gather")) {
+        const rows = raw
+          .split("\\\\")
+          .map((r) => r.trim())
+          .filter(Boolean);
+        expr = `\\begin{gathered}${rows.join("\\\\\n")}\\end{gathered}`;
+      } else {
+        // equation/equation*/displaymath
+        expr = raw;
+      }
+      const rendered = katexRender(expr, true).replace(/\n/g, "@@NL@@");
       return `\n@@DISPLAYMATH@@${rendered}@@/DISPLAYMATH@@\n`;
     }
   );
 
   // lstlisting 代码块 → <pre><code> (保留原样, 不走 renderInline 避免转义混乱)
+  // 代码中的换行会破坏占位行, 先替换为 @@NL@@ 占位, slice 后再恢复为 \n。
   body = body.replace(/\\begin\{lstlisting\}(\[[^\]]*\])?([\s\S]*?)\\end\{lstlisting\}/g, (_whole, _opt, code) => {
-    const esc = code.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const esc = code
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/\n/g, "@@NL@@");
     return `\n@@LST@@${esc}@@/LST@@\n`;
   });
   // framed 环境 → 灰底提示框 (整块, 内部按段落 renderInline)
@@ -246,17 +264,19 @@ function bodyToHtml(body: string): string {
     // 预处理标记的代码块 / framed 块 / display math (已转成占位行)
     if (line.startsWith("@@LST@@")) {
       closeList();
-      out.push(`<pre class="bg-code text-inverse p-3 my-2 overflow-auto text-xs rounded"><code>${line.slice(8, -8)}</code></pre>`);
+      const code = line.slice(7, -8).replace(/@@NL@@/g, "\n");
+      out.push(`<pre class="bg-code text-inverse p-3 my-2 overflow-auto text-xs rounded"><code>${code}</code></pre>`);
       continue;
     }
     if (line.startsWith("@@FRAMED@@")) {
       closeList();
-      out.push(`<div class="my-3 p-3 bg-elevated border-l-4 border-accent-secondary rounded text-sm text-default">${line.slice(10, -10)}</div>`);
+      out.push(`<div class="my-3 p-3 bg-elevated border-l-4 border-accent-secondary rounded text-sm text-default">${line.slice(10, -11)}</div>`);
       continue;
     }
     if (line.startsWith("@@DISPLAYMATH@@")) {
       closeList();
-      out.push(`<div class="my-3 text-center overflow-x-auto text-default">${line.slice(16, -17)}</div>`);
+      const math = line.slice(15, -16).replace(/@@NL@@/g, "\n");
+      out.push(`<div class="my-3 text-center overflow-x-auto text-default">${math}</div>`);
       continue;
     }
     if ((m = line.match(/^\\section\*?\{([\s\S]*)\}$/))) {

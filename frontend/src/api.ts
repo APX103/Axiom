@@ -214,3 +214,23 @@ export function connectSSE(
     },
   };
 }
+
+/**
+ * 下载/打开工作区文件。
+ * - Tauri 桌面壳: 调 open_in_file_manager 命令在 Finder/Explorer 里定位文件
+ *   (webview 的 window.open 无法触发下载)。
+ * - 浏览器: 回退 window.open 走后端 ?download=true。
+ */
+export async function downloadFile(sid: string, path: string): Promise<void> {
+  if (isTauri()) {
+    try {
+      const { invoke } = await import("@tauri-apps/api/core");
+      await invoke("open_in_file_manager", { sid, path });
+      return;
+    } catch (e) {
+      console.warn("open_in_file_manager failed, fallback to window.open:", e);
+    }
+  }
+  // 浏览器回退 (或 Tauri command 失败时)
+  window.open(`${getApiBase()}/sessions/${sid}/files/${encodeURIComponent(path)}?download=true`, "_blank");
+}
