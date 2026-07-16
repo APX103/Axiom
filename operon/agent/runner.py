@@ -518,6 +518,8 @@ class Agent:
                             "Plan mode is active. You MUST call `generate_plan` first with your planned steps "
                             f"before you can finish. (denial {self._plan_denials}/{MAX_PLAN_DENIALS})"
                         ),
+                        # 内部门控提示, 不渲染给用户
+                        _harness_notice=True,
                     )
                 )
                 await self.callbacks.on_event("plan_denial", "plan required before completion")
@@ -544,7 +546,9 @@ class Agent:
         barrier = await self._terminal_barrier()
         if barrier["veto"]:
             notice = barrier["notice"]
-            self.frame.messages.append(Message(role=Role.USER, content=notice["text"]))
+            self.frame.messages.append(
+                Message(role=Role.USER, content=notice["text"], _harness_notice=True)
+            )
             await self.callbacks.on_event(
                 "reviewer_findings", f"reviewer 发现 {len(notice['findings'])} 个问题,要求修复"
             )

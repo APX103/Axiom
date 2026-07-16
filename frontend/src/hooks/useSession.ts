@@ -280,10 +280,15 @@ export function useSession() {
           if ((m as Record<string, unknown>).harness_notice) {
             continue;
           }
-          // 兜底: 旧版 DB 未持久化 harness_notice 标记, 凭内容识别 memory 召回块并跳过。
+          // 兜底: 旧版 DB 未持久化 harness_notice 标记, 凭内容识别内部提示并跳过。
           // (新版已在 _db_save_messages 把 harness_notice 编进 content JSON)
-          if (role === "user" && text.trimStart().startsWith("[Memory]")) {
-            continue;
+          // - [Memory]: 记忆召回块
+          // - [boundary]: boundary 工具插入的任务边界标记 (旧 session 未带 harness_notice)
+          if (role === "user") {
+            const t = text.trimStart();
+            if (t.startsWith("[Memory]") || t.startsWith("[boundary]")) {
+              continue;
+            }
           }
           // 跳过空 user 消息: 后端把工具结果存为 role=user (Anthropic 风格),
           // 这些消息 text 为空且只有 tool_result blocks, 不应渲染为用户气泡
