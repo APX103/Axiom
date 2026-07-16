@@ -119,6 +119,10 @@ def register_all(registry: ToolRegistry, ctx: ToolContext) -> None:
         handler=lambda **kw: skill_mod.search_skills(ctx, **kw),
     )
     registry.register(
+        **skill_mod.LIST_SKILLS_SPEC,
+        handler=lambda **kw: skill_mod.list_skills(ctx, **kw),
+    )
+    registry.register(
         **skill_mod.SKILL_SPEC,
         handler=lambda **kw: skill_mod.skill(ctx, **kw),
     )

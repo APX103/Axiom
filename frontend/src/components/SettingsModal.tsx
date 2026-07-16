@@ -62,6 +62,9 @@ function migrateOldConfig(old: Record<string, unknown>): FullConfig {
     plan_mode: !!old.plan_mode,
     default_model_tier: "large",
     disabled_skills: [],
+    load_claude_skills: true,
+    load_project_skills: true,
+    skill_extra_dirs: [],
   };
 }
 
@@ -89,6 +92,9 @@ export function loadConfig(): FullConfig {
     plan_mode: false,
     default_model_tier: "large",
     disabled_skills: [],
+    load_claude_skills: true,
+    load_project_skills: true,
+    skill_extra_dirs: [],
   };
 }
 
@@ -121,6 +127,9 @@ export function fromApiSettings(raw: Record<string, unknown>): FullConfig {
     plan_mode: !!raw.plan_mode,
     default_model_tier: (raw.default_model_tier as string) || "large",
     disabled_skills: (raw.disabled_skills as string[]) || [],
+    load_claude_skills: raw.load_claude_skills !== false,
+    load_project_skills: raw.load_project_skills !== false,
+    skill_extra_dirs: (raw.skill_extra_dirs as string[]) || [],
   };
 }
 
@@ -153,6 +162,7 @@ export function SettingsModal({
   const [skills, setSkills] = useState<SkillInfo[]>([]);
   const [skillsLoading, setSkillsLoading] = useState(false);
   const [skillSearch, setSkillSearch] = useState("");
+  const [skillDirInput, setSkillDirInput] = useState("");
 
   // MCP 工具探测状态: serverName → status
   const [mcpStatus, setMcpStatus] = useState<Record<string, McpServerStatus>>({});
@@ -223,6 +233,25 @@ export function SettingsModal({
       prev.map((s) => (s.name === name ? { ...s, enabled: !s.enabled } : s))
     );
   };
+
+  // 切换 skill 来源
+  const toggleLoadClaude = () =>
+    setCfg((c) => ({ ...c, load_claude_skills: !c.load_claude_skills }));
+  const toggleLoadProject = () =>
+    setCfg((c) => ({ ...c, load_project_skills: !c.load_project_skills }));
+
+  // 自定义 skill 目录
+  const addSkillDir = () => {
+    const p = skillDirInput.trim();
+    if (!p) return;
+    setCfg((c) => ({ ...c, skill_extra_dirs: [...c.skill_extra_dirs, p] }));
+    setSkillDirInput("");
+  };
+  const removeSkillDir = (idx: number) =>
+    setCfg((c) => ({
+      ...c,
+      skill_extra_dirs: c.skill_extra_dirs.filter((_, i) => i !== idx),
+    }));
 
   // 展开/折叠 MCP server 工具探测
   const toggleMcpExpand = async (serverName: string) => {
@@ -560,54 +589,123 @@ export function SettingsModal({
 
           {tab === "skills" && (
             <div className="space-y-4">
+              {/* Skill 来源配置 */}
               <div className="text-[10px] font-semibold text-faint uppercase tracking-wider">
-                Skills ({skills.length})
+                Skill 来源
               </div>
-              {/* 搜索框 */}
-              <input
-                type="text"
-                value={skillSearch}
-                onChange={(e) => setSkillSearch(e.target.value)}
-                placeholder="搜索 skill…"
-                className="w-full px-3 py-2 bg-page rounded-lg text-sm text-default placeholder:text-faint focus:outline-none input-glow"
-              />
-              {skillsLoading && (
-                <div className="text-xs text-faint animate-pulse">加载中…</div>
-              )}
-              {/* 内置 skills */}
-              {(() => {
-                const filtered = skills.filter(
-                  (s) =>
-                    !skillSearch ||
-                    s.name.toLowerCase().includes(skillSearch.toLowerCase()) ||
-                    s.description.toLowerCase().includes(skillSearch.toLowerCase())
-                );
-                const builtin = filtered.filter((s) => s.source === "anthropic");
-                const local = filtered.filter((s) => s.source === "local");
-                return (
-                  <>
-                    {builtin.length > 0 && (
-                      <>
-                        <div className="text-[10px] text-faint mt-2">内置 Skills</div>
-                        {builtin.map((s) => (
-                          <SkillCard key={s.name} skill={s} onToggle={toggleSkill} />
-                        ))}
-                      </>
-                    )}
-                    {local.length > 0 && (
-                      <>
-                        <div className="text-[10px] text-faint mt-2">工作区 Skills</div>
-                        {local.map((s) => (
-                          <SkillCard key={s.name} skill={s} onToggle={toggleSkill} />
-                        ))}
-                      </>
-                    )}
-                    {filtered.length === 0 && !skillsLoading && (
-                      <div className="text-xs text-faint">无匹配 skill</div>
-                    )}
-                  </>
-                );
-              })()}
+              <div className="space-y-2">
+                <label className="flex items-center gap-3 cursor-pointer p-3 rounded-lg bg-page">
+                  <input
+                    type="checkbox"
+                    checked={cfg.load_claude_skills}
+                    onChange={toggleLoadClaude}
+                    className="w-4 h-4 rounded"
+                    style={{ accentColor: "var(--accent)" }}
+                  />
+                  <div>
+                    <div className="text-sm text-default">Claude skills</div>
+                    <div className="text-[10px] text-faint">加载 ~/.claude/skills</div>
+                  </div>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer p-3 rounded-lg bg-page">
+                  <input
+                    type="checkbox"
+                    checked={cfg.load_project_skills}
+                    onChange={toggleLoadProject}
+                    className="w-4 h-4 rounded"
+                    style={{ accentColor: "var(--accent)" }}
+                  />
+                  <div>
+                    <div className="text-sm text-default">项目 skills</div>
+                    <div className="text-[10px] text-faint">加载 workspace/.axiom/skills</div>
+                  </div>
+                </label>
+                <div className="p-3 rounded-lg bg-page space-y-2">
+                  <div className="text-sm text-default">自定义目录</div>
+                  <div className="text-[10px] text-faint">添加额外的 skill 目录路径</div>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={skillDirInput}
+                      onChange={(e) => setSkillDirInput(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && addSkillDir()}
+                      placeholder="/path/to/skills"
+                      className="flex-1 px-2.5 py-1.5 bg-card rounded-md text-xs font-mono text-default placeholder:text-faint focus:outline-none input-glow border border-border"
+                    />
+                    <button
+                      onClick={addSkillDir}
+                      className="px-3 py-1.5 rounded-md bg-elevated hover:bg-hover text-xs text-muted hover:text-default transition-colors"
+                    >
+                      添加
+                    </button>
+                  </div>
+                  {cfg.skill_extra_dirs.length === 0 && (
+                    <div className="text-xs text-faint">暂无自定义目录</div>
+                  )}
+                  {cfg.skill_extra_dirs.map((p, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <span className="flex-1 text-xs font-mono text-muted truncate">{p}</span>
+                      <button
+                        onClick={() => removeSkillDir(idx)}
+                        className="text-faint hover:text-error text-xs px-2"
+                      >
+                        删除
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="border-t border-border pt-4 space-y-4">
+                <div className="text-[10px] font-semibold text-faint uppercase tracking-wider">
+                  Skills ({skills.length})
+                </div>
+                {/* 搜索框 */}
+                <input
+                  type="text"
+                  value={skillSearch}
+                  onChange={(e) => setSkillSearch(e.target.value)}
+                  placeholder="搜索 skill…"
+                  className="w-full px-3 py-2 bg-page rounded-lg text-sm text-default placeholder:text-faint focus:outline-none input-glow"
+                />
+                {skillsLoading && (
+                  <div className="text-xs text-faint animate-pulse">加载中…</div>
+                )}
+                {/* 分组 skills */}
+                {(() => {
+                  const filtered = skills.filter(
+                    (s) =>
+                      !skillSearch ||
+                      s.name.toLowerCase().includes(skillSearch.toLowerCase()) ||
+                      s.description.toLowerCase().includes(skillSearch.toLowerCase())
+                  );
+                  const groups: { key: SkillInfo["source"]; label: string }[] = [
+                    { key: "anthropic", label: "内置 Skills" },
+                    { key: "global", label: "全局 Skills" },
+                    { key: "claude", label: "Claude Skills" },
+                    { key: "custom", label: "自定义 Skills" },
+                  ];
+                  return (
+                    <>
+                      {groups.map(({ key, label }) => {
+                        const items = filtered.filter((s) => s.source === key);
+                        if (items.length === 0) return null;
+                        return (
+                          <div key={key}>
+                            <div className="text-[10px] text-faint mt-2">{label}</div>
+                            {items.map((s) => (
+                              <SkillCard key={s.name} skill={s} onToggle={toggleSkill} />
+                            ))}
+                          </div>
+                        );
+                      })}
+                      {filtered.length === 0 && !skillsLoading && (
+                        <div className="text-xs text-faint">无匹配 skill</div>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
             </div>
           )}
 
@@ -744,9 +842,12 @@ function SkillCard({
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <span className="text-sm font-mono text-default">{skill.name}</span>
-          {skill.source === "local" && (
+          {skill.source !== "anthropic" && (
             <span className="text-[9px] px-1.5 py-0.5 rounded bg-accent/10 text-accent uppercase tracking-wide">
-              工作区
+              {skill.source === "global" && "全局"}
+              {skill.source === "claude" && "Claude"}
+              {skill.source === "project" && "项目"}
+              {skill.source === "custom" && "自定义"}
             </span>
           )}
         </div>

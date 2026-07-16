@@ -35,12 +35,15 @@ export interface AppSettings {
   plan_mode: boolean;
   default_model_tier: string;
   disabled_skills: string[];
+  load_claude_skills: boolean;
+  load_project_skills: boolean;
+  skill_extra_dirs: string[];
 }
 
 export interface SkillInfo {
   name: string;
   description: string;
-  source: "anthropic" | "local";
+  source: "anthropic" | "global" | "claude" | "project" | "custom";
   enabled: boolean;
 }
 

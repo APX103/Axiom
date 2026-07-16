@@ -54,7 +54,14 @@ class AppSettings(BaseModel):
     workspace: str | None = None
     plan_mode: bool = False
     default_model_tier: str = "large"
+    # session 级启用配置: 默认禁用哪些 skill; 创建会话时传入 SessionConfig。
     disabled_skills: list[str] = Field(default_factory=list)
+    # 是否加载 Claude Code 用户级 skill 目录 (~/.claude/skills)。
+    load_claude_skills: bool = True
+    # 是否加载当前项目/工作区 skill 目录 (workspace/.axiom/skills)。
+    load_project_skills: bool = True
+    # 额外自定义 skill 目录路径列表 (工具级配置,所有会话共享)。
+    skill_extra_dirs: list[str] = Field(default_factory=list)
 
 
 # ---- key 脱敏 helpers ----

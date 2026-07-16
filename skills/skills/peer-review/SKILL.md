@@ -13,17 +13,19 @@ This is the engine of the improvement loop. After a draft compiles, a panel of r
 
 Each review round, role-play 3–5 of these personas. **Each scores independently** — no anchoring on each other's numbers, no discussion before scoring. Write each review as a separate, self-contained assessment.
 
-| Persona | Focus | Scores hardest |
-|---------|-------|----------------|
-| **R1 Experimentalist** | statistical rigor, baselines, replication | Experimental validation |
-| **R2 Theorist** | formal definitions, proofs, MECE taxonomy | Technical depth |
-| **R3 Perfectionist** | writing quality, figures, formatting | Clarity |
-| **R4 Synthesizer** | cross-cutting analysis, gap identification | Novelty |
-| **R5 Newcomer** | accessibility, definitions, examples | Clarity |
+| Persona | Focus | Weight | Scores hardest |
+|---------|-------|--------|----------------|
+| **R1 Experimentalist** | statistical rigor, baselines, replication | Experimental 30% | Experimental validation |
+| **R2 Theorist** | formal definitions, proofs, MECE taxonomy | Technical depth 35% | Technical depth |
+| **R3 Perfectionist** | writing quality, figures, formatting | Clarity 30% | Clarity |
+| **R4 Synthesizer** | cross-cutting analysis, gap identification | Novelty 25% | Novelty |
+| **R5 Newcomer** | accessibility, definitions, examples | Clarity 35% | Clarity |
 
 The Newcomer (R5) is the most underrated reviewer — they catch "you used a term for three pages before defining it" and "this section assumes I read §4." Always include at least one Newcomer pass.
 
-**Diversity rule:** at least one reviewer per round should be played with a different "mindset" (more critical, or from a different sub-area). Identical reviewers produce correlated scores that inflate the median.
+**Diversity rules:**
+1. At least one reviewer per round should be played with a different "mindset" (more critical, or from a different sub-area). Identical reviewers produce correlated scores that inflate the median.
+2. Use a **different model / temperature** for at least one reviewer per round. If all reviewers share the same LLM call, their scores correlate; one outlier perspective is what catches the blind spots.
 
 ## What each review contains
 

@@ -36,11 +36,19 @@ class SessionConfig:
     mcp_servers: list = None  # list[MCPServerConfig]
     # 数据源 API keys (OpenAlex / Semantic Scholar 等)
     api_keys: dict[str, str] = None  # None → {}
-    # 被用户禁用的 skill 名称列表 (从 settings.json 传入, 会话启动时过滤)
+    # 被用户禁用的 skill 名称列表 (session 级启用配置, 从 settings.json 传入默认值)
     disabled_skills: list[str] = None  # None → []
     # SQLite 持久层 (阶段 4)。None=纯内存 (CLI run / 测试); 提供时 ArtifactStore
     # 会 save_async 落库 + 启动时 load_from_db 回放, 支持断点续会话。
     db_session_factory: Any = None
+    # 全局数据目录; 用于加载工具级 skill 目录 {data_dir}/skills。
+    data_dir: Path | None = None
+    # 是否加载 Claude Code 用户级 skill 目录 (~/.claude/skills)。
+    load_claude_skills: bool = True
+    # 是否加载当前项目/工作区 skill 目录 (workspace/.axiom/skills)。
+    load_project_skills: bool = True
+    # 额外自定义 skill 目录路径列表。
+    skill_extra_dirs: list[str] | None = None
 
 
 class Session:
@@ -70,6 +78,17 @@ class Session:
 
             settings = load_settings()
             return settings.rolling_compact
+        except Exception:
+            return None
+
+    @staticmethod
+    def _load_data_dir() -> Path | None:
+        """从 operon.config.Settings 加载全局数据目录。"""
+        try:
+            from operon.config import load_settings
+
+            settings = load_settings()
+            return settings.data_dir_resolved()
         except Exception:
             return None
 
@@ -118,32 +137,35 @@ class Session:
                     "artifact DB load failed, starting with empty store: %s", e
                 )
 
-        # 初始化 Skill 目录 (阶段 5): 扫工作区 .claude/skills + data_dir/skills + 内置
+        # 初始化 Skill 目录 (阶段 5): 按优先级加载多来源 skills。
+        # 优先级由低到高: builtin -> global -> claude -> project -> custom,
+        # 后加载的同名 skill 覆盖先加载的。
+        # Axiom 不会自动把 skill 复制到工作区,只扫描用户已放置的目录。
         from operon.skills.catalog import (
             SkillCatalog,
-            ensure_user_skills_copy,
             load_builtin_skills,
+            load_claude_skills,
+            load_custom_skills,
+            load_global_skills,
+            load_project_skills,
         )
 
-        # 首次启动: 把 builtin skills copy 到 data_dir/skills/ (让用户可见/可编辑)
-        user_skills_dir = None
-        if config.db_session_factory is not None and config.workspace is not None:
-            # data_dir 通常是 config.workspace 的父级 (见 settings)
-            data_dir = config.workspace.resolve()
-            user_skills_dir = ensure_user_skills_copy(data_dir)
-
-        skills_root = config.workspace.resolve() / ".claude" / "skills"
-        catalog = SkillCatalog(skills_root if skills_root.exists() else None)
-        # 若用户副本存在, 扫它 (用户编辑过的副本优先于内置); 否则加载内置
-        if user_skills_dir and user_skills_dir.exists():
-            user_catalog = SkillCatalog(user_skills_dir)
-            user_catalog.scan()
-            for s in user_catalog.list():
+        data_dir = config.data_dir or self._load_data_dir()
+        catalog = SkillCatalog()
+        for s in load_builtin_skills():
+            catalog.add(s)
+        if data_dir is not None:
+            for s in load_global_skills(data_dir):
                 catalog.add(s)
-        else:
-            for s in load_builtin_skills():
+        if config.load_claude_skills:
+            for s in load_claude_skills():
                 catalog.add(s)
-        # 应用用户在设置面板中禁用的 skills
+        if config.load_project_skills:
+            for s in load_project_skills(config.workspace):
+                catalog.add(s)
+        for s in load_custom_skills(config.skill_extra_dirs or []):
+            catalog.add(s)
+        # 应用 session 级禁用配置
         if config.disabled_skills:
             catalog.set_disabled(config.disabled_skills)
         ctx.skill_catalog = catalog

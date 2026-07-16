@@ -74,22 +74,99 @@ Use `should_stop(score, round, prev_score)` from peer-review's kernel to decide.
 
 When `peer-review` returns weaknesses, `route_weaknesses` stamps each with its target sub-skill. **Don't fix weaknesses ad hoc** — load the routed sub-skill and apply its method:
 
-| Weakness | Load | Fix with |
-|----------|------|----------|
-| citation gap / arxiv-heavy | `lit-survey` | targeted search + venue upgrade |
-| taxonomy not MECE / weak paragraphs | `paper-structure` | redesign axes / apply logic patterns |
-| claim overstated | `paper-structure` | calibrate hedge ladder |
-| no experiment / missing baseline | `experiment-design` | design + run |
-| bad table / illegible figure | `academic-figures` | rewrite to standard |
+| Reviewer weakness | Route to | Action |
+|-------------------|----------|--------|
+| "Citation coverage insufficient" | `lit-survey` | Stage 1-2 targeted search |
+| "Too many arXiv-only refs" | `lit-survey` | Stage 4 venue upgrade via DBLP/OpenReview |
+| "Missing recent papers" | `lit-survey` | 2025-2026 focused search |
+| "Structure unclear" / "Weak transitions" | `paper-structure` | Reorganize + add transitions |
+| "Analysis lacks depth" | `paper-structure` | Add critical assessment |
+| "Taxonomy not novel / not MECE" | `paper-structure` | Redesign multi-axis taxonomy |
+| "Claims too strong" | `paper-structure` | Downgrade hedge ladder |
+| "No experiments" | `experiment-design` | Design pilot study |
+| "Experiment not rigorous" / "Missing baselines" | `experiment-design` | Add trials / controls / ablation |
+| "Tables incomparable" | `academic-figures` | Regroup + add Δ column |
+| "Missing visualizations" | `academic-figures` | Add figure |
+| "No error bars" / "Unclear figure" | `academic-figures` | Add ±std or rewrite caption |
 
 Each fix is verifiable: a citation gap closes when `bib_health` passes; a taxonomy fix holds when the matrix is MECE; a hedge fix holds when claim-strength ≤ evidence-strength. The next peer-review round confirms.
 
 ## Quality gates (don't advance phases prematurely)
 
+### Phase transition gates
+
 - **Phase 0 → 1**: angle is articulated (not just "more recent").
 - **Phase 1 → 2**: draft compiles, has §1-8 with at least placeholder citations, first peer-review done.
 - **Phase 2 → 3**: experiments (if any) integrated; score ≥ 7.0.
 - **Phase 3 → done**: `should_stop` returns True; regression check clean (no fixed weakness regressed).
+
+### Sub-skill output gates (quantitative)
+
+Each sub-skill output must pass its gate before integration. Gates 1–4 can run in parallel; Gate 5 is blocking.
+
+#### Gate 1 — Literature (`lit-survey`)
+
+- Citations ≥ 80 (draft) / ≥ pages×3 (final).
+- Within 1yr ≥ 40%.
+- Accepted (peer-reviewed) ≥ 30%.
+- arXiv-only ≤ 60%.
+- Verification rate ≥ 80%; hallucinated = 0.
+- Every taxonomy cell ≥ 2 A/B refs.
+
+#### Gate 2 — Experiment (`experiment-design`)
+
+- Clear hypothesis pre-registered.
+- Statistical test reported (p or CI).
+- ≥ 3 trials with std.
+- No ceiling/floor effect.
+- Links to a specific paper claim.
+- (Bonus) Surprise finding documented.
+
+#### Gate 3 — Structure (`paper-structure`)
+
+- Compiles with 0 errors & 0 undefined refs.
+- Every `.tex` file ≤ 300 lines.
+- Abstract–conclusion alignment.
+- Inter-section transitions present.
+- Critical assessment in core sections.
+- ≥ 1 formal claim (conjecture/observation).
+- Terminology consistent throughout.
+
+#### Gate 4 — Figures & Tables (`academic-figures`)
+
+- Tables ≥ 10, figures ≥ 6 (full survey); tables ≥ 5, figures ≥ 3 (short survey).
+- `booktabs` format, no vertical lines.
+- Each carries a non-trivial insight.
+- Captions contain the conclusion, not just a description.
+- Every figure/table referenced in text.
+- Experimental data has `mean ± std`.
+
+#### Gate 5 — Final review (blocking)
+
+- All Gates 1–4 passed.
+- PDF compiles cleanly.
+- Peer-review score ≥ target (6.0 / 7.0 / 8.0 / 8.5 by phase).
+- No regression: previously fixed weaknesses remain fixed.
+- Version bumped and snapshot saved.
+
+## Score progression (validated path)
+
+| Score | Requirements beyond previous | Typical additions |
+|-------|------------------------------|-------------------|
+| **6.0** | Complete draft, 80+ refs, compiles | Full 8 sections + basic tables |
+| **7.0** | + logical transitions, quantitative data, gap analysis | Formal conjecture + grouped tables |
+| **8.0** | + original experiment, critical assessment, 150+ refs | Multi-model pilot + vector figures |
+| **8.5** | + cross-validation, meta-analysis, key takeaways, proof sketch | Cross-benchmark table + deeper theory |
+
+## Production statistics (rough time budget)
+
+| Sub-skill | % of time | Score contribution | Key output |
+|-----------|-----------|--------------------|------------|
+| Literature Survey | 20% | Foundation (without it ≤6.0) | Graded bibliography |
+| Structure & Logic | 35% | Main driver (6.0→7.5) | Manuscript body |
+| Experiment Design | 20% | +1.0–1.5 points | Results + summary |
+| Figures & Tables | 10% | +0.5–1.0 points | Tables/figures |
+| Review + Integration | 15% | Drives iteration | Review rounds |
 
 ## Engineering constraints
 

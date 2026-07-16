@@ -1,10 +1,11 @@
-"""Skill 工具: search_skills / skill。
+"""Skill 工具: search_skills / list_skills / skill。
 
 
 """
 
 from __future__ import annotations
 
+from operon.skills.catalog import SkillCatalog
 from operon.tools.context import ToolContext
 
 
@@ -29,6 +30,45 @@ async def search_skills(ctx: ToolContext, query: str, max_results: int = 4) -> s
         lines.append(f"{i}. {r.skill.name} (score={r.score:.4f})")
         lines.append(f"   {r.skill.description[:150]}")
     return "\n".join(lines)
+
+
+async def list_skills(
+    ctx: ToolContext,
+    source: str | None = None,
+    include_body: bool = False,
+) -> str:
+    """列出 catalog 里所有可用 skill。"""
+    catalog = getattr(ctx, "skill_catalog", None)
+    if catalog is None:
+        return "(skill catalog not configured)"
+    if not isinstance(catalog, SkillCatalog):
+        # 防御: 若 ctx 上是其他 catalog 实现,退化到 list()
+        skills = catalog.list() if hasattr(catalog, "list") else []
+    else:
+        skills = catalog.list()
+    if source:
+        skills = [s for s in skills if getattr(s, "source", None) == source]
+    if not skills:
+        suffix = f" for source '{source}'" if source else ""
+        return f"(no skills available{suffix})"
+
+    loaded = getattr(ctx, "loaded_skills", set())
+    by_source: dict[str, list] = {}
+    for s in skills:
+        by_source.setdefault(getattr(s, "source", "unknown"), []).append(s)
+
+    lines = [f"Available skills ({len(skills)}):", ""]
+    for src in sorted(by_source):
+        lines.append(f"## source: {src}")
+        for s in sorted(by_source[src], key=lambda x: x.name):
+            marker = " [loaded]" if s.name in loaded else ""
+            lines.append(f"- {s.name}{marker}")
+            lines.append(f"  {s.description[:180]}")
+            if include_body:
+                snippet = s.body[:500].replace("\n", "\n  ")
+                lines.append(f"  ---\n  {snippet}\n  ---")
+        lines.append("")
+    return "\n".join(lines).strip()
 
 
 async def skill(ctx: ToolContext, skill: str) -> str:
@@ -67,6 +107,33 @@ SEARCH_SKILLS_SPEC = {
             "max_results": {"type": "integer", "description": "Max results (default 4)"},
         },
         "required": ["query"],
+    },
+}
+
+LIST_SKILLS_SPEC = {
+    "name": "list_skills",
+    "description": (
+        "List all skills currently available in the skill catalog, optionally filtered by source. "
+        "Use this to discover what skills can be loaded with the `skill` tool. "
+        "Loaded skills are marked with [loaded]."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "source": {
+                "type": "string",
+                "description": (
+                    "Optional filter: only return skills from this source "
+                    "(e.g. 'anthropic', 'global', 'claude', 'project', 'custom', 'mcp')."
+                ),
+            },
+            "include_body": {
+                "type": "boolean",
+                "description": (
+                    "If true, include a short snippet of each skill's body (default false)."
+                ),
+            },
+        },
     },
 }
 

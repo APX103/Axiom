@@ -8,7 +8,13 @@ from __future__ import annotations
 
 import pytest
 
-from operon.skills.catalog import SkillCatalog, load_builtin_skills
+from operon.skills.catalog import (
+    SkillCatalog,
+    load_builtin_skills,
+    load_claude_skills,
+    load_custom_skills,
+    load_project_skills,
+)
 from operon.skills.parser import Skill, parse_skill_md
 from operon.skills.search import expand_query, search_skills, tokenize
 
@@ -168,7 +174,7 @@ def test_catalog_builtin_skills():
 
 
 def test_catalog_scan_disk(tmp_path):
-    skills_root = tmp_path / ".claude" / "skills"
+    skills_root = tmp_path / "skills"
     (skills_root / "my-tool").mkdir(parents=True)
     (skills_root / "my-tool" / "SKILL.md").write_text(
         "---\nname: my-tool\ndescription: a custom skill\n---\n# My Tool\ndo stuff",
@@ -197,3 +203,51 @@ def test_catalog_fuzzy_suggest():
 def test_catalog_get_nonexistent():
     catalog = SkillCatalog()
     assert catalog.get("nonexistent") is None
+
+
+def test_load_project_skills(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    monkeypatch.setenv("HOME", str(home))
+    ws = tmp_path / "ws"
+    root = ws / ".axiom" / "skills"
+    (root / "proj-skill").mkdir(parents=True)
+    (root / "proj-skill" / "SKILL.md").write_text(
+        "---\nname: proj-skill\ndescription: project skill\n---\nbody",
+        encoding="utf-8",
+    )
+    skills = load_project_skills(ws)
+    assert any(s.name == "proj-skill" and s.source == "project" for s in skills)
+
+
+def test_load_claude_skills(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    monkeypatch.setenv("HOME", str(home))
+    root = home / ".claude" / "skills"
+    (root / "claude-skill").mkdir(parents=True)
+    (root / "claude-skill" / "SKILL.md").write_text(
+        "---\nname: claude-skill\ndescription: claude skill\n---\nbody",
+        encoding="utf-8",
+    )
+    skills = load_claude_skills()
+    assert any(s.name == "claude-skill" and s.source == "claude" for s in skills)
+
+
+def test_load_custom_skills(tmp_path):
+    root = tmp_path / "extra"
+    (root / "custom-skill").mkdir(parents=True)
+    (root / "custom-skill" / "SKILL.md").write_text(
+        "---\nname: custom-skill\ndescription: custom skill\n---\nbody",
+        encoding="utf-8",
+    )
+    skills = load_custom_skills([str(root)])
+    assert any(s.name == "custom-skill" and s.source == "custom" for s in skills)
+
+
+def test_multi_source_override_order():
+    """后加载的来源覆盖先加载的同名 skill。"""
+    catalog = SkillCatalog()
+    catalog.add(Skill(name="same", description="builtin", body="b", source="anthropic"))
+    catalog.add(Skill(name="same", description="global", body="g", source="global"))
+    s = catalog.get("same")
+    assert s is not None
+    assert s.source == "global"

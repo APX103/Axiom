@@ -24,9 +24,9 @@ Cast a wide net first; you will cut later by score, not by gut.
 
 Score every candidate with `lqs_score(paper)`. It combines five dimensions into one 0–10 score:
 
-| Dimension | Weight | Scoring |
+ | Dimension | Weight | Scoring |
 |-----------|--------|---------|
-| Recency | 30% | this yr=10, 1yr=8, 2yr=5, 3yr=3 |
+| Recency | 30% | 6mo=10, 1yr=8, 2yr=5, 3yr=3 (when only year is available, current year approximates ≤6mo) |
 | Citation impact | 25% | cites/mo ≥50=10, ≥10=8, ≥3=6 |
 | Venue | 20% | top-tier=10, strong=7, workshop=4 |
 | Institution | 10% | top lab=10, top uni=9 |

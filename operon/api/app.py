@@ -197,9 +197,17 @@ def create_app() -> FastAPI:
     # ---- Skills 列表 ----
     @app.get("/api/skills")
     async def list_skills() -> list[dict[str, Any]]:
-        """列出所有已安装的 skills (内置 + 工作区),标注启用/禁用状态。"""
-        from operon.skills.catalog import load_builtin_skills
-        from operon.skills.parser import parse_skill_md
+        """列出全局/可共享的 skills (内置/全局/Claude/自定义),标注启用/禁用状态。
+
+        项目级 skills (workspace/.axiom/skills) 与会话 workspace 绑定,
+        在会话启动时加载,不在这里列出。
+        """
+        from operon.skills.catalog import (
+            load_builtin_skills,
+            load_claude_skills,
+            load_custom_skills,
+            load_global_skills,
+        )
 
         settings = getattr(app.state, "settings", None) or load_settings()
         app_cfg = get_app_settings(settings.data_dir)
@@ -208,46 +216,27 @@ def create_app() -> FastAPI:
         skills: list[dict[str, Any]] = []
         seen: set[str] = set()
 
-        # 内置 skills
-        for s in load_builtin_skills():
-            if s.name in seen:
-                continue
-            seen.add(s.name)
-            skills.append({
-                "name": s.name,
-                "description": s.description,
-                "source": "anthropic",
-                "enabled": s.name not in disabled,
-            })
-
-        # 工作区 skills
-        ws_root = settings.data_dir / "workspaces"
-        if ws_root.exists():
-            # 只扫当前活跃会话的 workspace 里的 .claude/skills
-            # 以及一个全局的 data_dir/.claude/skills (如果有)
-            for base in [settings.data_dir / ".claude" / "skills"]:
-                if not base.exists():
+        def _add(source: str, items: list) -> None:
+            for s in items:
+                if s.name in seen:
                     continue
-                for child in sorted(base.iterdir()):
-                    if not child.is_dir() or child.name.startswith("."):
-                        continue
-                    skill_md = child / "SKILL.md"
-                    if not skill_md.exists():
-                        continue
-                    try:
-                        content = skill_md.read_text(encoding="utf-8")
-                        s = parse_skill_md(content, base_dir=child, source="local")
-                        if s.name in seen:
-                            continue
-                        seen.add(s.name)
-                        skills.append({
-                            "name": s.name,
-                            "description": s.description,
-                            "source": "local",
-                            "enabled": s.name not in disabled,
-                        })
-                    except Exception:
-                        pass
+                seen.add(s.name)
+                skills.append({
+                    "name": s.name,
+                    "description": s.description,
+                    "source": source,
+                    "enabled": s.name not in disabled,
+                })
+
+        # 1. 内置 skills (工具级,随安装包只读)
+        _add("anthropic", load_builtin_skills())
+        # 2. 全局自定义 skills
+        _add("global", load_global_skills(settings.data_dir))
+        # 3. Claude Code 用户级 skills
+        if app_cfg.load_claude_skills:
+            _add("claude", load_claude_skills())
+        # 4. 自定义目录
+        _add("custom", load_custom_skills(app_cfg.skill_extra_dirs))
 
         return skills
 
@@ -348,10 +337,11 @@ def create_app() -> FastAPI:
         if req.api_keys:
             merged_keys.update(req.api_keys)
 
+        # skill 源配置: 从 settings.json 读默认值
+        app_cfg = get_app_settings(settings.data_dir)
         # disabled_skills: 请求体优先, 否则从 settings.json 读
         disabled_skills = req.disabled_skills
         if disabled_skills is None:
-            app_cfg = get_app_settings(settings.data_dir)
             disabled_skills = app_cfg.disabled_skills or None
 
         active = await manager.create(
@@ -365,6 +355,10 @@ def create_app() -> FastAPI:
             mcp_servers=mcp_servers,
             api_keys=merged_keys or None,
             disabled_skills=disabled_skills,
+            data_dir=settings.data_dir,
+            load_claude_skills=app_cfg.load_claude_skills,
+            load_project_skills=app_cfg.load_project_skills,
+            skill_extra_dirs=app_cfg.skill_extra_dirs,
         )
         return {
             "id": active.id,

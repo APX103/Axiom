@@ -145,8 +145,10 @@ def run(
     from operon.agent.runner import AgentCallbacks
     from operon.agent.session import Session, SessionConfig
     from operon.llm.openai_compat import OpenAICompatClient
+    from operon.settings import AppSettings, SettingsStore
 
     settings = load_settings()
+    app_cfg = SettingsStore(settings.data_dir).load() or AppSettings()
     if not settings.models:
         typer.secho("错误: 未配置模型 (设 OPERON_MODELS__LARGE__* 环境变量)", fg=typer.colors.RED)
         raise typer.Exit(1)
@@ -202,6 +204,10 @@ def run(
             context_window=tier.context_window,
             mcp_servers=mcp_servers,
             api_keys=api_keys,
+            data_dir=settings.data_dir,
+            load_claude_skills=app_cfg.load_claude_skills,
+            load_project_skills=app_cfg.load_project_skills,
+            skill_extra_dirs=app_cfg.skill_extra_dirs,
         ),
         callbacks=CLICallbacks(),
     )
@@ -259,8 +265,10 @@ def demo_survey(
     from operon.config import load_settings
     from operon.db.session import init_engine, session_factory
     from operon.scripts.ingest_survey import ingest_survey
+    from operon.settings import AppSettings, SettingsStore
 
     settings = load_settings()
+    app_cfg = SettingsStore(settings.data_dir).load() or AppSettings()
     ws = Path(workspace).resolve() if workspace else (settings.data_dir / "demo_survey_ws")
     ws.mkdir(parents=True, exist_ok=True)
 
@@ -318,7 +326,11 @@ def demo_survey(
             manager: SessionManager = getattr(_app.state, "manager", None) or SessionManager()
             client = OpenAICompatClient(base_url="http://localhost", api_key="demo", model="demo")
             active = await manager.create(
-                llm=client, workspace=ws, model="demo", context_window=None
+                llm=client, workspace=ws, model="demo", context_window=None,
+                data_dir=settings.data_dir,
+                load_claude_skills=app_cfg.load_claude_skills,
+                load_project_skills=app_cfg.load_project_skills,
+                skill_extra_dirs=app_cfg.skill_extra_dirs,
             )
             demo_sid = active.id
             typer.echo("")

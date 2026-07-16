@@ -17,6 +17,8 @@ import type { SessionInfo } from "./types";
 
 const SID_KEY = "operon-py-active-sid";
 
+type BackendStatus = "checking" | "waiting" | "online" | "offline";
+
 function saveSid(sid: string | null) {
   if (sid) localStorage.setItem(SID_KEY, sid);
   else localStorage.removeItem(SID_KEY);
@@ -53,7 +55,12 @@ function Workbench() {
   const [serverConfigured, setServerConfigured] = useState<boolean | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showPaper, setShowPaper] = useState(false);
-  const [backendUp, setBackendUp] = useState<boolean | null>(null);
+  const [backendStatus, setBackendStatus] = useState<BackendStatus>("checking");
+  const backendStatusRef = useRef(backendStatus);
+  useEffect(() => {
+    backendStatusRef.current = backendStatus;
+  }, [backendStatus]);
+  const backendWaitStartRef = useRef<number | null>(null);
   const [input, setInput] = useState("");
   const [planMode, setPlanMode] = useState(false);
   const [deepReview, setDeepReview] = useState(false);
@@ -78,16 +85,24 @@ function Workbench() {
 
   // 探测后端 + 同步配置 + 恢复会话
   // 启动时后端可能还没ready, 所以用轮询而不是单次探测; 运行期间也持续心跳。
+  // 离线判断有 60s 宽限期: 暂时连不上显示 "等待后端服务", 超过 1min 才显示 "服务离线"。
   useEffect(() => {
     let mounted = true;
     let settingsLoaded = false;
+
+    const transitionStatus = (next: BackendStatus) => {
+      if (!mounted) return;
+      setBackendStatus((cur) => (cur === next ? cur : next));
+      backendStatusRef.current = next;
+    };
 
     const tryConnect = async () => {
       if (!mounted) return;
       try {
         await health();
         if (!mounted) return;
-        setBackendUp(true);
+        backendWaitStartRef.current = null;
+        transitionStatus("online");
 
         if (!settingsLoaded) {
           settingsLoaded = true;
@@ -117,8 +132,17 @@ function Workbench() {
         }
       } catch {
         if (!mounted) return;
-        setBackendUp(false);
         settingsLoaded = false;
+        const cur = backendStatusRef.current;
+        if (cur === "online" || cur === "checking") {
+          backendWaitStartRef.current = Date.now();
+          transitionStatus("waiting");
+        } else if (cur === "waiting") {
+          const since = backendWaitStartRef.current;
+          if (since && Date.now() - since > 60000) {
+            transitionStatus("offline");
+          }
+        }
       }
     };
 
@@ -265,7 +289,7 @@ function Workbench() {
         </div>
 
         <div className="flex items-center gap-1.5">
-          <BackendBadge up={backendUp} />
+          <BackendBadge status={backendStatus} />
           <ModelBadge config={config} />
           <button
             onClick={toggleTheme}
@@ -446,7 +470,7 @@ function Workbench() {
           </span>
         </div>
         <div className="flex items-center gap-3">
-          <span>{backendUp ? "服务就绪" : "服务离线"}</span>
+          <BackendStatusText status={backendStatus} />
           <span>Local runtime</span>
         </div>
       </footer>
@@ -459,8 +483,8 @@ function Workbench() {
             setConfig(c);
             setServerConfigured(c.llm_providers.some(isProviderReady));
             setShowSettings(false);
-            setBackendUp(null);
-            health().then(() => setBackendUp(true)).catch(() => setBackendUp(false));
+            setBackendStatus("checking");
+            health().then(() => setBackendStatus("online")).catch(() => setBackendStatus("offline"));
           }}
         />
       )}
@@ -655,14 +679,29 @@ function FileIcon({ path }: { path: string }) {
   );
 }
 
-function BackendBadge({ up }: { up: boolean | null }) {
-  if (up === null) return <span className="text-[11px] text-faint">检测中…</span>;
+function BackendBadge({ status }: { status: BackendStatus }) {
+  if (status === "checking" || status === "waiting") {
+    return (
+      <span className="text-[11px] flex items-center gap-1.5 px-2 py-1 rounded-full text-warning bg-warning/15">
+        <SpinnerIcon className="w-3 h-3" />
+        等待后端服务
+      </span>
+    );
+  }
+  const up = status === "online";
   return (
     <span className={`text-[11px] flex items-center gap-1.5 px-2 py-1 rounded-full ${up ? "text-success bg-success/15" : "text-error bg-error/15"}`}>
       <span className={`w-1.5 h-1.5 rounded-full ${up ? "bg-success" : "bg-error"} ${up ? "animate-pulse" : ""}`} />
       {up ? "服务在线" : "服务离线"}
     </span>
   );
+}
+
+function BackendStatusText({ status }: { status: BackendStatus }) {
+  if (status === "checking" || status === "waiting") {
+    return <span>等待后端服务</span>;
+  }
+  return <span>{status === "online" ? "服务就绪" : "服务离线"}</span>;
 }
 
 function ModelBadge({ config }: { config: FullConfig }) {
@@ -732,6 +771,31 @@ function EmptyState({ icon, text, sub }: { icon: string; text: string; sub: stri
 }
 
 // SVG 图标组件
+function SpinnerIcon({ className = "" }: { className?: string }) {
+  return (
+    <svg
+      className={`animate-spin ${className}`}
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+    >
+      <circle
+        className="opacity-25"
+        cx="12"
+        cy="12"
+        r="10"
+        stroke="currentColor"
+        strokeWidth="4"
+      />
+      <path
+        className="opacity-75"
+        fill="currentColor"
+        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+      />
+    </svg>
+  );
+}
+
 function LogoIcon({ width = 16, height = 16, className = "" }: { width?: number; height?: number; className?: string }) {
   return (
     <svg width={width} height={height} viewBox="0 0 24 24" fill="none" stroke="currentColor" className={className} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

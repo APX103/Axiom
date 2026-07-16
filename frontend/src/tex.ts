@@ -528,7 +528,10 @@ function stripUnknownCommands(s: string): string {
 
 function katexRender(expr: string, display: boolean): string {
   try {
-    return katex.renderToString(expr, { displayMode: display, throwOnError: false });
+    // 预览不需要交叉引用锚点; \label 在部分 KaTeX 场景会被渲染成红色文本,
+    // 所以在送进 KaTeX 前统一剥掉。
+    const clean = expr.replace(/\\label\{[^}]*\}/g, "");
+    return katex.renderToString(clean, { displayMode: display, throwOnError: false });
   } catch {
     return `<code>${expr}</code>`;
   }

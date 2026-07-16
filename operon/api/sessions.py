@@ -270,6 +270,10 @@ class SessionManager:
         mcp_servers: list = None,
         api_keys: dict[str, str] | None = None,
         disabled_skills: list[str] | None = None,
+        data_dir: Path | None = None,
+        load_claude_skills: bool = True,
+        load_project_skills: bool = True,
+        skill_extra_dirs: list[str] | None = None,
     ) -> ActiveSession:
         """创建会话 (初始化 MCP + ctx,不启动 run) + 写 DB。
 
@@ -296,6 +300,10 @@ class SessionManager:
                 api_keys=api_keys or {},
                 disabled_skills=disabled_skills or [],
                 db_session_factory=self.db_session_factory,
+                data_dir=data_dir,
+                load_claude_skills=load_claude_skills,
+                load_project_skills=load_project_skills,
+                skill_extra_dirs=skill_extra_dirs or [],
             ),
             callbacks=callbacks,
         )
