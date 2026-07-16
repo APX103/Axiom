@@ -45,3 +45,6 @@ config.toml
 *.tmp
 axiom/
 .zcode
+
+# Rust 后端重构 (后续使用, 暂不纳入版本控制)
+backend-rs/

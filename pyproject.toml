@@ -1,6 +1,6 @@
 [project]
 name = "operon-py"
-version = "0.0.6"
+version = "0.0.7"
 description = "Python clean-room reimplementation of Operon core logic"
 readme = "README.md"
 requires-python = ">=3.11"
