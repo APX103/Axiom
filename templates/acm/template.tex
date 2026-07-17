@@ -1,0 +1,60 @@
+% AXIOM TEMPLATE: acm
+% !! AXIOM-LOCKED-PREAMBLE-START !!  —— preamble 由模板锁定，agent 不得修改。
+% 禁止改 \documentclass、禁止删除已有 \usepackage/\usetikzlibrary。
+% Tectonic 会自动从 CTAN 下载 acmart.cls (首次编译联网)。
+% format 选项可改: manuscript (默认,双栏) / acmsmall / acmlarge / acmtog / sigconf / sigplan
+\documentclass[manuscript,review,anonymous]{acmart}
+
+% —— acmart 自带: 数学 (amsmath/amssymb/bm)、graphicx、hyperref、natbib、cleveref 等 ——
+% 注意: 不要重复 \usepackage{amssymb}/\usepackage{bm}, 会触发 \Bbbk already defined 冲突。
+% —— 额外宏包 (acmart 未自带的) ——
+\usepackage{mathtools}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{tabularx}
+
+% —— TikZ (常用库全加载) ——
+\usepackage{tikz}
+\usetikzlibrary{positioning,arrows.meta,shapes.geometric,shapes.misc,calc,fit,backgrounds,decorations.pathreplacing}
+
+% —— 伪代码 ——
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+
+% —— 列表 ——
+\usepackage{enumitem}
+
+% —— ACM 版权/会议信息 (投稿时按目标会议填) ——
+\setcopyright{acmcopyright}
+\acmConference{Conference Name}{Year}{Location}
+\acmDOI{}
+\acmISBN{}
+% !! AXIOM-LOCKED-PREAMBLE-END !!
+
+% AXIOM_BODY: agent 只能从 \begin{document} 之后开始编辑正文。
+\begin{document}
+
+\title{Paper Title}
+
+\author{Author Name}
+\email{email@example.com}
+\affiliation{%
+  \institution{Affiliation}
+  \city{City}
+  \country{Country}
+}
+
+\begin{abstract}
+Replace this with the abstract.
+\end{abstract}
+
+\maketitle
+
+\section{Introduction}
+Replace this with the introduction.
+
+% 引用: 写好 references.bib 后, 正文用 \cite{key}, 并取消下面两行注释。
+% 未引用任何文献时保持注释, 否则空 .bbl 会触发 "missing \item" 报错。
+% \bibliographystyle{ACM-Reference-Format}
+% \bibliography{references}
+\end{document}

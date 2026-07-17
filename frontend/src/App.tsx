@@ -3,7 +3,7 @@
 // 支持月之亮面/暗面主题切换。
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { approvePlan, createSession, deleteFile, deleteSession, getSessionState, getSettings, health, listSessions, apiBase } from "./api";
+import { approvePlan, createSession, deleteFile, deleteSession, getSessionState, getSettings, health, listSessions, listTemplates, apiBase } from "./api";
 import { useSession } from "./hooks/useSession";
 import { useTheme } from "./hooks/useTheme";
 import { MessageView } from "./components/Message";
@@ -13,7 +13,7 @@ import { ResizableSidebar } from "./components/ResizableSidebar";
 import { SettingsModal, fromApiSettings, loadConfig, type FullConfig } from "./components/SettingsModal";
 import { PaperView } from "./components/PaperView";
 import { UpdateBanner } from "./components/UpdateBanner";
-import type { SessionInfo } from "./types";
+import type { SessionInfo, TemplateInfo } from "./types";
 
 const SID_KEY = "operon-py-active-sid";
 
@@ -65,6 +65,9 @@ function Workbench() {
   const [planMode, setPlanMode] = useState(false);
   const [deepReview, setDeepReview] = useState(false);
   const [sidebarTab, setSidebarTab] = useState<"sessions" | "files">("sessions");
+  // 论文模板 (新建会话时复制进工作区作为 main.tex preamble)
+  const [templates, setTemplates] = useState<TemplateInfo[]>([]);
+  const [selectedTemplate, setSelectedTemplate] = useState<string>("article");
   const scrollRef = useRef<HTMLDivElement>(null);
   const restoredRef = useRef(false);
 
@@ -82,6 +85,21 @@ function Workbench() {
       return [];
     }
   }, []);
+
+  // 加载论文模板列表 (供新建会话时选择)
+  useEffect(() => {
+    listTemplates()
+      .then((list) => {
+        if (list.length > 0) {
+          setTemplates(list);
+          // 若当前选中的模板不在列表里, 回退到 article
+          if (!list.some((t) => t.id === selectedTemplate)) {
+            setSelectedTemplate(list[0].id);
+          }
+        }
+      })
+      .catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 探测后端 + 同步配置 + 恢复会话
   // 启动时后端可能还没ready, 所以用轮询而不是单次探测; 运行期间也持续心跳。
@@ -199,6 +217,7 @@ function Workbench() {
     if (config.disabled_skills && config.disabled_skills.length > 0) {
       body.disabled_skills = config.disabled_skills;
     }
+    if (selectedTemplate) body.template = selectedTemplate;
     try {
       const data = await createSession(body);
       setSid(data.id);
@@ -331,6 +350,29 @@ function Workbench() {
                 </button>
               </div>
 
+              {/* 论文模板选择 (新建会话时复制进工作区作为 main.tex preamble) */}
+              {templates.length > 0 && (
+                <div className="px-2.5 py-2">
+                  <div className="text-[10px] font-medium text-faint uppercase tracking-wider px-2 mb-1.5">
+                    论文模板
+                  </div>
+                  <div className="px-2">
+                    <select
+                      value={selectedTemplate}
+                      onChange={(e) => setSelectedTemplate(e.target.value)}
+                      title={templates.find((t) => t.id === selectedTemplate)?.description || ""}
+                      className="w-full px-2 py-1.5 rounded-md bg-page text-xs text-default border border-border focus:outline-none focus:border-accent"
+                    >
+                      {templates.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.name} ({t.columns}栏)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
+
               <div className="px-2.5 py-2">
                 <div className="text-[10px] font-medium text-faint uppercase tracking-wider px-2 mb-1.5">工作区</div>
                 <nav className="space-y-0.5">
@@ -397,6 +439,18 @@ function Workbench() {
                   <span className="w-2 h-2 rounded-full bg-accent animate-pulse" />
                   Axiom 正在思考…
                 </div>
+              )}
+            {session.status === "awaiting" &&
+              session.awaiting === "user_response" &&
+              session.pendingAsk && (
+                <AskUserCard
+                  question={session.pendingAsk.question}
+                  options={session.pendingAsk.options}
+                  onAnswer={(ans) => {
+                    if (!sid) return;
+                    session.start(sid, ans);
+                  }}
+                />
               )}
           </div>
 
@@ -780,6 +834,59 @@ function UsageFooter({ usage }: { usage: { in: number; out: number } }) {
   );
 }
 
+function AskUserCard({
+  question,
+  options,
+  onAnswer,
+}: {
+  question: string;
+  options: string[];
+  onAnswer: (ans: string) => void;
+}) {
+  const [text, setText] = useState("");
+  return (
+    <div className="max-w-3xl mx-auto mt-6 p-4 rounded-xl border border-accent/30 bg-accent/5">
+      <div className="flex items-start gap-2 mb-3">
+        <span className="text-accent text-sm mt-0.5">❓</span>
+        <div className="text-sm text-default leading-relaxed whitespace-pre-wrap">{question}</div>
+      </div>
+      {options.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-3">
+          {options.map((opt) => (
+            <button
+              key={opt}
+              onClick={() => onAnswer(opt)}
+              className="text-xs px-3 py-2 rounded-lg bg-card hover:bg-elevated text-default border border-border transition-colors"
+            >
+              {opt}
+            </button>
+          ))}
+        </div>
+      )}
+      <div className="flex items-center gap-2">
+        <input
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && text.trim()) {
+              onAnswer(text.trim());
+            }
+          }}
+          placeholder="输入回答…"
+          className="flex-1 px-3 py-2 text-sm bg-card rounded-lg border border-border text-default placeholder:text-faint focus:outline-none focus:border-accent"
+        />
+        <button
+          onClick={() => text.trim() && onAnswer(text.trim())}
+          disabled={!text.trim()}
+          className="px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-inverse text-sm font-medium disabled:opacity-40 transition-colors"
+        >
+          回答
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function Welcome({ onPick }: { onPick: (t: string) => void }) {
   const examples = [
     "推导史瓦西黑洞的霍金辐射温度公式，并画出 T-M 关系曲线",
@@ -816,8 +923,7 @@ function Welcome({ onPick }: { onPick: (t: string) => void }) {
   );
 }
 
-function EmptyState({ icon, text, sub }: { icon: string; text: string; sub: string }) {
-  return (
+function EmptyState({ icon, text, sub }: { icon: string; text: string; sub: string }) {  return (
     <div className="text-center py-10 px-4">
       {icon && <div className="text-2xl mb-2 opacity-40">{icon}</div>}
       <div className="text-[13px] text-muted">{text}</div>

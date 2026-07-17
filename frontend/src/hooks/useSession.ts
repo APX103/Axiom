@@ -3,7 +3,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { connectSSE } from "../api";
-import type { ArtifactInfo, PlanSnapshot, ToolCall, ToolResult, WSEvent } from "../types";
+import type { ArtifactInfo, PendingAsk, PlanSnapshot, ToolCall, ToolResult, WSEvent } from "../types";
 
 // 一条对话消息 (UI 展示用,聚合 text/tool 调用)
 export interface UIMessage {
@@ -30,6 +30,7 @@ export function useSession() {
   const [usage, setUsage] = useState<{ in: number; out: number }>({ in: 0, out: 0 });
   const [error, setError] = useState<string | null>(null);
   const [awaiting, setAwaiting] = useState<string | null>(null);
+  const [pendingAsk, setPendingAsk] = useState<PendingAsk | null>(null);
   // 当前轮正在累积的 assistant 消息 (text + tool calls)
   const curRef = useRef<UIMessage | null>(null);
 
@@ -43,6 +44,7 @@ export function useSession() {
     setUsage({ in: 0, out: 0 });
     setError(null);
     setAwaiting(null);
+    setPendingAsk(null);
     curRef.current = null;
   }, []);
 
@@ -157,6 +159,8 @@ export function useSession() {
         if (e.plan) setPlan(e.plan);
         if (e.artifacts) setArtifacts(e.artifacts);
         setAwaiting(e.awaiting);
+        // ask_user 的问题/选项; 非 awaiting 时后端会带 null
+        setPendingAsk(e.awaiting === "user_response" ? e.pending_ask : null);
         setStatus(e.kind === "awaiting" ? "awaiting" : e.kind === "error" ? "error" : "done");
         if (e.kind === "error" && e.error) setError(e.error);
         break;
@@ -196,6 +200,9 @@ export function useSession() {
       setStatus("running");
       // 关闭上一个 SSE 连接 (避免泄漏)
       closeConnection();
+      // 新一轮开始, 清掉上一次的 ask_user 问题 (用户正在回答它)
+      setPendingAsk(null);
+      setAwaiting(null);
       setMessages((m) => [...m, { id: nextId(), role: "user", text: prompt }]);
       const conn = connectSSE(sid, prompt, (e) => handleEvent(e), (err) => {
         setError(String(err));
@@ -280,10 +287,15 @@ export function useSession() {
           if ((m as Record<string, unknown>).harness_notice) {
             continue;
           }
-          // 兜底: 旧版 DB 未持久化 harness_notice 标记, 凭内容识别 memory 召回块并跳过。
+          // 兜底: 旧版 DB 未持久化 harness_notice 标记, 凭内容识别内部提示并跳过。
           // (新版已在 _db_save_messages 把 harness_notice 编进 content JSON)
-          if (role === "user" && text.trimStart().startsWith("[Memory]")) {
-            continue;
+          // - [Memory]: 记忆召回块
+          // - [boundary]: boundary 工具插入的任务边界标记 (旧 session 未带 harness_notice)
+          if (role === "user") {
+            const t = text.trimStart();
+            if (t.startsWith("[Memory]") || t.startsWith("[boundary]")) {
+              continue;
+            }
           }
           // 跳过空 user 消息: 后端把工具结果存为 role=user (Anthropic 风格),
           // 这些消息 text 为空且只有 tool_result blocks, 不应渲染为用户气泡
@@ -311,12 +323,14 @@ export function useSession() {
     usage,
     error,
     awaiting,
+    pendingAsk,
     start,
     stop,
     reset,
     setPlan,
     setStatus,
     setAwaiting,
+    setPendingAsk,
     loadFromState,
   };
 }

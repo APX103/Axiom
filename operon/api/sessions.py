@@ -546,10 +546,29 @@ class SessionManager:
         """启动 (或继续) 一个会话。事件经 callbacks.queue 流出。消息写 DB。
 
         Args:
-            plan_mode: 覆盖会话级的 plan_mode 设置。None=用会话配置。
-            deep_review: 覆盖会话级的 deep_review 设置。None=用会话配置。
+            plan_mode: 覆盖会话级 plan_mode。None=用会话配置。
+            deep_review: 覆盖会话级 deep_review (深度综述模式)。
         """
         active = self._sessions[sid]
+
+        # 重入保护: 若上一轮 run 还在跑 (用户没收到 complete 就断连/重发),
+        # 显式取消它, 否则两个 run 并发操作同一 frame/queue, 状态会乱。
+        prev = active.running
+        if prev is not None and not prev.done():
+            prev.cancel()
+            try:
+                await prev
+            except (asyncio.CancelledError, Exception):
+                pass
+
+        # 清空残留事件: queue 是 per-session 跨 run 共享的, 上轮 stop 后可能
+        # 残留了 complete 等事件没被前端消费, 不清掉会让新 run 的第一个 queue.get()
+        # 拿到旧的 complete → 流立刻结束, 前端以为"完成了"但新 run 根本没输出。
+        while not active.callbacks.queue.empty():
+            try:
+                active.callbacks.queue.get_nowait()
+            except asyncio.QueueEmpty:
+                break
 
         msg_count_before = len(active.ctx.frame.messages)
 
@@ -569,7 +588,14 @@ class SessionManager:
             deep_review=bool(deep_review),
             callbacks=active.callbacks,
         )
-        result = await agent.run(prompt)
+        # 记录当前 task, 供重入保护 + LRU 判断 (start 前设置, finally 清掉)
+        active.running = asyncio.current_task()
+        try:
+            result = await agent.run(prompt)
+        finally:
+            # 只在还是自己的 task 时清 (避免被更新的 run 覆盖)
+            if active.running is asyncio.current_task():
+                active.running = None
         active.last_result = result
         await active.callbacks.emit_complete(result, active.ctx)
 

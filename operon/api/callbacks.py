@@ -88,12 +88,20 @@ class WSCallbacks(AgentCallbacks):
                 "steps": ctx.plan.steps,
                 "approved": ctx.plan.approved,
             }
+        # ask_user 触发 awaiting=user_response 时, 把问题/选项带给前端渲染选择框。
+        # 用户回答后这些会被清掉。
+        pending_ask = None
+        if result.awaiting == "user_response" and ctx is not None:
+            pa = getattr(ctx, "pending_ask", None)
+            if pa is not None:
+                pending_ask = {"question": pa.question, "options": list(pa.options)}
         await self._emit(
             {
                 "type": "complete",
                 "kind": result.kind.value,
                 "final_text": result.final_text,
                 "awaiting": result.awaiting,
+                "pending_ask": pending_ask,
                 "error": result.error,
                 "usage": result.usage,
                 "iterations": result.iterations,

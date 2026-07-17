@@ -1,0 +1,72 @@
+% AXIOM TEMPLATE: article
+% !! AXIOM-LOCKED-PREAMBLE-START !!  —— 以下 preamble 由模板锁定，agent 不得修改。
+% 规则: 禁止改 \documentclass、禁止删除已有的 \usepackage/\usetikzlibrary。
+% 需要新宏包时只能在标记区下方新增 \usepackage，且必须确认 CTAN 可用。
+\documentclass[11pt,a4paper]{article}
+
+% —— 数学 ——
+\usepackage{amsmath,amssymb,amsthm,mathtools}
+\usepackage{bm}
+
+% —— 图形与表格 ——
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{tabularx}
+
+% —— TikZ (全部常用库预加载，避免 of/positioning 报错) ——
+\usepackage{tikz}
+\usetikzlibrary{positioning,arrows.meta,shapes.geometric,shapes.misc,calc,fit,backgrounds,decorations.pathreplacing}
+
+% —— 伪代码 ——
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+
+% —— 列表与排版 ——
+\usepackage{enumitem}
+\usepackage{parskip}
+\usepackage{geometry}
+\geometry{left=2.5cm,right=2.5cm,top=2.5cm,bottom=2.5cm}
+
+% —— 引用与链接 ——
+\usepackage{hyperref}
+\hypersetup{colorlinks=true,linkcolor=blue,citecolor=blue,urlcolor=blue}
+\usepackage{natbib}
+\usepackage{cleveref}
+
+% —— 微排版 ——
+\usepackage{microtype}
+
+% —— 定理环境 ——
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}{Lemma}
+\newtheorem{proposition}{Proposition}
+\newtheorem{corollary}{Corollary}
+\newtheorem{definition}{Definition}
+\newtheorem{remark}{Remark}
+% !! AXIOM-LOCKED-PREAMBLE-END !!
+
+% AXIOM_BODY: agent 只能从 \begin{document} 之后开始编辑正文。
+\title{Paper Title}
+\author{Author Name}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Replace this with the abstract.
+\end{abstract}
+
+\tableofcontents
+
+\section{Introduction}
+Replace this with the introduction.
+
+% 引用: 写好 references.bib 后, 正文用 \cite{key}, 并取消下面两行注释。
+% 未引用任何文献时保持注释, 否则空 .bbl 会触发 "missing \item" 报错。
+% \bibliographystyle{plainnat}
+% \bibliography{references}
+\end{document}

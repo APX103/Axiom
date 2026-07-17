@@ -43,6 +43,8 @@ async def boundary(ctx: ToolContext, *, label: str | None = None) -> str:
         role="user",
         content=f"[boundary] {label or 'task transition'}",
         task_boundary={"label": label or ""},
+        # 内部上下文管理标记, 不应渲染给用户 (重载 session 时会被前端 harness_notice 过滤器跳过)
+        _harness_notice=True,
     )
     ctx.frame.messages.append(msg)
     return f"Boundary marked: {label or 'task transition'}"

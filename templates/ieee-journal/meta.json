@@ -1,0 +1,7 @@
+{
+  "id": "ieee-journal",
+  "name": "IEEE 期刊 (IEEEtran Journal)",
+  "description": "IEEE 官方双栏期刊/transactions 格式 (IEEEtran journal 模式)。适合投 IEEE Transactions 系列。",
+  "documentclass": "IEEEtran",
+  "columns": 2
+}
