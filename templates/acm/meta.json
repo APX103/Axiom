@@ -1,0 +1,7 @@
+{
+  "id": "acm",
+  "name": "ACM 论文 (acmart)",
+  "description": "ACM 官方 acmart 文档类，双栏。符合 SIG/SIGCHI 等 ACM 会议投稿要求。需指定格式 (manuscript/acmsmall/acmlarge)，默认 manuscript。",
+  "documentclass": "acmart",
+  "columns": 2
+}

@@ -12,12 +12,14 @@ hiddenimports = [
 ]
 hiddenimports += collect_submodules('operon')
 
-# skills/ 目录打 进包 (PyInstaller 解压到 _MEIPASS/skills/)。
-# 没这个, 打包后 load_builtin_skills 找不到 skills 目录 → 内置 skill 全丢。
+# skills/ + templates/ 目录打 进包 (PyInstaller 解压到 _MEIPASS/)。
+# 没这个, 打包后 load_builtin_skills / builtin_templates_root 找不到目录 → 内置 skill/模板全丢。
 _proj_root = os.path.abspath('.')
-datas = [
-    ('skills', 'skills'),
-] if os.path.isdir(os.path.join(_proj_root, 'skills')) else []
+datas = []
+if os.path.isdir(os.path.join(_proj_root, 'skills')):
+    datas.append(('skills', 'skills'))
+if os.path.isdir(os.path.join(_proj_root, 'templates')):
+    datas.append(('templates', 'templates'))
 
 
 a = Analysis(

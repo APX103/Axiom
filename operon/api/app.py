@@ -63,12 +63,20 @@ class CreateSession(BaseModel):
     api_keys: dict[str, str] | None = None
     # 被用户禁用的 skill 名称列表 (从设置面板传入)
     disabled_skills: list[str] | None = None
+    # 论文模板 id (见 GET /api/templates)。默认 article。
+    # 会话创建时把该模板的 template.tex 复制进工作区作为 main.tex。
+    template: str | None = None
 
 
 class RunReq(BaseModel):
     prompt: str
     plan_mode: bool | None = None  # 覆盖会话级 plan_mode
     deep_review: bool | None = None  # 覆盖会话级 deep_review (深度综述模式)
+
+
+class CompileReq(BaseModel):
+    path: str  # .tex 相对工作区的路径 (如 "main.tex")
+    out_name: str | None = None
 
 
 def create_app() -> FastAPI:
@@ -241,6 +249,41 @@ def create_app() -> FastAPI:
 
         return skills
 
+    # ---- 论文模板 ----
+    @app.get("/api/templates")
+    async def list_templates() -> list[dict[str, Any]]:
+        """列出可用论文模板 (内置 + 用户自定义)。
+
+        每个模板含 id/name/description/documentclass/columns。
+        用户自定义模板放 {data_dir}/templates/{id}/ 下。
+        """
+        from operon.templates import list_templates as _list_templates
+
+        settings = getattr(app.state, "settings", None) or load_settings()
+        return [
+            {
+                "id": t.id,
+                "name": t.name,
+                "description": t.description,
+                "documentclass": t.documentclass,
+                "columns": t.columns,
+            }
+            for t in _list_templates(settings.data_dir)
+        ]
+
+    @app.get("/api/templates/{template_id}")
+    async def get_template(template_id: str) -> dict[str, Any]:
+        """返回某模板的 template.tex 内容 (供前端预览/复制)。"""
+        from fastapi.responses import PlainTextResponse
+
+        from operon.templates import get_template_path
+
+        settings = getattr(app.state, "settings", None) or load_settings()
+        path = get_template_path(template_id, settings.data_dir)
+        if path is None:
+            raise HTTPException(404, f"template '{template_id}' not found")
+        return PlainTextResponse(path.read_text(encoding="utf-8"))
+
     # ---- MCP 单 server 工具探测 ----
     @app.get("/api/mcp/{server_name}/tools")
     async def mcp_server_tools(server_name: str) -> dict[str, Any]:
@@ -317,6 +360,21 @@ def create_app() -> FastAPI:
         sid = str(uuid.uuid4())[:12]
         workspace = settings.data_dir / "workspaces" / sid
 
+        # 模板: 把选中的 template.tex 复制进工作区作为 main.tex (preamble 已就位)。
+        # 默认 article; 找不到模板时静默跳过 (不阻断建会话)。
+        tpl_id = req.template or "article"
+        try:
+            from operon.templates import get_template_path
+
+            tpl_path = get_template_path(tpl_id, settings.data_dir)
+            if tpl_path is not None:
+                workspace.mkdir(parents=True, exist_ok=True)
+                (workspace / "main.tex").write_text(
+                    tpl_path.read_text(encoding="utf-8"), encoding="utf-8"
+                )
+        except Exception:
+            pass  # 模板复制失败不阻断建会话; agent 仍可自己写 main.tex
+
         client = OpenAICompatClient(base_url=base_url, api_key=api_key, model=model)
 
         # MCP: 请求体优先, 否则用 config.toml 的
@@ -389,7 +447,14 @@ def create_app() -> FastAPI:
         text_exts = {".tex", ".md", ".txt", ".py", ".csv", ".json", ".bib", ".sty", ".cls"}
         if p.suffix.lower() in text_exts and not download:
             return PlainTextResponse(p.read_text(encoding="utf-8", errors="replace"))
-        # 否则作为附件下载
+        # PDF: 以 inline 返回, 前端用 PDF.js / <iframe> 直接渲染预览
+        if p.suffix.lower() == ".pdf" and not download:
+            return Response(
+                content=content,
+                media_type="application/pdf",
+                headers={"Content-Disposition": f'inline; filename="{p.name}"'},
+            )
+        # 其余二进制作为附件下载
         media = "application/octet-stream"
         return Response(
             content=content,
@@ -501,6 +566,29 @@ def create_app() -> FastAPI:
         except Exception as e:
             raise HTTPException(404, f"session not found: {e}") from e
         return await manager.approve_plan(sid)
+
+    # ---- 编译 .tex → PDF (前端 PDF 预览用) ----
+    @app.post("/api/sessions/{sid}/compile")
+    async def compile_session(sid: str, req: CompileReq) -> dict[str, Any]:
+        """在工作区用 tectonic 编译 .tex → PDF, 返回结果 + 错误详情。
+
+        前端 PDF 预览页调用: 成功后直接拉 GET /files/{pdf} 渲染。
+        失败时返回从 .log 解析出的具体错误行 (如 "第 221 行 TikZ positioning 缺失")。
+        """
+        ws = await _get_workspace(manager, sid)
+        if ws is None:
+            raise HTTPException(404, "session not found")
+        from operon.tools.builtins.latex import compile_tex
+
+        result = await compile_tex(ws, req.path, out_name=req.out_name)
+        return {
+            "success": result.success,
+            "pdf_path": result.rel_pdf,
+            "size_kb": round(result.size_kb),
+            "message": result.message,
+            "errors": result.errors,
+            "log_excerpt": result.log_excerpt[-3000:],
+        }
 
     # ---- 流式运行 (WebSocket) ----
     @app.websocket("/api/sessions/{sid}/stream")

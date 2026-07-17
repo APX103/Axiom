@@ -46,6 +46,18 @@ Goal: a complete, compiling draft end-to-end. Breadth over depth.
 
 **Compile after every iteration that changes .tex.** A draft that doesn't compile is not a draft — it's a text file. Catch structural breakage early. Call `compile_pdf("main.tex")` to build a PDF (uses the Tectonic engine; auto-runs bibtex + multiple passes, downloads missing packages on first use). A compiled PDF is the final deliverable the user opens.
 
+### The preamble is locked — never touch it
+
+The workspace already contains `main.tex` with a **locked preamble** between the markers `!! AXIOM-LOCKED-PREAMBLE-START !!` and `!! AXIOM-LOCKED-PREAMBLE-END !!`. That preamble is correct and complete for the chosen template — it has the right `\documentclass` and every commonly-needed package already loaded, **including all TikZ libraries** (`positioning`, `arrows.meta`, `shapes.geometric`, `calc`, `fit`, …). A missing TikZ library is the #1 cause of compilation failure, which is why they are pre-loaded here.
+
+**Hard rules:**
+- **Do NOT modify the locked preamble.** Not the `\documentclass`, not the existing `\usepackage`/`\usetikzlibrary` lines, not the theorem definitions.
+- You may ONLY edit content after `\begin{document}` (the `\title`/`\author`/`\section`/`\begin{abstract}` … `\end{document}` body).
+- If you genuinely need an extra package that isn't already loaded, add a **new** `\usepackage{...}` line *below* the `AXIOM-LOCKED-PREAMBLE-END` marker and above `\begin{document}` — never edit or delete existing lines. And prefer not to: the preamble already covers math, tables, figures, TikZ, algorithms, citations, hyperref.
+- `edit_file` on `main.tex` must preserve the preamble verbatim. If your edit would touch any line above `AXIOM-LOCKED-PREAMBLE-END`, rewrite the edit to only touch the body.
+
+When you add citations, uncomment the `% \bibliographystyle` / `% \bibliography` lines near the end of the body (they are commented out by default so an empty `references.bib` doesn't break compilation). Keep `\cite{key}` in the `.tex` and `@article{key,…}` in `references.bib` perfectly in sync.
+
 ## Phase 2 — Deep improvement (iterations 7–9, target: 7.5–8.0)
 
 Now add what a draft lacks: original analysis and presentation polish.

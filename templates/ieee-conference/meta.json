@@ -1,0 +1,7 @@
+{
+  "id": "ieee-conference",
+  "name": "IEEE 会议 (IEEEtran Conference)",
+  "description": "IEEE 官方双栏会议论文格式 (IEEEtran conference 模式)。符合 ICASSP/ICRA/IROS 等 IEEE 会议投稿要求。Tectonic 会自动下载 IEEEtran.cls。",
+  "documentclass": "IEEEtran",
+  "columns": 2
+}

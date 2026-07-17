@@ -146,3 +146,20 @@ export interface ArtifactInfo {
   size: number;
   frame_id: string;
 }
+
+export interface TemplateInfo {
+  id: string;
+  name: string;
+  description: string;
+  documentclass: string;
+  columns: number;
+}
+
+export interface CompileResult {
+  success: boolean;
+  pdf_path: string;
+  size_kb: number;
+  message: string;
+  errors: string[];
+  log_excerpt: string;
+}

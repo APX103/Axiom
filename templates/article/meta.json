@@ -1,0 +1,7 @@
+{
+  "id": "article",
+  "name": "通用文章 (Article)",
+  "description": "标准单栏 article 文档类。适合综述、报告、笔记。A4，11pt，2.5cm 边距，含常用数学/表格/图形宏包。",
+  "documentclass": "article",
+  "columns": 1
+}

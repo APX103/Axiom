@@ -1,0 +1,66 @@
+% AXIOM TEMPLATE: ieee-conference
+% !! AXIOM-LOCKED-PREAMBLE-START !!  —— preamble 由模板锁定，agent 不得修改。
+% 禁止改 \documentclass、禁止删除已有 \usepackage/\usetikzlibrary。
+% Tectonic 会自动从 CTAN 下载 IEEEtran.cls (首次编译联网)。
+\documentclass[conference]{IEEEtran}
+
+% —— 数学 ——
+\usepackage{amsmath,amssymb,amsthm,mathtools}
+\usepackage{bm}
+
+% —— 图形与表格 (IEEE 风格用 cite 而非 natbib) ——
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{tabularx}
+
+% —— TikZ (常用库全加载) ——
+\usepackage{tikz}
+\usetikzlibrary{positioning,arrows.meta,shapes.geometric,shapes.misc,calc,fit,backgrounds,decorations.pathreplacing}
+
+% —— 伪代码 ——
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+
+% —— 列表 ——
+\usepackage{enumitem}
+
+% —— 引用与链接 (IEEE 会议用 cite; hyperref 放最后) ——
+\usepackage{url}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true,linkcolor=blue,citecolor=blue,urlcolor=blue}
+
+% —— 微排版 ——
+\usepackage{microtype}
+% !! AXIOM-LOCKED-PREAMBLE-END !!
+
+% AXIOM_BODY: agent 只能从 \begin{document} 之后开始编辑正文。
+\title{Paper Title}
+
+\author{
+  \IEEEauthorblockN{Author Name}
+  \IEEEauthorblockA{Affiliation\\
+  email@example.com}
+}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Replace this with the abstract.
+\end{abstract}
+
+\begin{IEEEkeywords}
+keyword1, keyword2, keyword3
+\end{IEEEkeywords}
+
+\section{Introduction}
+Replace this with the introduction.
+
+% 引用: 写好 references.bib 后, 正文用 \cite{key}, 并取消下面两行注释。
+% 未引用任何文献时保持注释, 否则空 .bbl 会触发 "missing \item" 报错。
+% \bibliographystyle{IEEEtran}
+% \bibliography{references}
+\end{document}

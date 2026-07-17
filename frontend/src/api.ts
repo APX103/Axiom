@@ -90,6 +90,20 @@ export async function approvePlan(sid: string): Promise<{ approved: boolean; ste
   return jfetch(`${getApiBase()}/sessions/${sid}/approve`, { method: "POST" });
 }
 
+export async function listTemplates(): Promise<import("./types").TemplateInfo[]> {
+  return jfetch(`${getApiBase()}/templates`);
+}
+
+export async function compilePdf(
+  sid: string,
+  path: string,
+): Promise<import("./types").CompileResult> {
+  return jfetch(`${getApiBase()}/sessions/${sid}/compile`, {
+    method: "POST",
+    body: JSON.stringify({ path }),
+  });
+}
+
 export async function getSessionState(sid: string): Promise<{
   id: string;
   frame_id: string | null;
