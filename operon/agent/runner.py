@@ -273,6 +273,7 @@ class Agent:
             results = recall(
                 user_input, self.ctx.memory_index,
                 limit=recall_limit, exclude_entities=["frame"],
+                project_id=self.ctx.project_id,
             )
             if results:
                 # 标记 surfaced
@@ -313,9 +314,12 @@ class Agent:
             )
             # Layer A: session_id 透传 (优先 ctx.session_id, fallback frame.id)
             session_id = self.ctx.session_id or self.frame.id
+            # Layer A.5: project_id 透传 (从 ctx.project_id 拿)
+            project_id = getattr(self.ctx, "project_id", None)
             count = await apply_extraction(
                 self.ctx.memory_store, ops,
                 frame_id=self.frame.id, session_id=session_id,
+                project_id=project_id,
             )
             if count > 0:
                 logger.info("memory extraction: %d operations applied", count)

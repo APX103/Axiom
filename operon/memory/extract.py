@@ -227,10 +227,12 @@ async def apply_extraction(
     *,
     frame_id: str | None = None,
     session_id: str | None = None,
+    project_id: str | None = None,
 ) -> int:
     """应用提取结果到存储。返回写入条数。
 
     Layer A: 透传 entity_type/meta/session_id/confidence 到 store.append。
+    Layer A.5: 透传 project_id (profile 层 store.append 内部会强制设回 None)。
     """
     count = 0
     for item in ops.get("append", []):
@@ -251,6 +253,8 @@ async def apply_extraction(
             meta=item.get("meta") or None,
             session_id=session_id,
             confidence=item.get("confidence", 0.5),
+            # Layer A.5
+            project_id=project_id,
         )
         count += 1
     for item in ops.get("replace", []):

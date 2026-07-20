@@ -145,6 +145,7 @@ def recall(
     exclude_entities: list[str] | None = None,
     include_types: list[str] | None = None,
     exclude_types: list[str] | None = None,
+    project_id: str | None = None,
 ) -> list[dict[str, Any]]:
     """召回: BM25 搜索 + 过滤。
 
@@ -153,6 +154,12 @@ def recall(
     Layer A 新增参数:
     - include_types: 只保留这些 entity_type (claim/evidence/citation/tool_use/note)
     - exclude_types: 排除这些 entity_type
+
+    Layer A.5 新增参数:
+    - project_id: 按 project 隔离召回。语义:
+      * scope='profile' 的记忆总是可见 (跨 project 用户偏好)
+      * 其他 scope 的记忆: project_id 必须匹配 (或都是 NULL 视为全局共享)
+      * project_id=None 时不做 project 过滤 (向后兼容)
     """
     results = index.search(query, limit=limit * 2)  # 多取一些再过滤
     filtered = []
@@ -163,6 +170,14 @@ def recall(
             continue
         if exclude_types and r.get("entity_type", "note") in exclude_types:
             continue
+        # Layer A.5: project 隔离过滤
+        if project_id is not None:
+            r_scope = r.get("scope", r.get("entity"))
+            r_proj = r.get("project_id")
+            if r_scope != "profile":
+                # 非 profile: project_id 必须匹配 (NULL 视为全局共享, 可见)
+                if r_proj is not None and r_proj != project_id:
+                    continue
         filtered.append(r)
         if len(filtered) >= limit:
             break

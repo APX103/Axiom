@@ -158,6 +158,8 @@ async def write_memory(
                 meta=item.get("meta") if isinstance(item.get("meta"), dict) else None,
                 session_id=ctx.session_id,
                 confidence=item.get("confidence", 0.5),
+                # Layer A.5
+                project_id=getattr(ctx, "project_id", None),
             )
             count += 1
     for item in (replace or [])[:20]:

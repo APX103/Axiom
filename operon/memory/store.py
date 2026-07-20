@@ -96,6 +96,23 @@ class MemoryStore:
             rows = result.scalars().all()
             return [_row_to_dict(r) for r in rows]
 
+    async def list_by_project(self, project_id: str) -> list[dict[str, Any]]:
+        """列出某 project 的所有记忆 (Layer A.5: project 隔离)。
+
+        注意: profile 层 project_id=NULL, 不会被包含。要拿 profile 层记忆,
+        用 list_by_entity('profile') 或 list_all 后过滤。
+        """
+        if self.db_factory is None:
+            return []
+        async with self.db_factory() as db:
+            result = await db.execute(
+                select(MemoryRecord)
+                .where(MemoryRecord.project_id == project_id)
+                .order_by(MemoryRecord.created_at.desc())
+            )
+            rows = result.scalars().all()
+            return [_row_to_dict(r) for r in rows]
+
     async def list_all(self) -> list[dict[str, Any]]:
         """列出所有记忆 (搜索用)。"""
         if self.db_factory is None:
@@ -121,31 +138,39 @@ class MemoryStore:
         meta: dict[str, Any] | None = None,
         session_id: str | None = None,
         confidence: float = 0.5,
+        # Layer A.5: 所属 project
+        project_id: str | None = None,
     ) -> dict[str, Any] | None:
         """追加一条记忆。
 
         向后兼容: 老调用只传 entity+body+evidence+origin+frame_id 仍可用。
-        新调用可传 scope/entity_type/meta/session_id/confidence。
+        新调用可传 scope/entity_type/meta/session_id/confidence/project_id。
 
         - scope: 不传时默认等于 entity (向后兼容)
         - entity_type: 默认 'note' (未分类)
         - meta: dict 会被序列化为 JSON 字符串存库
+        - project_id: Layer A.5; profile 层应传 None (跨 project 共享),
+          其他层传当前 project id 实现隔离。
         """
         if self.db_factory is None:
             return None
         body = body.strip()[:1000]
         if not body:
             return None
+        # Layer A.5: profile 层 project_id 强制 None (跨 project 共享用户偏好)
+        eff_scope = scope if scope is not None else entity
+        eff_project_id = None if eff_scope == "profile" else project_id
         rec = MemoryRecord(
             id=_mem_id(),
             entity=entity,
-            scope=scope if scope is not None else entity,
+            scope=eff_scope,
             entity_type=entity_type,
             body=body,
             evidence=evidence,
             origin=origin,
             frame_id=frame_id if entity == "frame" else None,
             session_id=session_id,
+            project_id=eff_project_id,
             confidence=confidence,
             meta=_meta_to_str(meta),
             created_at=_now(),
@@ -237,6 +262,7 @@ def _row_to_dict(r: MemoryRecord) -> dict[str, Any]:
         "entity_type": r.entity_type,
         "meta": _meta_from_str(r.meta),
         "session_id": r.session_id,
+        "project_id": r.project_id,
         "confidence": r.confidence,
         # 时间戳
         "created_at": r.created_at.isoformat() if r.created_at else None,
