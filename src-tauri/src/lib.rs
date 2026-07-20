@@ -324,6 +324,51 @@ fn open_in_file_manager(sid: String, path: String) -> Result<(), String> {
     Ok(())
 }
 
+/// 在系统默认浏览器里打开外部 URL。
+///
+/// 为什么需要这个命令: Tauri webview (macOS WKWebView / Windows WebView2) 里
+/// window.open(外部URL) 会静默失败 — 不打开浏览器, 也不报错。
+/// 项目里所有"打开外部链接"的地方都应走这里, 而不是 window.open。
+///
+/// 协议白名单: 只允许 http/https, 防止恶意构造 file:// 或自定义协议。
+#[tauri::command]
+fn open_external_url(url: String) -> Result<(), String> {
+    // 协议白名单 (大小写不敏感)
+    let lower = url.to_lowercase();
+    if !(lower.starts_with("http://") || lower.starts_with("https://")) {
+        return Err(format!(
+            "refused to open non-http(s) URL (only http/https allowed): {}",
+            url
+        ));
+    }
+
+    eprintln!("[axiom] open external url: {}", url);
+
+    #[cfg(target_os = "macos")]
+    let mut cmd = {
+        let mut c = std::process::Command::new("open");
+        c.arg(&url);
+        c
+    };
+    #[cfg(target_os = "windows")]
+    let mut cmd = {
+        // start "" <url>: 空 title 避免 URL 被当成窗口标题 (尤其当 URL 含 & 等字符)
+        let mut c = std::process::Command::new("cmd");
+        c.arg("/C").arg("start").arg("").arg(&url);
+        c
+    };
+    #[cfg(target_os = "linux")]
+    let mut cmd = {
+        let mut c = std::process::Command::new("xdg-open");
+        c.arg(&url);
+        c
+    };
+
+    cmd.status()
+        .map_err(|e| format!("failed to open browser: {}", e))?;
+    Ok(())
+}
+
 /// 向前端注入后端端口, 并导航到工作台 /app。
 /// 用 eval 注入端口到 localStorage (跨重载持久), 然后跳转 /app。
 fn inject_port_and_navigate(window: &WebviewWindow, port: u16) {
@@ -345,7 +390,12 @@ pub fn run() {
             backend: backend.clone(),
             backend_port: backend_port.clone(),
         })
-        .invoke_handler(tauri::generate_handler![restart_backend, check_update, open_in_file_manager])
+        .invoke_handler(tauri::generate_handler![
+            restart_backend,
+            check_update,
+            open_in_file_manager,
+            open_external_url
+        ])
         .setup(move |app| {
             let window = app.get_webview_window("main").unwrap();
 

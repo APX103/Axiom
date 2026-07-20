@@ -1002,8 +1002,10 @@ function UpdateCheck() {
         current: CURRENT_VERSION,
       });
       if (result) {
-        setResult(`发现新版本 ${result[0]} (当前 ${CURRENT_VERSION})`);
-        window.open(result[1], "_blank");
+        setResult(`发现新版本 ${result[0]} (当前 ${CURRENT_VERSION}), 正在打开下载页...`);
+        invoke("open_external_url", { url: result[1] }).catch((e) =>
+          console.error("open_external_url failed:", e)
+        );
       } else {
         setResult(`已是最新版本 (${CURRENT_VERSION})`);
       }
