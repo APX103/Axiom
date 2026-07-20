@@ -51,7 +51,7 @@ from operon.prompts.registry import build_system_prompt
 from operon.tools.context import ToolContext
 from operon.tools.router import ToolRouter
 
-from .states import FrameStatus, RunResultKind
+from .states import TERMINAL, FrameStatus, RunResultKind
 
 # plan mode 门控: 最多拒绝次数 (对照 0871.js:1632 _planModeDenials,原版 3 次)
 MAX_PLAN_DENIALS = 3
@@ -138,6 +138,12 @@ class Agent:
 
     async def run(self, user_input: str) -> RunResult:
         """执行一次 agent 会话。"""
+        # 防御: 终态 frame 不允许继续运行,避免后续状态流转报 ValueError
+        if self.frame.status in TERMINAL:
+            return self._result(
+                RunResultKind.ERROR,
+                error=f"frame is already terminal ({self.frame.status.value}); start a new session",
+            )
         # 初始化: 用户消息入历史
         self.frame.messages.append(Message(role=Role.USER, content=user_input))
         self.frame.task_summary = user_input[:200]
@@ -314,6 +320,11 @@ class Agent:
             # 1. 哨兵检查
             if self.frame.status == FrameStatus.CANCELLED:
                 return self._result(RunResultKind.CANCELLED)
+            if self.frame.status in TERMINAL:
+                return self._result(
+                    RunResultKind.ERROR,
+                    error=f"frame became terminal ({self.frame.status.value}) during run",
+                )
             if self.frame.status == FrameStatus.AWAITING_PLAN_APPROVAL:
                 # deep_review 模式: 自动批准 plan, 不阻断 (无人值守深度流程不该卡审批)
                 if self.deep_review:
