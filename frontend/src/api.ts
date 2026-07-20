@@ -86,6 +86,42 @@ export async function createSession(
   });
 }
 
+// ---- Project (Layer A.5) ----
+
+export async function listProjects(): Promise<import("./types").ProjectInfo[]> {
+  return jfetch(`${getApiBase()}/projects`);
+}
+
+export async function createProject(
+  name: string,
+  description?: string,
+): Promise<import("./types").ProjectInfo> {
+  return jfetch(`${getApiBase()}/projects`, {
+    method: "POST",
+    body: JSON.stringify({ name, description }),
+  });
+}
+
+export async function updateProject(
+  pid: string,
+  patch: { name?: string; description?: string; last_session_id?: string },
+): Promise<import("./types").ProjectInfo> {
+  return jfetch(`${getApiBase()}/projects/${encodeURIComponent(pid)}`, {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
+}
+
+export async function deleteProject(
+  pid: string,
+  force = false,
+): Promise<{ id: string; deleted: boolean }> {
+  const q = force ? "?force=true" : "";
+  return jfetch(`${getApiBase()}/projects/${encodeURIComponent(pid)}${q}`, {
+    method: "DELETE",
+  });
+}
+
 export async function approvePlan(sid: string): Promise<{ approved: boolean; steps: unknown[] }> {
   return jfetch(`${getApiBase()}/sessions/${sid}/approve`, { method: "POST" });
 }

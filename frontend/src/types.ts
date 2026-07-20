@@ -108,9 +108,23 @@ export interface SessionInfo {
   workspace: string;
   model: string | null;
   plan_mode: boolean;
+  // Layer A.5: 所属 project id (老 session 是 'proj_default')
+  project_id: string | null;
   created_at: string | null;
   updated_at: string | null;
   live: boolean;
+}
+
+// Layer A.5: Project
+export interface ProjectInfo {
+  id: string;
+  name: string;
+  description: string | null;
+  last_session_id: string | null;
+  session_count: number;
+  last_activity_at: string | null;
+  created_at: string | null;
+  is_default: boolean;
 }
 
 // WebSocket 事件 (对应 operon/api/callbacks.py 发出的 dict)
