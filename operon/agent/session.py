@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -18,6 +19,8 @@ from operon.tools.registry import ToolRegistry
 from operon.tools.router import ToolRouter
 
 from .runner import Agent, AgentCallbacks, RunResult
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -202,13 +205,28 @@ class Session:
         if config.mcp_servers:
             from operon.mcp.manager import MCPServerManager
             from operon.mcp.skill_gen import generate_mcp_skills
-            from operon.tools.builtins.mcp_proxy import register_mcp_tools
+            from operon.tools.builtins.mcp_proxy import (
+                register_mcp_search_tools,
+                register_mcp_tools,
+            )
 
             self.mcp_manager = MCPServerManager()
             for srv in config.mcp_servers:
                 await self.mcp_manager.add_server(srv)
-            # 轨道 1: MCP 工具自动注册成 agent 工具 (直接调 mcp__server__tool)
-            n = register_mcp_tools(self.registry, self.mcp_manager)
+
+            # 轨道 1: MCP 工具注册成 agent 工具
+            # 工具数 ≤ threshold → 全量直接暴露 (现状); 超过 → 改用 mcp_search/mcp_call
+            # 元工具模式, 避免每轮把所有 MCP schema 塞进 LLM 请求撑爆 context。
+            total_mcp = len(self.mcp_manager.list_all_tools())
+            threshold = self._load_mcp_threshold()
+            if total_mcp <= threshold:
+                n = register_mcp_tools(self.registry, self.mcp_manager)
+            else:
+                n = register_mcp_search_tools(self.registry, self.mcp_manager)
+                logger.info(
+                    "MCP tools (%d) > threshold (%d), using mcp_search/mcp_call meta-tools",
+                    total_mcp, threshold,
+                )
             self._mcp_tool_count = n
             # 轨道 2: 生成 mcp-* skill 文档 (发现层, 对照原版 0772.js RxO)
             for s in generate_mcp_skills(self.mcp_manager):
@@ -217,6 +235,17 @@ class Session:
             if ctx.host is not None:
                 ctx.host._mcp_manager = self.mcp_manager
         return ctx
+
+    @staticmethod
+    def _load_mcp_threshold() -> int:
+        """从 operon.config.Settings 读 MCP search 阈值。失败回退默认 30。"""
+        try:
+            from operon.config import load_settings
+
+            settings = load_settings()
+            return settings.mcp.search_threshold
+        except Exception:
+            return 30
 
     async def run(self, user_input: str) -> RunResult:
         """创建根 frame + 注册工具 + 跑 agent。"""
