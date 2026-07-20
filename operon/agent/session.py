@@ -223,6 +223,10 @@ class Session:
         ctx = await self.prepare()
         frame = ctx.frame
 
+        # trace recorder (从 settings.trace 读配置; enabled=False 时返回零开销 _NullRecorder)
+        # 用 frame.id 作为 session_id 维度 (一个 frame = 一次完整 agent run)
+        trace_recorder = self._make_trace_recorder(frame.id)
+
         # agent
         router = ToolRouter(self.registry)
         agent = Agent(
@@ -236,12 +240,36 @@ class Session:
             max_tokens=self.config.max_tokens,
             plan_mode=self.config.plan_mode,
             callbacks=self.callbacks,
+            trace_recorder=trace_recorder,
         )
         result = await agent.run(user_input)
+        # 关闭 trace recorder
+        if hasattr(trace_recorder, "close"):
+            trace_recorder.close()
         # 关闭 MCP 连接
         if self.mcp_manager is not None:
             await self.mcp_manager.close_all()
         return result
+
+    @staticmethod
+    def _make_trace_recorder(session_id: str):
+        """从 operon.config.Settings 读 trace 配置, 创建 recorder。
+
+        enabled=False (默认) 时返回 _NullRecorder (零开销)。
+        """
+        try:
+            from operon.config import load_settings
+            from operon.observability import get_trace_recorder
+
+            settings = load_settings()
+            return get_trace_recorder(
+                settings.trace,
+                session_id=session_id,
+                data_dir=settings.data_dir,
+            )
+        except Exception:
+            # 任何失败都退化为不记 trace (不能影响主流程)
+            return None
 
 
 async def run_session(

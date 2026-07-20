@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { saveSettings, listSkills, getMcpTools, listMemories, deleteMemory } from "../api";
 import { version as CURRENT_VERSION } from "../../package.json";
-import type { AppSettings, LLMProvider, MCPServer, SkillInfo, McpServerStatus, MemoryInfo, VerificationConfig } from "../types";
+import type { AppSettings, LLMProvider, MCPServer, SkillInfo, McpServerStatus, MemoryInfo, VerificationConfig, TraceConfig } from "../types";
 
 const STORAGE_KEY = "operon-py-app-config";
 
@@ -34,6 +34,10 @@ function newMcp(): MCPServer {
 }
 
 function newVerification(): VerificationConfig {
+  return { enabled: false };
+}
+
+function newTrace(): TraceConfig {
   return { enabled: false };
 }
 
@@ -72,6 +76,7 @@ function migrateOldConfig(old: Record<string, unknown>): FullConfig {
     load_project_skills: true,
     skill_extra_dirs: [],
     verification: newVerification(),
+    trace: newTrace(),
   };
 }
 
@@ -103,6 +108,7 @@ export function loadConfig(): FullConfig {
     load_project_skills: true,
     skill_extra_dirs: [],
     verification: newVerification(),
+    trace: newTrace(),
   };
 }
 
@@ -139,6 +145,7 @@ export function fromApiSettings(raw: Record<string, unknown>): FullConfig {
     load_project_skills: raw.load_project_skills !== false,
     skill_extra_dirs: (raw.skill_extra_dirs as string[]) || [],
     verification: (raw.verification as VerificationConfig) || newVerification(),
+    trace: (raw.trace as TraceConfig) || newTrace(),
   };
 }
 
@@ -151,6 +158,7 @@ export function toApiSettings(c: FullConfig): Record<string, unknown> {
       headers: s.key ? { Authorization: `Bearer ${s.key}` } : {},
     })),
     verification: c.verification,
+    trace: c.trace,
   };
 }
 
@@ -836,6 +844,81 @@ export function SettingsModal({
                     className="mt-1 w-full px-2.5 py-1.5 bg-card rounded-md text-xs font-mono text-default placeholder:text-faint focus:outline-none input-glow border border-border"
                   />
                 </label>
+              </div>
+
+              {/* Trace 可观测 */}
+              <div className="p-3 rounded-lg bg-page space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-sm text-default">Trace (可观测)</div>
+                    <div className="text-[10px] text-faint">
+                      落盘 LLM/工具调用 span 到 ~/.axiom/trace/ (JSONL), 便于调试 agent 行为
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={cfg.trace.enabled}
+                    onChange={(e) =>
+                      setCfg((c) => ({
+                        ...c,
+                        trace: { ...c.trace, enabled: e.target.checked },
+                      }))
+                    }
+                    className="w-4 h-4 rounded"
+                    style={{ accentColor: "var(--accent)" }}
+                  />
+                </div>
+                {cfg.trace.enabled && (
+                  <>
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={!!cfg.trace.log_llm_payload}
+                        onChange={(e) =>
+                          setCfg((c) => ({
+                            ...c,
+                            trace: { ...c.trace, log_llm_payload: e.target.checked },
+                          }))
+                        }
+                        className="w-3.5 h-3.5 rounded"
+                        style={{ accentColor: "var(--accent)" }}
+                      />
+                      <span className="text-xs text-muted">
+                        记录 LLM 输入/输出全文 (含敏感内容, 慎用)
+                      </span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={cfg.trace.log_tool_args !== false}
+                        onChange={(e) =>
+                          setCfg((c) => ({
+                            ...c,
+                            trace: { ...c.trace, log_tool_args: e.target.checked },
+                          }))
+                        }
+                        className="w-3.5 h-3.5 rounded"
+                        style={{ accentColor: "var(--accent)" }}
+                      />
+                      <span className="text-xs text-muted">记录工具调用参数</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={cfg.trace.log_tool_result_summary !== false}
+                        onChange={(e) =>
+                          setCfg((c) => ({
+                            ...c,
+                            trace: { ...c.trace, log_tool_result_summary: e.target.checked },
+                          }))
+                        }
+                        className="w-3.5 h-3.5 rounded"
+                        style={{ accentColor: "var(--accent)" }}
+                      />
+                      <span className="text-xs text-muted">记录工具结果摘要 (前 200 字符)</span>
+                    </label>
+                  </>
+                )}
               </div>
 
               <UpdateCheck />

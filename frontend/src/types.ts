@@ -37,6 +37,15 @@ export interface VerificationConfig {
   min_checkpoint_interval_ms?: number;
 }
 
+export interface TraceConfig {
+  enabled: boolean;
+  log_dir?: string;
+  retention_days?: number;
+  log_llm_payload?: boolean;
+  log_tool_args?: boolean;
+  log_tool_result_summary?: boolean;
+}
+
 export interface AppSettings {
   version: number;
   llm_providers: LLMProvider[];
@@ -50,6 +59,7 @@ export interface AppSettings {
   load_project_skills: boolean;
   skill_extra_dirs: string[];
   verification: VerificationConfig;
+  trace: TraceConfig;
 }
 
 export interface SkillInfo {

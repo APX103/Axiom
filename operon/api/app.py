@@ -89,6 +89,15 @@ def create_app() -> FastAPI:
     async def lifespan(app: FastAPI):
         settings = load_settings()
         app.state.settings = settings
+        # 统一日志配置 (原本项目零 handler 配置, info/debug 默认不输出)
+        try:
+            from operon.observability import setup_logging
+            from operon.observability.trace import cleanup_old_traces
+
+            setup_logging(log_dir=settings.data_dir_resolved() / "logs")
+            cleanup_old_traces(settings.data_dir_resolved(), settings.trace.retention_days)
+        except Exception as e:
+            logger.warning("logging setup failed: %s", e)
         try:
             from operon.db.session import init_engine, session_factory
 
