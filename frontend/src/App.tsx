@@ -52,7 +52,6 @@ function Workbench() {
   const [sid, setSidRaw] = useState<string | null>(null);
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
   const [config, setConfig] = useState<FullConfig>(loadConfig());
-  const [serverConfigured, setServerConfigured] = useState<boolean | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showPaper, setShowPaper] = useState(false);
   const [backendStatus, setBackendStatus] = useState<BackendStatus>("checking");
@@ -129,7 +128,6 @@ function Workbench() {
           const saved = fromApiSettings(raw);
           setConfig(saved);
           const hasEnabled = saved.llm_providers.some(isProviderReady);
-          setServerConfigured(hasEnabled);
           if (!hasEnabled) setShowSettings(true);
 
           if (!restoredRef.current) {
@@ -195,23 +193,26 @@ function Workbench() {
     const body: Record<string, unknown> = {};
     const primary = config.llm_providers.find(isProviderReady);
 
-    // 若后端未持久化有效配置, 用前端当前配置兜底创建会话
-    if (!serverConfigured && primary) {
+    // 总是用前端当前启用的 provider 建会话 (而非只在后端未配置时兜底)。
+    // 否则: 后端一旦配过一次, 之后切换/删除 provider 都不影响新会话 ——
+    // 它会一直用后端 config.toml 里 default_model_tier 的旧 provider。
+    if (primary) {
       body.base_url = primary.base_url;
       body.api_key = primary.api_key;
       body.model = primary.model;
       body.context_window = Number(primary.context_window) || 256000;
-      const enabledMcps = config.mcp_servers.filter((s) => s.enabled && s.url);
-      if (enabledMcps.length > 0) {
-        body.mcp_servers = enabledMcps.map((s) => ({
-          name: s.name || s.id,
-          url: s.url,
-          headers: s.key ? { Authorization: `Bearer ${s.key}` } : {},
-        }));
-      }
-      if (config.api_keys.OPENALEX_API_KEY) {
-        body.api_keys = { OPENALEX_API_KEY: config.api_keys.OPENALEX_API_KEY };
-      }
+    }
+    // MCP / 学术 key 始终带 (它们不依赖 provider 选择)
+    const enabledMcps = config.mcp_servers.filter((s) => s.enabled && s.url);
+    if (enabledMcps.length > 0) {
+      body.mcp_servers = enabledMcps.map((s) => ({
+        name: s.name || s.id,
+        url: s.url,
+        headers: s.key ? { Authorization: `Bearer ${s.key}` } : {},
+      }));
+    }
+    if (config.api_keys.OPENALEX_API_KEY) {
+      body.api_keys = { OPENALEX_API_KEY: config.api_keys.OPENALEX_API_KEY };
     }
     if (config.plan_mode) body.plan_mode = true;
     if (config.disabled_skills && config.disabled_skills.length > 0) {
@@ -578,7 +579,6 @@ function Workbench() {
           onClose={() => setShowSettings(false)}
           onSave={(c) => {
             setConfig(c);
-            setServerConfigured(c.llm_providers.some(isProviderReady));
             setShowSettings(false);
             setBackendStatus("checking");
             health().then(() => setBackendStatus("online")).catch(() => setBackendStatus("offline"));
