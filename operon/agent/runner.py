@@ -260,11 +260,19 @@ class Agent:
         if self.ctx.memory_store is None or self.ctx.memory_index is None:
             return
         try:
+            from operon.config import load_settings
             from operon.memory.recall import recall, render_recall_block
+
+            # recall_inject_max 从 config 读 (修死配置: 原来硬编码 limit=6)
+            try:
+                settings = load_settings()
+                recall_limit = settings.memory.recall_inject_max
+            except Exception:
+                recall_limit = 6
 
             results = recall(
                 user_input, self.ctx.memory_index,
-                limit=6, exclude_entities=["frame"],
+                limit=recall_limit, exclude_entities=["frame"],
             )
             if results:
                 # 标记 surfaced
@@ -303,7 +311,12 @@ class Agent:
                 frame_id=self.frame.id,
                 max_per_run=settings.memory.extract_max_per_run,
             )
-            count = await apply_extraction(self.ctx.memory_store, ops, frame_id=self.frame.id)
+            # Layer A: session_id 透传 (优先 ctx.session_id, fallback frame.id)
+            session_id = self.ctx.session_id or self.frame.id
+            count = await apply_extraction(
+                self.ctx.memory_store, ops,
+                frame_id=self.frame.id, session_id=session_id,
+            )
             if count > 0:
                 logger.info("memory extraction: %d operations applied", count)
                 # 重建索引

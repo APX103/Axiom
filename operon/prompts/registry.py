@@ -491,7 +491,13 @@ def build_system_prompt(ctx: ToolContext, *, plan_mode: bool, deep_review: bool 
 
         if profile_memories:
             lines = ["<memory_facts>", "### Profile"]
-            for m in profile_memories[:40]:
+            # profile_max_rows 从 config 读 (修死配置: 原来硬编码 [:40])
+            try:
+                from operon.config import load_settings
+                max_rows = load_settings().memory.profile_max_rows
+            except Exception:
+                max_rows = 40
+            for m in profile_memories[:max_rows]:
                 lines.append(f"- [{m.get('evidence', '')}] {m['body']}")
             lines.append("</memory_facts>")
             parts.append("\n".join(lines))
@@ -519,11 +525,14 @@ def _sync_load_profile(store) -> list[dict]:
 
         settings = load_settings()
         db_path = str(settings.db_path or (settings.data_dir / "operon.db"))
+        # profile_max_rows 从 config 读 (修死配置: 原来硬编码 LIMIT 40)
+        max_rows = settings.memory.profile_max_rows
         conn = sqlite3.connect(db_path)
         conn.row_factory = sqlite3.Row
         rows = conn.execute(
             "SELECT id, entity, body, evidence FROM memories "
-            "WHERE entity = 'profile' ORDER BY created_at DESC LIMIT 40"
+            "WHERE entity = 'profile' ORDER BY created_at DESC LIMIT ?",
+            (max_rows,),
         ).fetchall()
         conn.close()
         return [{"id": r["id"], "entity": r["entity"], "body": r["body"], "evidence": r["evidence"]} for r in rows]

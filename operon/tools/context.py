@@ -95,3 +95,6 @@ class ToolContext:
     # 根 agent 在 Session.prepare() / sessions.py 构造时填入; 子 agent 复用父的。
     llm: Any = None
     registry: Any = None
+    # Layer A: 来源 session id, 用于记忆的跨会话溯源。
+    # api/sessions.py 设置; 不设置时 fallback 到 frame.id (一个 frame = 一次 agent run)。
+    session_id: str | None = None
