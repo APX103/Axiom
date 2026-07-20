@@ -367,7 +367,7 @@ def create_app() -> FastAPI:
         db_factory = _get_db_factory()
         if db_factory is None:
             return []
-        from sqlalchemy import func, select
+        from sqlalchemy import case, func, select
 
         from operon.db.schema import Project, SessionRecord
 
@@ -381,7 +381,11 @@ def create_app() -> FastAPI:
                 )
                 .outerjoin(SessionRecord, SessionRecord.project_id == Project.id)
                 .group_by(Project.id)
-                .order_by(Project.id == DEFAULT_PROJECT_ID, Project.updated_at.desc())
+                # 默认 project 排首位 (CASE 把默认 id 映射为 0, 其他为 1, 升序排)
+                .order_by(
+                    case((Project.id == DEFAULT_PROJECT_ID, 0), else_=1),
+                    Project.updated_at.desc(),
+                )
             )
             result = await db.execute(stmt)
             rows = result.all()
