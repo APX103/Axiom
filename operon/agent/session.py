@@ -52,6 +52,9 @@ class SessionConfig:
     load_project_skills: bool = True
     # 额外自定义 skill 目录路径列表。
     skill_extra_dirs: list[str] | None = None
+    # Layer A.5: 所属 project id。用于 frame.project_id + 记忆按 project 隔离。
+    # None 时 frame.project_id 也 None, agent 第一次保存 artifact 时自动生成 proj_<root>。
+    project_id: str | None = None
 
 
 class Session:
@@ -104,9 +107,11 @@ class Session:
         config.workspace.mkdir(parents=True, exist_ok=True)
 
         # 根 frame
+        # Layer A.5: session 创建时就赋 frame.project_id (替代 artifact_tool 的惰性赋值)
         frame = self.frame_service.create_root_frame(
             agent_name="MAIN",
             model=self.config.model,
+            project_id=self.config.project_id,
         )
 
         # 工具上下文
@@ -210,6 +215,8 @@ class Session:
         # 暴露 llm + registry 给 ctx (供 delegate 工具构造子 Agent)
         ctx.llm = self.llm
         ctx.registry = self.registry
+        # Layer A.5: ctx.project_id 方便工具拿 (与 frame.project_id 一致)
+        ctx.project_id = frame.project_id
 
         # 连接 MCP server + 注册 MCP 工具 (双轨)
         if config.mcp_servers:

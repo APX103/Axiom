@@ -43,6 +43,8 @@ class ActiveSession:
     running: asyncio.Task | None = None
     mcp_manager: Any = None  # MCPServerManager, 清理时需要 close_all
     _msg_seq: int = 0  # DB 消息序号计数器
+    # Layer A.5: 所属 project id (从 SessionConfig 拷贝, DB 持久化 + 记忆隔离用)
+    project_id: str | None = None
 
     async def cleanup(self) -> None:
         """释放会话持有的资源 (MCP 连接等)。"""
@@ -100,6 +102,7 @@ class SessionManager:
                     model=active.session.config.model,
                     plan_mode=active.session.config.plan_mode,
                     status="active",
+                    project_id=active.project_id,
                 )
                 db.add(rec)
                 await db.commit()
@@ -201,6 +204,8 @@ class SessionManager:
                         "model": r.model,
                         "plan_mode": r.plan_mode,
                         "status": r.status,
+                        # Layer A.5: project_id (老 session 迁移后是 proj_default)
+                        "project_id": getattr(r, "project_id", None),
                         "created_at": r.created_at.isoformat() if r.created_at else None,
                         "updated_at": r.updated_at.isoformat() if r.updated_at else None,
                     }
@@ -317,12 +322,15 @@ class SessionManager:
         load_claude_skills: bool = True,
         load_project_skills: bool = True,
         skill_extra_dirs: list[str] | None = None,
+        project_id: str | None = None,
     ) -> ActiveSession:
         """创建会话 (初始化 MCP + ctx,不启动 run) + 写 DB。
 
         Args:
             sid: 可选的 session id。传入时直接使用 (app 层需提前生成以计算 workspace 路径);
                  不传则在此处生成。
+            project_id: Layer A.5 所属 project id。None 时 frame.project_id 也 None,
+                        agent 第一次保存 artifact 时自动生成 proj_<root>。
         """
         import uuid
 
@@ -345,6 +353,7 @@ class SessionManager:
                 load_claude_skills=load_claude_skills,
                 load_project_skills=load_project_skills,
                 skill_extra_dirs=skill_extra_dirs or [],
+                project_id=project_id,
             ),
             callbacks=callbacks,
         )
@@ -356,6 +365,7 @@ class SessionManager:
             callbacks=callbacks,
             frame_service=session.frame_service,
             mcp_manager=session.mcp_manager,
+            project_id=project_id or ctx.project_id,
         )
         self._sessions[sid] = active
         self._evict_if_needed()

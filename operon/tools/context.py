@@ -98,3 +98,6 @@ class ToolContext:
     # Layer A: 来源 session id, 用于记忆的跨会话溯源。
     # api/sessions.py 设置; 不设置时 fallback 到 frame.id (一个 frame = 一次 agent run)。
     session_id: str | None = None
+    # Layer A.5: 所属 project id。用于记忆按 project 隔离 (recall/extract 都读它)。
+    # Session.prepare() 从 frame.project_id 拷贝。
+    project_id: str | None = None
