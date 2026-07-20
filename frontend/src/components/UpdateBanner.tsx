@@ -44,7 +44,11 @@ export function UpdateBanner() {
       </span>
       <div className="flex items-center gap-3">
         <button
-          onClick={() => window.open(update.url, "_blank")}
+          onClick={() =>
+            invoke("open_external_url", { url: update.url }).catch((e) =>
+              console.error("open_external_url failed:", e)
+            )
+          }
           className="font-medium underline hover:text-indigo-600"
         >
           去 GitHub 下载

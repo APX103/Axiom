@@ -28,6 +28,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass, field
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -94,6 +95,7 @@ class Agent:
         plan_mode: bool = False,
         deep_review: bool = False,
         callbacks: AgentCallbacks | None = None,
+        trace_recorder: Any | None = None,
     ):
         self.llm = llm
         self.tool_router = tool_router
@@ -106,6 +108,9 @@ class Agent:
         self.plan_mode = plan_mode
         self.deep_review = deep_review
         self.callbacks = callbacks or AgentCallbacks()
+        # trace 记录器 (None 或 _NullRecorder 时零开销)
+        # 由 Session 在创建 Agent 时从 settings.trace 注入。
+        self._trace = trace_recorder
 
         # 运行时状态
         self._iter = 0
@@ -329,6 +334,10 @@ class Agent:
 
             self._iter += 1
             await self.callbacks.on_iteration(self._iter)
+            # trace: 标记当前轮次上下文 (供 span 共享 frame_id/turn_id)
+            turn_id = f"{self.frame.id}-{self._iter}"
+            if self._trace is not None:
+                self._trace.set_context(frame_id=self.frame.id, turn_id=turn_id)
 
             # 3. Rolling Compact: 每轮调 LLM 前压缩 (对照 0871.js:1106 checkRcTurn)
             await self._maybe_compact()
@@ -341,9 +350,24 @@ class Agent:
             llm_messages = self._prepare_messages_for_llm()
             # 优先走流式 (LLM 支持时, 每个 text delta 增量回调 → 前端打字机效果)
             self._text_streamed_this_turn = False
-            resp = await self._call_llm(
-                llm_messages, system=system, tools=tools or None
-            )
+            # trace: 包一层 LLM span (记录 model / token 用量 / stop_reason / 耗时)
+            if self._trace is not None:
+                with self._trace.span("llm_call", kind="llm", model=self.model or "unknown"):
+                    resp = await self._call_llm(
+                        llm_messages, system=system, tools=tools or None
+                    )
+                    # 在 span 内补 attrs (退出前 set 才会落盘)
+                    if resp is not None:
+                        self._trace.set_attrs(
+                            input_tokens=getattr(resp.usage, "input_tokens", None) if resp.usage else None,
+                            output_tokens=getattr(resp.usage, "output_tokens", None) if resp.usage else None,
+                            stop_reason=resp.stop_reason.value if resp.stop_reason else None,
+                            iter=self._iter,
+                        )
+            else:
+                resp = await self._call_llm(
+                    llm_messages, system=system, tools=tools or None
+                )
             # 记录 server-side token (用于 RC 锚点估算)
             self.frame.add_usage(resp.usage)
 
@@ -430,7 +454,25 @@ class Agent:
 
         # 有 tool_use → 执行工具
         await self.callbacks.on_tool_calls(tool_uses)
+        # trace: 每个工具调用一个 span (含耗时和错误)
+        if self._trace is not None and self._trace.log_tool_args:
+            # 记录工具调用元信息 (不展开参数, 敏感)
+            for tu in tool_uses:
+                self._trace.event(
+                    "tool_call",
+                    tool=tu.name,
+                    iter=self._iter,
+                )
         results = await self.tool_router.execute_tool_calls(tool_uses)
+        # trace: 工具结果摘要 (可选, 默认开)
+        if self._trace is not None and self._trace.log_tool_result_summary:
+            for r in results:
+                self._trace.event(
+                    "tool_result",
+                    tool=getattr(r, "tool_use_id", None),
+                    is_error=getattr(r, "is_error", False),
+                    summary=self._trace.summarize_result(r.content),
+                )
         await self.callbacks.on_tool_results(results)
 
         # 工具结果加入历史 (Anthropic 风格: tool_result 作为 user 消息的 content block)

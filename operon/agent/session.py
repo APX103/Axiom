@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -18,6 +19,8 @@ from operon.tools.registry import ToolRegistry
 from operon.tools.router import ToolRouter
 
 from .runner import Agent, AgentCallbacks, RunResult
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -202,13 +205,28 @@ class Session:
         if config.mcp_servers:
             from operon.mcp.manager import MCPServerManager
             from operon.mcp.skill_gen import generate_mcp_skills
-            from operon.tools.builtins.mcp_proxy import register_mcp_tools
+            from operon.tools.builtins.mcp_proxy import (
+                register_mcp_search_tools,
+                register_mcp_tools,
+            )
 
             self.mcp_manager = MCPServerManager()
             for srv in config.mcp_servers:
                 await self.mcp_manager.add_server(srv)
-            # 轨道 1: MCP 工具自动注册成 agent 工具 (直接调 mcp__server__tool)
-            n = register_mcp_tools(self.registry, self.mcp_manager)
+
+            # 轨道 1: MCP 工具注册成 agent 工具
+            # 工具数 ≤ threshold → 全量直接暴露 (现状); 超过 → 改用 mcp_search/mcp_call
+            # 元工具模式, 避免每轮把所有 MCP schema 塞进 LLM 请求撑爆 context。
+            total_mcp = len(self.mcp_manager.list_all_tools())
+            threshold = self._load_mcp_threshold()
+            if total_mcp <= threshold:
+                n = register_mcp_tools(self.registry, self.mcp_manager)
+            else:
+                n = register_mcp_search_tools(self.registry, self.mcp_manager)
+                logger.info(
+                    "MCP tools (%d) > threshold (%d), using mcp_search/mcp_call meta-tools",
+                    total_mcp, threshold,
+                )
             self._mcp_tool_count = n
             # 轨道 2: 生成 mcp-* skill 文档 (发现层, 对照原版 0772.js RxO)
             for s in generate_mcp_skills(self.mcp_manager):
@@ -218,10 +236,25 @@ class Session:
                 ctx.host._mcp_manager = self.mcp_manager
         return ctx
 
+    @staticmethod
+    def _load_mcp_threshold() -> int:
+        """从 operon.config.Settings 读 MCP search 阈值。失败回退默认 30。"""
+        try:
+            from operon.config import load_settings
+
+            settings = load_settings()
+            return settings.mcp.search_threshold
+        except Exception:
+            return 30
+
     async def run(self, user_input: str) -> RunResult:
         """创建根 frame + 注册工具 + 跑 agent。"""
         ctx = await self.prepare()
         frame = ctx.frame
+
+        # trace recorder (从 settings.trace 读配置; enabled=False 时返回零开销 _NullRecorder)
+        # 用 frame.id 作为 session_id 维度 (一个 frame = 一次完整 agent run)
+        trace_recorder = self._make_trace_recorder(frame.id)
 
         # agent
         router = ToolRouter(self.registry)
@@ -236,12 +269,36 @@ class Session:
             max_tokens=self.config.max_tokens,
             plan_mode=self.config.plan_mode,
             callbacks=self.callbacks,
+            trace_recorder=trace_recorder,
         )
         result = await agent.run(user_input)
+        # 关闭 trace recorder
+        if hasattr(trace_recorder, "close"):
+            trace_recorder.close()
         # 关闭 MCP 连接
         if self.mcp_manager is not None:
             await self.mcp_manager.close_all()
         return result
+
+    @staticmethod
+    def _make_trace_recorder(session_id: str):
+        """从 operon.config.Settings 读 trace 配置, 创建 recorder。
+
+        enabled=False (默认) 时返回 _NullRecorder (零开销)。
+        """
+        try:
+            from operon.config import load_settings
+            from operon.observability import get_trace_recorder
+
+            settings = load_settings()
+            return get_trace_recorder(
+                settings.trace,
+                session_id=session_id,
+                data_dir=settings.data_dir,
+            )
+        except Exception:
+            # 任何失败都退化为不记 trace (不能影响主流程)
+            return None
 
 
 async def run_session(

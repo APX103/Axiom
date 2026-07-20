@@ -100,6 +100,35 @@ class VerificationConfig(BaseModel):
     min_checkpoint_interval_ms: int = 30000
 
 
+class TraceConfig(BaseModel):
+    """结构化 trace 配置。对照 operon.observability.TraceRecorder。
+
+    默认 enabled=False: 避免性能影响和敏感数据落盘。
+    开启后 trace 写到 {data_dir}/trace/{session_id}/{trace_id}.jsonl。
+    """
+
+    enabled: bool = False
+    log_dir: Path | None = None  # None → data_dir/trace/
+    retention_days: int = 30
+    # 是否记录 LLM 输入/输出全文 (默认否, 可能含敏感内容)
+    log_llm_payload: bool = False
+    # 是否记录工具调用参数 (默认是, 用于调试工具误用)
+    log_tool_args: bool = True
+    # 是否记录工具结果摘要 (默认是, 只记前 200 字符)
+    log_tool_result_summary: bool = True
+
+
+class McpConfig(BaseModel):
+    """MCP 工具配置。
+
+    search_threshold: MCP 工具数超过此阈值时自动切换到 mcp_search/mcp_call
+    元工具模式 (避免每轮把所有 MCP schema 塞进 LLM 请求撑爆 context)。
+    常见配置 (1-3 个 server) 远低于此阈值, 默认行为不变。
+    """
+
+    search_threshold: int = 30
+
+
 class InvalidationConfig(BaseModel):
     """invalidation loop 配置。对照原版 0233.js:49 Ls_=2。"""
 
@@ -141,6 +170,8 @@ class Settings(BaseSettings):
     verification: VerificationConfig = Field(default_factory=VerificationConfig)
     invalidation: InvalidationConfig = Field(default_factory=InvalidationConfig)
     sandbox: SandboxConfig = Field(default_factory=SandboxConfig)
+    trace: TraceConfig = Field(default_factory=TraceConfig)
+    mcp: McpConfig = Field(default_factory=McpConfig)
     # 数据源 API keys (OpenAlex / Semantic Scholar / 搜索 API 等)。
     #
     # 工具通过 ctx.api_keys.get("OPENALEX_API_KEY") 等读取。
