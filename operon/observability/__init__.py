@@ -13,8 +13,8 @@
 """
 
 from operon.observability.logging_setup import setup_logging
-from operon.observability.trace import TraceRecorder, get_trace_recorder
 from operon.observability.spans import Span, SpanKind
+from operon.observability.trace import TraceRecorder, get_trace_recorder
 
 __all__ = [
     "TraceRecorder",

@@ -20,8 +20,8 @@ import re
 from typing import Any
 
 from operon.mcp.manager import MCPServerManager
-from operon.skills.search import SkillIndex, SearchResult, tokenize  # 复用 BM25
 from operon.skills.parser import Skill  # 仅用于构造索引对象
+from operon.skills.search import SearchResult, SkillIndex  # 复用 BM25
 from operon.tools.registry import ToolRegistry
 
 # MCP Search 元工具 schema (按 OpenAI function tool 规范)

@@ -216,11 +216,12 @@ async def test_mcp_call_no_arguments_default_empty():
 
 def test_meta_tools_do_not_conflict_with_builtins():
     """mcp_search / mcp_call 注册后, 内置工具仍能正常注册。"""
-    from operon.tools.builtins import register_all
-    from operon.tools.context import ToolContext
+    from pathlib import Path
+
     from operon.frames.model import Frame, FrameStatus
     from operon.frames.service import FrameService
-    from pathlib import Path
+    from operon.tools.builtins import register_all
+    from operon.tools.context import ToolContext
 
     tools = [_make_tool("srv", f"t{i}", "desc") for i in range(50)]
     manager = MockMCPServerManager(tools)

@@ -18,7 +18,7 @@ from pathlib import Path
 import pytest
 
 from operon.observability.logging_setup import setup_logging
-from operon.observability.spans import Span, SpanKind
+from operon.observability.spans import SpanKind
 from operon.observability.trace import (
     TraceRecorder,
     _redact_value,
@@ -216,9 +216,8 @@ async def test_agent_loop_writes_trace(workspace: Path, tmp_path: Path, monkeypa
     通过 monkeypatch 让 Session._make_trace_recorder 返回真实 recorder (写到 tmp_path)。
     """
     from operon.agent.session import Session, SessionConfig
-    from operon.config import TraceConfig
+    from operon.llm.messages import LLMResponse, StopReason, TextBlock, TokenUsage, ToolUseBlock
     from tests.conftest import FakeLLM
-    from operon.llm.messages import TextBlock, ToolUseBlock, LLMResponse, StopReason, TokenUsage
 
     # FakeLLM 脚本: 第 1 轮调 bash, 第 2 轮回复文本结束
     llm = FakeLLM([
@@ -245,14 +244,13 @@ async def test_agent_loop_writes_trace(workspace: Path, tmp_path: Path, monkeypa
         log_tool_result_summary=True,
     )
 
-    from operon.agent import session as session_mod
 
     monkeypatch.setattr(
         Session, "_make_trace_recorder", staticmethod(lambda sid: real_recorder)
     )
 
     sess = Session(llm=llm, config=SessionConfig(workspace=workspace))
-    result = await sess.run("跑 echo hi")
+    await sess.run("跑 echo hi")
 
     # trace 文件应包含:
     # - 2 个 llm_call span (2 轮 LLM 调用)
@@ -283,8 +281,8 @@ async def test_agent_loop_writes_trace(workspace: Path, tmp_path: Path, monkeypa
 async def test_agent_loop_disabled_trace_no_file(workspace: Path):
     """enabled=False 时 trace 目录不应有文件 (零开销)。"""
     from operon.agent.session import Session, SessionConfig
+    from operon.llm.messages import LLMResponse, StopReason, TextBlock, TokenUsage
     from tests.conftest import FakeLLM
-    from operon.llm.messages import TextBlock, LLMResponse, StopReason, TokenUsage
 
     llm = FakeLLM([
         LLMResponse(
