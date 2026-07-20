@@ -177,15 +177,25 @@ class Session:
         from operon.memory.recall import build_index
         from operon.memory.store import MemoryStore
 
-        ctx.memory_store = MemoryStore(db_session_factory=config.db_session_factory)
+        # memory.enabled 开关真正生效 (修死配置: 原来写了 enabled 字段但从不读)
+        # 关闭时不初始化 memory_store / memory_index, runner 的 recall/extract 自然跳过
         try:
-            all_mems = await ctx.memory_store.list_all()
-            ctx.memory_index = build_index(all_mems)
-        except Exception as e:
-            import logging
+            from operon.config import load_settings
+            memory_enabled = load_settings().memory.enabled
+        except Exception:
+            memory_enabled = True
 
-            logging.getLogger(__name__).warning("memory index build failed: %s", e)
-            ctx.memory_index = build_index([])
+        if memory_enabled:
+            ctx.memory_store = MemoryStore(db_session_factory=config.db_session_factory)
+            try:
+                all_mems = await ctx.memory_store.list_all()
+                ctx.memory_index = build_index(all_mems)
+            except Exception as e:
+                logger.warning("memory index build failed: %s", e)
+                ctx.memory_index = build_index([])
+        else:
+            ctx.memory_store = None
+            ctx.memory_index = None
 
         # 初始化 host 对象 (阶段 6, 给 python kernel 的进程内接口)
         from operon.host import make_host

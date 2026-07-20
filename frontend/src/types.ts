@@ -85,7 +85,14 @@ export interface McpServerStatus {
 
 export interface MemoryInfo {
   id: string;
+  // 老的作用域字段 (profile/project/frame), 向后兼容
   entity: string;
+  // Layer A: 作用域 (与 entity 语义一致) + 语义类型 + 结构化字段
+  scope?: string;
+  entity_type?: string;  // claim / evidence / citation / tool_use / note
+  meta?: Record<string, unknown> | null;
+  session_id?: string | null;
+  confidence?: number;
   body: string;
   evidence: string;
   origin: string;
