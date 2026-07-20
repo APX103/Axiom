@@ -82,7 +82,8 @@ async def _migrate_memory_layer_a(conn) -> None:
                 )
             if "entity_type" not in cols:
                 sync_conn.exec_driver_sql(
-                    "ALTER TABLE memories ADD COLUMN entity_type VARCHAR(20) DEFAULT 'note' NOT NULL"
+                    "ALTER TABLE memories ADD COLUMN entity_type "
+                    "VARCHAR(20) DEFAULT 'note' NOT NULL"
                 )
             if "session_id" not in cols:
                 sync_conn.exec_driver_sql(

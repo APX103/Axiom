@@ -750,6 +750,11 @@ export function SettingsModal({
                       }`}>
                         {m.entity}
                       </span>
+                      {m.entity_type && m.entity_type !== "note" && (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-success/15 text-success uppercase tracking-wide">
+                          {m.entity_type}
+                        </span>
+                      )}
                       <span className="text-[9px] text-faint">{m.evidence}</span>
                       <span className="text-[9px] text-faint">· {m.origin}</span>
                     </div>

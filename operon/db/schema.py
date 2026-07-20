@@ -372,12 +372,14 @@ class MemoryRecord(Base):
     """三层记忆: profile (用户全局) / project (跨会话) / frame (会话级)。
 
     Layer A 升级 (2026-07):
-    - scope: 作用域 (profile/project/frame), 与老 entity 字段语义一致 (向后兼容保留 entity 列)
-    - entity_type: 语义类型 (claim/evidence/citation/tool_use/note), 决定 meta 结构
-    - meta: JSON 结构化字段, 按 entity_type 派发 (claim 的 subject/predicate, citation 的 doi/authors 等)
+    - scope: 作用域 (profile/project/frame), 与老 entity 字段语义一致
+    - entity_type: 语义类型 (claim/evidence/citation/tool_use/note)
+    - meta: JSON 结构化字段, 按 entity_type 派发
+      (claim 的 subject/predicate, citation 的 doi/authors 等)
     - session_id: 来源 session, 用于跨会话溯源 (老数据为 None)
     - confidence: LLM 抽取时打的置信度 0-1 (默认 0.5)
-    - origin 改多值: user_stated / agent_inferred / extractor / tool_observed (老 user → user_stated)
+    - origin 多值: user_stated / agent_inferred / extractor / tool_observed
+      (老 user → user_stated)
 
     简化: 去掉 user_id (单用户), 去掉 supersede chain (用 replace 直接更新)。
     """
