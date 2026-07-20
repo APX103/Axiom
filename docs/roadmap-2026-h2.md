@@ -52,7 +52,7 @@ Codex 的 Layer 1/2 是为通用编程场景调的。Axiom 的 Layer 1/2 是为�
 
 #### 目标：三层升级
 
-**Layer A — 实体级记忆**（最优先，3 个月内）
+**Layer A — 实体级记忆**（最优先，3 个月内）✅ 已完成 2026-07
 - 不只是"用户提过 X"，而是把记忆拆成实体：
   - 项目（kinase 研究）
   - 主张（142 位点是催化必需）
@@ -61,6 +61,13 @@ Codex 的 Layer 1/2 是为通用编程场景调的。Axiom 的 Layer 1/2 是为�
   - 工具调用（跑过 ESMFold）
 - 每个实体带时间戳、来源 session、置信度
 - 查询从文本匹配升级为实体查询："kinase 项目里所有实验类证据"
+
+> **Layer A.5 增补**（2026-07）：在 Layer A 之上加了 Project 作为产品层一等公民。
+> 触发原因：同事反馈"开新 session 看到所有历史 session 的记忆"，BM25 串味。
+> 做了三件事：(1) memories/sessions 表加 project_id 列 + 默认 project；
+> (2) `/api/projects` CRUD；(3) 左栏 project 切换器 + session 按 project 过滤 +
+> 记忆按 project 隔离（profile 层跨 project 共享，project/frame 层按 project_id 隔离）。
+> 老数据（34 sessions + 40 memories）无感迁移到默认 project。
 
 **Layer B — 时间感知**（6 个月内）
 - 记忆带明确 timeline
