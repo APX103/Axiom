@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+import logging
+
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -14,6 +16,12 @@ from sqlalchemy.ext.asyncio import (
 )
 
 from .schema import Base
+
+logger = logging.getLogger(__name__)
+
+# 默认 project 的固定 id (迁移幂等 + 前端识别方便)
+DEFAULT_PROJECT_ID = "proj_default"
+DEFAULT_PROJECT_NAME = "默认项目"
 
 
 async def init_engine(db_url: str, *, echo: bool = False) -> AsyncEngine:
@@ -35,6 +43,7 @@ async def init_engine(db_url: str, *, echo: bool = False) -> AsyncEngine:
         await conn.run_sync(Base.metadata.create_all)
         await _migrate_add_plan_data(conn)
         await _migrate_memory_layer_a(conn)
+        await _migrate_add_project_id(conn)
     return engine
 
 
@@ -52,9 +61,9 @@ async def _migrate_add_plan_data(conn) -> None:
                 )
 
         await conn.run_sync(_check_and_add)
-    except Exception:
-        # 迁移失败不阻断启动; 下次启动再尝试
-        pass
+    except Exception as e:
+        # 迁移失败不阻断启动; 但要 log warning 让用户知道 (原 except: pass 静默吞异常是隐患)
+        logger.warning("migration _migrate_add_plan_data failed (will retry next launch): %s", e)
 
 
 async def _migrate_memory_layer_a(conn) -> None:
@@ -117,9 +126,106 @@ async def _migrate_memory_layer_a(conn) -> None:
             )
 
         await conn.run_sync(_check_and_migrate)
-    except Exception:
-        # 迁移失败不阻断启动; 下次启动再尝试
-        pass
+    except Exception as e:
+        logger.warning(
+            "migration _migrate_memory_layer_a failed (will retry next launch): %s", e
+        )
+
+
+async def _migrate_add_project_id(conn) -> None:
+    """Layer A.5 迁移: Project 表加字段 + sessions/memories 加 project_id + 默认 project。
+
+    改动:
+    1. projects 表加 description / last_session_id 列
+    2. sessions 表加 project_id 列 + 索引
+    3. memories 表加 project_id 列 + 索引
+    4. 创建默认 project (id='proj_default'), 幂等
+    5. 老数据迁移:
+       - 老sessions.project_id 为 NULL → 设为 'proj_default'
+       - 老memories.project_id 为 NULL:
+         * scope='profile' 保持 NULL (跨 project 共享用户偏好)
+         * 其他 scope → 设为 'proj_default'
+
+    迁移失败不阻断启动; 下次启动再尝试。
+    """
+    try:
+        from sqlalchemy import inspect
+
+        def _check_and_migrate(sync_conn):
+            inspector = inspect(sync_conn)
+
+            # 1. projects 加字段 (description / last_session_id)
+            proj_cols = {c["name"] for c in inspector.get_columns("projects")}
+            if "description" not in proj_cols:
+                sync_conn.exec_driver_sql(
+                    "ALTER TABLE projects ADD COLUMN description TEXT"
+                )
+            if "last_session_id" not in proj_cols:
+                sync_conn.exec_driver_sql(
+                    "ALTER TABLE projects ADD COLUMN last_session_id VARCHAR(50)"
+                )
+
+            # 2. sessions 加 project_id
+            sess_cols = {c["name"] for c in inspector.get_columns("sessions")}
+            if "project_id" not in sess_cols:
+                sync_conn.exec_driver_sql(
+                    "ALTER TABLE sessions ADD COLUMN project_id VARCHAR(255)"
+                )
+                sync_conn.exec_driver_sql(
+                    "CREATE INDEX IF NOT EXISTS ix_sessions_project_id "
+                    "ON sessions (project_id)"
+                )
+
+            # 3. memories 加 project_id
+            mem_cols = {c["name"] for c in inspector.get_columns("memories")}
+            if "project_id" not in mem_cols:
+                sync_conn.exec_driver_sql(
+                    "ALTER TABLE memories ADD COLUMN project_id VARCHAR(255)"
+                )
+                sync_conn.exec_driver_sql(
+                    "CREATE INDEX IF NOT EXISTS ix_memories_project_id "
+                    "ON memories (project_id)"
+                )
+
+            # 4. 创建默认 project (幂等: 多次运行不会重复创建)
+            # 注意: projects 表 created_at/updated_at 是 NOT NULL,
+            # SQLAlchemy ORM default 在 raw SQL 不生效, 必须显式传值
+            row = sync_conn.exec_driver_sql(
+                "SELECT id FROM projects WHERE id = ?",
+                (DEFAULT_PROJECT_ID,),
+            ).fetchone()
+            if row is None:
+                from datetime import UTC, datetime
+
+                now = datetime.now(UTC).isoformat()
+                sync_conn.exec_driver_sql(
+                    "INSERT INTO projects (id, name, description, created_at, updated_at) "
+                    "VALUES (?, ?, ?, ?, ?)",
+                    (DEFAULT_PROJECT_ID, DEFAULT_PROJECT_NAME, None, now, now),
+                )
+
+            # 5. 老数据迁移到默认 project
+            # sessions: NULL → proj_default
+            sync_conn.exec_driver_sql(
+                "UPDATE sessions SET project_id = ? WHERE project_id IS NULL",
+                (DEFAULT_PROJECT_ID,),
+            )
+            # memories: 非 profile 层的 NULL → proj_default
+            # (profile 层保持 NULL, 跨 project 共享)
+            # 注意: 老数据可能 scope=NULL, 用 entity 兜底判断
+            sync_conn.exec_driver_sql(
+                "UPDATE memories SET project_id = ? "
+                "WHERE project_id IS NULL "
+                "AND COALESCE(scope, entity) != 'profile'",
+                (DEFAULT_PROJECT_ID,),
+            )
+
+        await conn.run_sync(_check_and_migrate)
+        logger.info("migration _migrate_add_project_id: ok")
+    except Exception as e:
+        logger.warning(
+            "migration _migrate_add_project_id failed (will retry next launch): %s", e
+        )
 
 
 def session_factory(engine: AsyncEngine) -> async_sessionmaker[AsyncSession]:

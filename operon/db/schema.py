@@ -110,12 +110,19 @@ class Frame(Base):
 
 
 class Project(Base):
-    """项目。简化版 (原版 0110.js projects 表更复杂,首版够用即可)。"""
+    """研究项目 (Layer A.5: 产品层一等公民)。
+
+    一个 project 聚合多个 session + 它们的记忆 + artifact。
+    默认 project id 固定为 'proj_default', 老数据无感归属。
+    """
 
     __tablename__ = "projects"
 
     id: Mapped[str] = mapped_column(String(255), primary_key=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
+    # Layer A.5 新字段
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    last_session_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
     created_at: Mapped[datetime] = mapped_column(default=_now)
     updated_at: Mapped[datetime] = mapped_column(default=_now, onupdate=_now)
 
@@ -331,6 +338,12 @@ class SessionRecord(Base):
     model: Mapped[str | None] = mapped_column(String(255), nullable=True)
     plan_mode: Mapped[bool] = mapped_column(default=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="active")
+    # Layer A.5: 所属 project (FK 到 projects.id, nullable 兼容老 session)
+    project_id: Mapped[str | None] = mapped_column(
+        String(255),
+        ForeignKey("projects.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     # 计划状态快照 (PlanState 的 JSON 序列化), 用于会话从 DB 恢复时重建 plan
     plan_data: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(default=_now)
@@ -343,6 +356,7 @@ class SessionRecord(Base):
     __table_args__ = (
         Index("ix_sessions_status", "status"),
         Index("ix_sessions_updated_at", "updated_at"),
+        Index("ix_sessions_project_id", "project_id"),
     )
 
 
@@ -397,6 +411,13 @@ class MemoryRecord(Base):
     origin: Mapped[str] = mapped_column(String(20), nullable=False, default="user_stated")
     frame_id: Mapped[str | None] = mapped_column(String(50), nullable=True)  # frame 层用
     session_id: Mapped[str | None] = mapped_column(String(50), nullable=True)  # Layer A: 来源 session
+    # Layer A.5: 所属 project。profile 层记忆 project_id=NULL (跨 project 共享);
+    # project/frame 层按 project_id 隔离, 召回时不串味。
+    project_id: Mapped[str | None] = mapped_column(
+        String(255),
+        ForeignKey("projects.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     confidence: Mapped[float] = mapped_column(Float, nullable=False, default=0.5)  # Layer A: 0-1
     meta: Mapped[str | None] = mapped_column(Text, nullable=True)  # Layer A: JSON 字符串
     created_at: Mapped[datetime] = mapped_column(default=_now)
@@ -408,4 +429,5 @@ class MemoryRecord(Base):
         Index("ix_memories_frame_id", "frame_id"),
         Index("ix_memories_entity_type", "entity_type"),
         Index("ix_memories_session_id", "session_id"),
+        Index("ix_memories_project_id", "project_id"),
     )
