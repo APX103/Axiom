@@ -128,7 +128,9 @@ export function fromApiSettings(raw: Record<string, unknown>): FullConfig {
     id: s.id,
     name: s.name,
     url: s.url,
-    key: (s.headers?.Authorization as string) || "",
+    // 后端存的是完整 header 值 ("Bearer <token>"), 弹窗里只编辑 token 部分;
+    // 保存时 toApiSettings 会重新补 "Bearer " 前缀, 这里必须剥掉, 否则会叠成双重前缀。
+    key: ((s.headers?.Authorization as string) || "").replace(/^Bearer\s+/i, ""),
     enabled: s.enabled,
   }));
 

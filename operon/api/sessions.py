@@ -45,6 +45,10 @@ class ActiveSession:
     _msg_seq: int = 0  # DB 消息序号计数器
     # Layer A.5: 所属 project id (从 SessionConfig 拷贝, DB 持久化 + 记忆隔离用)
     project_id: str | None = None
+    # 建会话时的 provider 快照 (model, base_url, api_key)。
+    # 热切换只在 "client 仍是创建时那个 且 settings 变了" 时进行;
+    # 若 client 被外部替换过 (如测试注入 FakeLLM), 快照不匹配, 不动。
+    provider_snapshot: tuple[str | None, str | None, str | None] | None = None
 
     async def cleanup(self) -> None:
         """释放会话持有的资源 (MCP 连接等)。"""
@@ -366,6 +370,11 @@ class SessionManager:
             frame_service=session.frame_service,
             mcp_manager=session.mcp_manager,
             project_id=project_id or ctx.project_id,
+            provider_snapshot=(
+                session.config.model,
+                getattr(llm, "base_url", None),
+                getattr(llm, "api_key", None),
+            ),
         )
         self._sessions[sid] = active
         self._evict_if_needed()
@@ -509,6 +518,7 @@ class SessionManager:
             frame_service=session.frame_service,
             mcp_manager=session.mcp_manager,
             _msg_seq=await self._db_max_seq(sid) + 1,
+            provider_snapshot=(tier.model, tier.base_url, tier.api_key),
         )
         self._sessions[sid] = active
         self._evict_if_needed()
@@ -517,6 +527,51 @@ class SessionManager:
 
     def get(self, sid: str) -> ActiveSession | None:
         return self._sessions.get(sid)
+
+    def _refresh_provider_if_changed(self, active: ActiveSession) -> bool:
+        """若当前 settings 的启用 provider 与会话的 llm client 不一致, 重建 client。
+
+        只在 "client 仍是建会话时那个 (provider_snapshot 匹配) 且 settings 变了" 时切换;
+        client 被外部替换过 (如测试注入) 则不动。任何异常都不阻断 run (保留旧 client);
+        返回是否发生了切换。
+        """
+        try:
+            from operon.config import load_settings
+            from operon.llm.openai_compat import OpenAICompatClient
+
+            settings = load_settings()
+            tier = settings.models.tier(settings.default_model_tier) if settings.models else None
+            if tier is None or not (tier.base_url and tier.api_key and tier.model):
+                return False
+            cur = active.session.llm
+            cur_sig = (
+                active.session.config.model,
+                getattr(cur, "base_url", None),
+                getattr(cur, "api_key", None),
+            )
+            snapshot = getattr(active, "provider_snapshot", None)
+            if snapshot is not None and cur_sig != snapshot:
+                return False  # client 已被外部替换, 不归我们管
+            new_sig = (tier.model, tier.base_url, tier.api_key)
+            if new_sig == cur_sig:
+                return False
+            active.session.llm = OpenAICompatClient(
+                base_url=tier.base_url, api_key=tier.api_key, model=tier.model
+            )
+            active.session.config.model = tier.model
+            if tier.context_window:
+                active.session.config.context_window = tier.context_window
+            active.provider_snapshot = new_sig
+            logger.info(
+                "session %s: provider hot-swapped to %s (%s)",
+                active.id,
+                tier.model,
+                tier.base_url,
+            )
+            return True
+        except Exception:
+            logger.exception("provider hot-swap check failed for session %s", active.id)
+            return False
 
     async def list_sessions(self) -> list[dict[str, Any]]:
         """列出所有会话 (DB 为准,标注内存中 active 的)。"""
@@ -579,6 +634,11 @@ class SessionManager:
                 active.callbacks.queue.get_nowait()
             except asyncio.QueueEmpty:
                 break
+
+        # Provider 热切换: 用户在设置里改了启用的 provider (或 key) 后,
+        # 已驻内存的会话还拿着建会话时的旧 client, 之前必须重启 (走 restore) 才生效。
+        # 这里在每次 run 前对比当前 settings 的启用 tier, 不一致就重建 client。
+        self._refresh_provider_if_changed(active)
 
         msg_count_before = len(active.ctx.frame.messages)
 

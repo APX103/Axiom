@@ -36,6 +36,7 @@ from operon.settings import (
     get_app_settings,
     mask_app_settings,
     unmask_app_settings,
+    unmask_from_candidates,
 )
 
 from .sessions import SessionManager
@@ -563,10 +564,16 @@ def create_app() -> FastAPI:
         # config.toml 兜底: 请求体缺字段时从配置文件取 (配好 config.toml 后前端可不传任何凭据)
         settings = getattr(app.state, "settings", None) or load_settings()
         tier = settings.models.tier(settings.default_model_tier) if settings.models else None
+        # settings.json 里存的是真实 key; 前端只持有脱敏值 (GET /api/settings),
+        # 切换/保存后提交回来的可能是 mask 形式 (如 "sk-****…ab"), 真正使用前必须还原。
+        app_cfg = get_app_settings(settings.data_dir)
 
         base_url = req.base_url or (tier.base_url if tier else None)
-        api_key = req.api_key or (tier.api_key if tier else None)
         model = req.model or (tier.model if tier else None)
+        api_key = unmask_from_candidates(
+            req.api_key or (tier.api_key if tier else None),
+            [p.api_key for p in app_cfg.llm_providers] + ([tier.api_key] if tier else []),
+        )
         if not (base_url and api_key and model):
             raise HTTPException(
                 400,
@@ -598,7 +605,8 @@ def create_app() -> FastAPI:
 
         client = OpenAICompatClient(base_url=base_url, api_key=api_key, model=model)
 
-        # MCP: 请求体优先, 否则用 config.toml 的
+        # MCP: 请求体优先, 否则用 config.toml 的; header 值同样做脱敏还原
+        stored_header_vals = [v for s in app_cfg.mcp_servers for v in s.headers.values()]
         mcp_raw = req.mcp_servers if req.mcp_servers is not None else settings.mcp_servers
         mcp_servers = None
         if mcp_raw:
@@ -606,19 +614,25 @@ def create_app() -> FastAPI:
                 MCPServerConfig(
                     name=s["name"],
                     url=s["url"],
-                    headers=s.get("headers", {}),
+                    headers={
+                        k: unmask_from_candidates(v, stored_header_vals)
+                        for k, v in s.get("headers", {}).items()
+                    },
                 )
                 for s in mcp_raw
             ]
 
-        # api_keys: 请求体与 config.toml 合并 (请求体优先)
+        # api_keys: 请求体与 config.toml 合并 (请求体优先); 请求体的值做脱敏还原
         merged_keys: dict[str, str] = {}
         merged_keys.update({k: v for k, v in settings.api_keys.items() if v})
         if req.api_keys:
-            merged_keys.update(req.api_keys)
+            merged_keys.update(
+                {
+                    k: unmask_from_candidates(v, [app_cfg.api_keys.get(k)])
+                    for k, v in req.api_keys.items()
+                }
+            )
 
-        # skill 源配置: 从 settings.json 读默认值
-        app_cfg = get_app_settings(settings.data_dir)
         # disabled_skills: 请求体优先, 否则从 settings.json 读
         disabled_skills = req.disabled_skills
         if disabled_skills is None:
