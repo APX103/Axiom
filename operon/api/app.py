@@ -363,8 +363,12 @@ def create_app() -> FastAPI:
         return getattr(app.state, "db_factory", None)
 
     @app.get("/api/projects")
-    async def list_projects() -> list[dict[str, Any]]:
-        """列出所有 project, 含 session 数 + 最后活动时间。"""
+    async def list_projects(archived: bool = False) -> list[dict[str, Any]]:
+        """列出所有 project, 含 session 数 + 最后活动时间。
+
+        archived=false (默认): 只返回未归档 project (活跃下拉用)
+        archived=true: 只返回已归档 project (归档管理弹窗用)
+        """
         db_factory = _get_db_factory()
         if db_factory is None:
             return []
@@ -381,6 +385,7 @@ def create_app() -> FastAPI:
                     func.max(SessionRecord.updated_at).label("last_activity"),
                 )
                 .outerjoin(SessionRecord, SessionRecord.project_id == Project.id)
+                .where(Project.archived.is_(archived))
                 .group_by(Project.id)
                 # 默认 project 排首位 (CASE 把默认 id 映射为 0, 其他为 1, 升序排)
                 .order_by(
@@ -400,6 +405,7 @@ def create_app() -> FastAPI:
                     "last_activity_at": last_act.isoformat() if last_act else None,
                     "created_at": proj.created_at.isoformat() if proj.created_at else None,
                     "is_default": proj.id == DEFAULT_PROJECT_ID,
+                    "archived": bool(proj.archived),
                 }
                 for proj, sess_count, last_act in rows
             ]
@@ -426,6 +432,7 @@ def create_app() -> FastAPI:
                 "last_session_id": None,
                 "session_count": 0,
                 "is_default": False,
+                "archived": False,
             }
 
     @app.patch("/api/projects/{pid}")
@@ -458,12 +465,69 @@ def create_app() -> FastAPI:
                 "description": proj.description,
                 "last_session_id": proj.last_session_id,
                 "is_default": proj.id == DEFAULT_PROJECT_ID,
+                "archived": bool(proj.archived),
+            }
+
+    @app.post("/api/projects/{pid}/archive")
+    async def archive_project(pid: str) -> dict[str, Any]:
+        """归档 project (软删除): 从活跃下拉隐藏, 可恢复。
+
+        默认 project 不允许归档。返回 project 最新状态。
+        """
+        from fastapi import HTTPException
+        from sqlalchemy import select
+
+        from operon.db.schema import Project
+
+        if pid == DEFAULT_PROJECT_ID:
+            raise HTTPException(
+                status_code=400, detail="cannot archive default project"
+            )
+        db_factory = _get_db_factory()
+        if db_factory is None:
+            return {"error": "DB not available"}
+        async with db_factory() as db:
+            result = await db.execute(select(Project).where(Project.id == pid))
+            proj = result.scalar_one_or_none()
+            if proj is None:
+                raise HTTPException(status_code=404, detail=f"project {pid} not found")
+            proj.archived = True
+            await db.commit()
+            return {
+                "id": proj.id,
+                "name": proj.name,
+                "archived": True,
+            }
+
+    @app.post("/api/projects/{pid}/unarchive")
+    async def unarchive_project(pid: str) -> dict[str, Any]:
+        """恢复归档的 project: 重新出现在活跃下拉。"""
+        from fastapi import HTTPException
+        from sqlalchemy import select
+
+        from operon.db.schema import Project
+
+        db_factory = _get_db_factory()
+        if db_factory is None:
+            return {"error": "DB not available"}
+        async with db_factory() as db:
+            result = await db.execute(select(Project).where(Project.id == pid))
+            proj = result.scalar_one_or_none()
+            if proj is None:
+                raise HTTPException(status_code=404, detail=f"project {pid} not found")
+            proj.archived = False
+            await db.commit()
+            return {
+                "id": proj.id,
+                "name": proj.name,
+                "archived": False,
             }
 
     @app.delete("/api/projects/{pid}")
     async def delete_project(pid: str, force: bool = False) -> dict[str, Any]:
-        """删除 project。
+        """永久删除 project (不可恢复)。
 
+        常规流程是先归档 (POST /archive), 用户在归档弹窗里确认后永久删除。
         force=false (默认): 如果还有 session, 返回 409。
         force=true: 把所属 session 的 project_id SET NULL, 删除 project 行。
         默认 project (proj_default) 不允许删除。
@@ -540,6 +604,7 @@ def create_app() -> FastAPI:
                 "description": proj.description,
                 "last_session_id": proj.last_session_id,
                 "is_default": proj.id == DEFAULT_PROJECT_ID,
+                "archived": bool(proj.archived),
                 "created_at": proj.created_at.isoformat() if proj.created_at else None,
                 "sessions": [
                     {

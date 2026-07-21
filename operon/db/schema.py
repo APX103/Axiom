@@ -124,6 +124,8 @@ class Project(Base):
     # Layer A.5 新字段
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     last_session_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    # 软删除标记: 归档后从下拉/侧栏隐藏, 但不丢数据, 可恢复
+    archived: Mapped[bool] = mapped_column(default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(default=_now)
     updated_at: Mapped[datetime] = mapped_column(default=_now, onupdate=_now)
 
