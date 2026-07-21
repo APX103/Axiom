@@ -125,6 +125,7 @@ export interface ProjectInfo {
   last_activity_at: string | null;
   created_at: string | null;
   is_default: boolean;
+  archived: boolean;
 }
 
 // WebSocket 事件 (对应 operon/api/callbacks.py 发出的 dict)
