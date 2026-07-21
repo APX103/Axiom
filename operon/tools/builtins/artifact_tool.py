@@ -30,8 +30,11 @@ async def save_artifacts(
         return "Error: artifact store not configured (versioning unavailable)"
 
     if ctx.frame.project_id is None:
-        # 给个默认 project (agent 通常无显式 project)
-        ctx.frame.project_id = f"proj_{ctx.frame.root_frame_id[:8]}"
+        # Layer A.5: fallback 到默认 project (替代老的 proj_<root_frame_id> 随机生成,
+        # 避免产生孤立 project。CLI / 测试场景不传 project_id 时走这里)
+        from operon.db.session import DEFAULT_PROJECT_ID
+
+        ctx.frame.project_id = DEFAULT_PROJECT_ID
 
     results = []
     for f in files:
@@ -157,8 +160,14 @@ SAVE_ARTIFACTS_SPEC = {
                     "type": "object",
                     "properties": {
                         "path": {"type": "string", "description": "Workspace file path"},
-                        "filename": {"type": "string", "description": "Artifact filename (default: basename)"},
-                        "version_of": {"type": "string", "description": "Append to this artifact/version"},
+                        "filename": {
+                            "type": "string",
+                            "description": "Artifact filename (default: basename)",
+                        },
+                        "version_of": {
+                            "type": "string",
+                            "description": "Append to this artifact/version",
+                        },
                         "language": {"type": "string"},
                         "is_intermediate": {"type": "boolean"},
                     },

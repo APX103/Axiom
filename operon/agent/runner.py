@@ -28,8 +28,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass, field
-
-logger = logging.getLogger(__name__)
+from typing import Any
 
 from operon.frames.model import Frame
 from operon.frames.service import FrameService
@@ -50,7 +49,9 @@ from operon.prompts.registry import build_system_prompt
 from operon.tools.context import ToolContext
 from operon.tools.router import ToolRouter
 
-from .states import FrameStatus, RunResultKind
+from .states import TERMINAL, FrameStatus, RunResultKind
+
+logger = logging.getLogger(__name__)
 
 # plan mode 门控: 最多拒绝次数 (对照 0871.js:1632 _planModeDenials,原版 3 次)
 MAX_PLAN_DENIALS = 3
@@ -94,6 +95,7 @@ class Agent:
         plan_mode: bool = False,
         deep_review: bool = False,
         callbacks: AgentCallbacks | None = None,
+        trace_recorder: Any | None = None,
     ):
         self.llm = llm
         self.tool_router = tool_router
@@ -106,12 +108,16 @@ class Agent:
         self.plan_mode = plan_mode
         self.deep_review = deep_review
         self.callbacks = callbacks or AgentCallbacks()
+        # trace 记录器 (None 或 _NullRecorder 时零开销)
+        # 由 Session 在创建 Agent 时从 settings.trace 注入。
+        self._trace = trace_recorder
 
         # 运行时状态
         self._iter = 0
         self._plan_denials = 0
         self._empty_turn_retries = 0  # end_turn 空内容重试 (对照 0871.js:1344)
-        self._text_streamed_this_turn = False  # 本轮是否已流式推过 text (避免 _process_llm_response 重复整段推)
+        # 本轮是否已流式推过 text (避免 _process_llm_response 重复整段推)
+        self._text_streamed_this_turn = False
         self._max_tokens_consecutive = 0  # max_tokens 连续次数 (对照 0858.js:2421)
         self._MAX_TOKENS_RETRY_CAP = 5  # 连续 max_tokens 上限, 超过则结束本轮
         # 检索熔断: 连续 N 轮只检索不写作 → 注入"停止检索开始写作"提示
@@ -133,6 +139,12 @@ class Agent:
 
     async def run(self, user_input: str) -> RunResult:
         """执行一次 agent 会话。"""
+        # 防御: 终态 frame 不允许继续运行,避免后续状态流转报 ValueError
+        if self.frame.status in TERMINAL:
+            return self._result(
+                RunResultKind.ERROR,
+                error=f"frame is already terminal ({self.frame.status.value}); start a new session",
+            )
         # 初始化: 用户消息入历史
         self.frame.messages.append(Message(role=Role.USER, content=user_input))
         self.frame.task_summary = user_input[:200]
@@ -249,11 +261,20 @@ class Agent:
         if self.ctx.memory_store is None or self.ctx.memory_index is None:
             return
         try:
+            from operon.config import load_settings
             from operon.memory.recall import recall, render_recall_block
+
+            # recall_inject_max 从 config 读 (修死配置: 原来硬编码 limit=6)
+            try:
+                settings = load_settings()
+                recall_limit = settings.memory.recall_inject_max
+            except Exception:
+                recall_limit = 6
 
             results = recall(
                 user_input, self.ctx.memory_index,
-                limit=6, exclude_entities=["frame"],
+                limit=recall_limit, exclude_entities=["frame"],
+                project_id=self.ctx.project_id,
             )
             if results:
                 # 标记 surfaced
@@ -292,7 +313,15 @@ class Agent:
                 frame_id=self.frame.id,
                 max_per_run=settings.memory.extract_max_per_run,
             )
-            count = await apply_extraction(self.ctx.memory_store, ops, frame_id=self.frame.id)
+            # Layer A: session_id 透传 (优先 ctx.session_id, fallback frame.id)
+            session_id = self.ctx.session_id or self.frame.id
+            # Layer A.5: project_id 透传 (从 ctx.project_id 拿)
+            project_id = getattr(self.ctx, "project_id", None)
+            count = await apply_extraction(
+                self.ctx.memory_store, ops,
+                frame_id=self.frame.id, session_id=session_id,
+                project_id=project_id,
+            )
             if count > 0:
                 logger.info("memory extraction: %d operations applied", count)
                 # 重建索引
@@ -309,6 +338,11 @@ class Agent:
             # 1. 哨兵检查
             if self.frame.status == FrameStatus.CANCELLED:
                 return self._result(RunResultKind.CANCELLED)
+            if self.frame.status in TERMINAL:
+                return self._result(
+                    RunResultKind.ERROR,
+                    error=f"frame became terminal ({self.frame.status.value}) during run",
+                )
             if self.frame.status == FrameStatus.AWAITING_PLAN_APPROVAL:
                 # deep_review 模式: 自动批准 plan, 不阻断 (无人值守深度流程不该卡审批)
                 if self.deep_review:
@@ -329,6 +363,10 @@ class Agent:
 
             self._iter += 1
             await self.callbacks.on_iteration(self._iter)
+            # trace: 标记当前轮次上下文 (供 span 共享 frame_id/turn_id)
+            turn_id = f"{self.frame.id}-{self._iter}"
+            if self._trace is not None:
+                self._trace.set_context(frame_id=self.frame.id, turn_id=turn_id)
 
             # 3. Rolling Compact: 每轮调 LLM 前压缩 (对照 0871.js:1106 checkRcTurn)
             await self._maybe_compact()
@@ -341,9 +379,28 @@ class Agent:
             llm_messages = self._prepare_messages_for_llm()
             # 优先走流式 (LLM 支持时, 每个 text delta 增量回调 → 前端打字机效果)
             self._text_streamed_this_turn = False
-            resp = await self._call_llm(
-                llm_messages, system=system, tools=tools or None
-            )
+            # trace: 包一层 LLM span (记录 model / token 用量 / stop_reason / 耗时)
+            if self._trace is not None:
+                with self._trace.span("llm_call", kind="llm", model=self.model or "unknown"):
+                    resp = await self._call_llm(
+                        llm_messages, system=system, tools=tools or None
+                    )
+                    # 在 span 内补 attrs (退出前 set 才会落盘)
+                    if resp is not None:
+                        self._trace.set_attrs(
+                            input_tokens=(
+                                getattr(resp.usage, "input_tokens", None) if resp.usage else None
+                            ),
+                            output_tokens=(
+                                getattr(resp.usage, "output_tokens", None) if resp.usage else None
+                            ),
+                            stop_reason=resp.stop_reason.value if resp.stop_reason else None,
+                            iter=self._iter,
+                        )
+            else:
+                resp = await self._call_llm(
+                    llm_messages, system=system, tools=tools or None
+                )
             # 记录 server-side token (用于 RC 锚点估算)
             self.frame.add_usage(resp.usage)
 
@@ -403,20 +460,30 @@ class Agent:
                     # 超过上限: 结束本轮
                     self.frame.messages.append(Message(
                         role=Role.USER,
-                        content="(Output token limit hit repeatedly. Ending this turn — please rephrase or break into smaller steps.)",
+                        content=(
+                            "(Output token limit hit repeatedly. Ending this turn — "
+                            "please rephrase or break into smaller steps.)"
+                        ),
                         _harness_notice=True,
                     ))
                     return True, self._result(RunResultKind.COMPLETED)
                 elif self._max_tokens_consecutive >= 3:
                     self.frame.messages.append(Message(
                         role=Role.USER,
-                        content="(Your response hit the output token limit repeatedly. Drastically reduce the scope of your next response and produce a brief summary instead.)",
+                        content=(
+                            "(Your response hit the output token limit repeatedly. "
+                            "Drastically reduce the scope of your next response and "
+                            "produce a brief summary instead.)"
+                        ),
                         _harness_notice=True,
                     ))
                 else:
                     self.frame.messages.append(Message(
                         role=Role.USER,
-                        content="(Your previous response was truncated by the output token limit. Break your work into smaller chunks and continue.)",
+                        content=(
+                            "(Your previous response was truncated by the output token limit. "
+                            "Break your work into smaller chunks and continue.)"
+                        ),
                         _harness_notice=True,
                     ))
                 return False, None
@@ -430,7 +497,25 @@ class Agent:
 
         # 有 tool_use → 执行工具
         await self.callbacks.on_tool_calls(tool_uses)
+        # trace: 每个工具调用一个 span (含耗时和错误)
+        if self._trace is not None and self._trace.log_tool_args:
+            # 记录工具调用元信息 (不展开参数, 敏感)
+            for tu in tool_uses:
+                self._trace.event(
+                    "tool_call",
+                    tool=tu.name,
+                    iter=self._iter,
+                )
         results = await self.tool_router.execute_tool_calls(tool_uses)
+        # trace: 工具结果摘要 (可选, 默认开)
+        if self._trace is not None and self._trace.log_tool_result_summary:
+            for r in results:
+                self._trace.event(
+                    "tool_result",
+                    tool=getattr(r, "tool_use_id", None),
+                    is_error=getattr(r, "is_error", False),
+                    summary=self._trace.summarize_result(r.content),
+                )
         await self.callbacks.on_tool_results(results)
 
         # 工具结果加入历史 (Anthropic 风格: tool_result 作为 user 消息的 content block)
@@ -452,7 +537,8 @@ class Agent:
                 content=(
                     f"You have done {n} consecutive rounds of searching. "
                     "You have enough literature. STOP searching and START writing the survey now: "
-                    "call write_file to create main.tex and references.bib with the papers you already found. "
+                    "call write_file to create main.tex and references.bib "
+                    "with the papers you already found. "
                     "Do not search again."
                 ),
                 _harness_notice=True,
@@ -467,8 +553,12 @@ class Agent:
                 text += " " + " ".join(bullets)
             return True, self._result(RunResultKind.NATURAL, final_text=text)
 
-        # 工具可能触发了等待状态 (generate_plan → awaiting_plan_approval, ask_user → awaiting_user_response)
-        if self.frame.status in (FrameStatus.AWAITING_PLAN_APPROVAL, FrameStatus.AWAITING_USER_RESPONSE):
+        # 工具可能触发了等待状态
+        # (generate_plan → awaiting_plan_approval, ask_user → awaiting_user_response)
+        if self.frame.status in (
+            FrameStatus.AWAITING_PLAN_APPROVAL,
+            FrameStatus.AWAITING_USER_RESPONSE,
+        ):
             awaiting = (
                 "plan_approval"
                 if self.frame.status == FrameStatus.AWAITING_PLAN_APPROVAL
@@ -522,8 +612,10 @@ class Agent:
                     Message(
                         role=Role.USER,
                         content=(
-                            "Plan mode is active. You MUST call `generate_plan` first with your planned steps "
-                            f"before you can finish. (denial {self._plan_denials}/{MAX_PLAN_DENIALS})"
+                            "Plan mode is active. You MUST call `generate_plan` first "
+                            "with your planned steps "
+                            "before you can finish. "
+                            f"(denial {self._plan_denials}/{MAX_PLAN_DENIALS})"
                         ),
                         # 内部门控提示, 不渲染给用户
                         _harness_notice=True,
@@ -543,7 +635,8 @@ class Agent:
                         "You are trying to finish, but you have NOT written any output file yet. "
                         "The survey is incomplete. STOP ending your turn and WRITE the files now: "
                         "call write_file to create references.bib first, then main.tex, using the "
-                        f"papers you already found. (denial {self._no_output_denials}/{self._NO_OUTPUT_DENIAL_CAP})"
+                        "papers you already found. "
+                        f"(denial {self._no_output_denials}/{self._NO_OUTPUT_DENIAL_CAP})"
                     ),
                     _harness_notice=True,
                 ))
@@ -582,7 +675,10 @@ class Agent:
             final_text=final_text,
             awaiting=awaiting,
             error=error,
-            usage={"input_tokens": self.frame.input_tokens, "output_tokens": self.frame.output_tokens},
+            usage={
+                "input_tokens": self.frame.input_tokens,
+                "output_tokens": self.frame.output_tokens,
+            },
         )
 
     async def _maybe_compact(self) -> None:
@@ -595,7 +691,9 @@ class Agent:
         from operon.compact.engine import check_rolling_compact
         from operon.config import RollingCompactConfig
 
-        cfg: RollingCompactConfig = getattr(self.ctx, "rolling_compact_config", None) or RollingCompactConfig()
+        cfg: RollingCompactConfig = (
+            getattr(self.ctx, "rolling_compact_config", None) or RollingCompactConfig()
+        )
         if not cfg.enabled:
             return
         # context_window 优先用模型实际值 (ctx.context_window),否则用 config 默认
@@ -616,7 +714,8 @@ class Agent:
         if result.type == "applied":
             await self.callbacks.on_event(
                 "rolling_compact",
-                f"L1/L2 折叠: {getattr(result, 'count', 0)} 条, 释放 {getattr(result, 'tokens_freed', 0)} tokens",
+                f"L1/L2 折叠: {getattr(result, 'count', 0)} 条, 释放 "
+                f"{getattr(result, 'tokens_freed', 0)} tokens",
             )
 
     def _prepare_messages_for_llm(self) -> list[Message]:

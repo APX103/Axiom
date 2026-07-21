@@ -50,21 +50,30 @@ def test_save_appends_version_by_filename(store):
 
 def test_save_version_of_artifact_id(store):
     r1 = store.save(filename="a.txt", content="v1", project_id="p1", root_frame_id="f1")
-    r2 = store.save(filename="a.txt", content="v2", project_id="p1", root_frame_id="f1", version_of=r1.artifact_id)
+    r2 = store.save(
+        filename="a.txt", content="v2", project_id="p1", root_frame_id="f1",
+        version_of=r1.artifact_id,
+    )
     assert r2.artifact_id == r1.artifact_id
     assert r2.version_number == 2
 
 
 def test_save_version_of_version_id(store):
     r1 = store.save(filename="a.txt", content="v1", project_id="p1", root_frame_id="f1")
-    r2 = store.save(filename="a.txt", content="v2", project_id="p1", root_frame_id="f1", version_of=r1.version_id)
+    r2 = store.save(
+        filename="a.txt", content="v2", project_id="p1", root_frame_id="f1",
+        version_of=r1.version_id,
+    )
     assert r2.artifact_id == r1.artifact_id
     assert r2.parent_version_id == r1.version_id
 
 
 def test_version_of_invalid_raises(store):
     with pytest.raises(ValueError, match="does not match"):
-        store.save(filename="a.txt", content="x", project_id="p1", root_frame_id="f1", version_of="nonexistent")
+        store.save(
+            filename="a.txt", content="x", project_id="p1", root_frame_id="f1",
+            version_of="nonexistent",
+        )
 
 
 # ---------- 乐观并发 ----------
@@ -77,7 +86,8 @@ def test_optimistic_concurrency_stale_base(store):
     r_inter = store.save(filename="a.txt", content="inter", project_id="p1", root_frame_id="f1")
     # 现在基于 r1 再追加 (r1 已不是 latest)
     r_stale = store.save(
-        filename="a.txt", content="stale", project_id="p1", root_frame_id="f1", version_of=r1.version_id
+        filename="a.txt", content="stale", project_id="p1", root_frame_id="f1",
+        version_of=r1.version_id,
     )
     assert r_stale.stale_base is not None
     assert r_stale.stale_base["based_on_version_id"] == r1.version_id
@@ -114,7 +124,10 @@ def test_list_versions(store):
 
 def test_intermediate_does_not_update_latest(store):
     r1 = store.save(filename="a.txt", content="v1", project_id="p1", root_frame_id="f1")
-    store.save(filename="a.txt", content="draft", project_id="p1", root_frame_id="f1", is_intermediate=True)
+    store.save(
+        filename="a.txt", content="draft", project_id="p1", root_frame_id="f1",
+        is_intermediate=True,
+    )
     # latest 应仍是 r1
     art = store.get_artifact(r1.artifact_id)
     assert art.latest_version_id == r1.version_id

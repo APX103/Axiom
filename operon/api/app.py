@@ -66,6 +66,22 @@ class CreateSession(BaseModel):
     # 论文模板 id (见 GET /api/templates)。默认 article。
     # 会话创建时把该模板的 template.tex 复制进工作区作为 main.tex。
     template: str | None = None
+    # Layer A.5: 所属 project id。不传或空时用 'proj_default'。
+    project_id: str | None = None
+
+
+# ---- 请求模型 (模块级, FastAPI 才能正确解析为 body) - Layer A.5 Project ----
+
+
+class CreateProject(BaseModel):
+    name: str
+    description: str | None = None
+
+
+class UpdateProject(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    last_session_id: str | None = None
 
 
 class RunReq(BaseModel):
@@ -89,6 +105,15 @@ def create_app() -> FastAPI:
     async def lifespan(app: FastAPI):
         settings = load_settings()
         app.state.settings = settings
+        # 统一日志配置 (原本项目零 handler 配置, info/debug 默认不输出)
+        try:
+            from operon.observability import setup_logging
+            from operon.observability.trace import cleanup_old_traces
+
+            setup_logging(log_dir=settings.data_dir_resolved() / "logs")
+            cleanup_old_traces(settings.data_dir_resolved(), settings.trace.retention_days)
+        except Exception as e:
+            logger.warning("logging setup failed: %s", e)
         try:
             from operon.db.session import init_engine, session_factory
 
@@ -330,6 +355,202 @@ def create_app() -> FastAPI:
                 "error": str(e),
             }
 
+    # ---- 项目 CRUD (Layer A.5) ----
+    from operon.db.session import DEFAULT_PROJECT_ID
+
+    def _get_db_factory():
+        return getattr(app.state, "db_factory", None)
+
+    @app.get("/api/projects")
+    async def list_projects() -> list[dict[str, Any]]:
+        """列出所有 project, 含 session 数 + 最后活动时间。"""
+        db_factory = _get_db_factory()
+        if db_factory is None:
+            return []
+        from sqlalchemy import case, func, select
+
+        from operon.db.schema import Project, SessionRecord
+
+        async with db_factory() as db:
+            # 每个 project 的 session 数 + 最近 updated_at
+            stmt = (
+                select(
+                    Project,
+                    func.count(SessionRecord.id).label("session_count"),
+                    func.max(SessionRecord.updated_at).label("last_activity"),
+                )
+                .outerjoin(SessionRecord, SessionRecord.project_id == Project.id)
+                .group_by(Project.id)
+                # 默认 project 排首位 (CASE 把默认 id 映射为 0, 其他为 1, 升序排)
+                .order_by(
+                    case((Project.id == DEFAULT_PROJECT_ID, 0), else_=1),
+                    Project.updated_at.desc(),
+                )
+            )
+            result = await db.execute(stmt)
+            rows = result.all()
+            return [
+                {
+                    "id": proj.id,
+                    "name": proj.name,
+                    "description": proj.description,
+                    "last_session_id": proj.last_session_id,
+                    "session_count": sess_count,
+                    "last_activity_at": last_act.isoformat() if last_act else None,
+                    "created_at": proj.created_at.isoformat() if proj.created_at else None,
+                    "is_default": proj.id == DEFAULT_PROJECT_ID,
+                }
+                for proj, sess_count, last_act in rows
+            ]
+
+    @app.post("/api/projects")
+    async def create_project(req: CreateProject) -> dict[str, Any]:
+        """创建 project。返回新 project 信息。"""
+        import secrets
+
+        from operon.db.schema import Project
+
+        db_factory = _get_db_factory()
+        if db_factory is None:
+            return {"error": "DB not available"}
+        pid = f"proj_{secrets.token_hex(4)}"
+        async with db_factory() as db:
+            proj = Project(id=pid, name=req.name, description=req.description)
+            db.add(proj)
+            await db.commit()
+            return {
+                "id": proj.id,
+                "name": proj.name,
+                "description": proj.description,
+                "last_session_id": None,
+                "session_count": 0,
+                "is_default": False,
+            }
+
+    @app.patch("/api/projects/{pid}")
+    async def update_project(pid: str, req: UpdateProject) -> dict[str, Any]:
+        """改名/改描述/更新 last_session_id。"""
+        db_factory = _get_db_factory()
+        if db_factory is None:
+            return {"error": "DB not available"}
+        from sqlalchemy import select
+
+        from operon.db.schema import Project
+
+        async with db_factory() as db:
+            result = await db.execute(select(Project).where(Project.id == pid))
+            proj = result.scalar_one_or_none()
+            if proj is None:
+                from fastapi import HTTPException
+
+                raise HTTPException(status_code=404, detail=f"project {pid} not found")
+            if req.name is not None:
+                proj.name = req.name
+            if req.description is not None:
+                proj.description = req.description
+            if req.last_session_id is not None:
+                proj.last_session_id = req.last_session_id
+            await db.commit()
+            return {
+                "id": proj.id,
+                "name": proj.name,
+                "description": proj.description,
+                "last_session_id": proj.last_session_id,
+                "is_default": proj.id == DEFAULT_PROJECT_ID,
+            }
+
+    @app.delete("/api/projects/{pid}")
+    async def delete_project(pid: str, force: bool = False) -> dict[str, Any]:
+        """删除 project。
+
+        force=false (默认): 如果还有 session, 返回 409。
+        force=true: 把所属 session 的 project_id SET NULL, 删除 project 行。
+        默认 project (proj_default) 不允许删除。
+        """
+        from fastapi import HTTPException
+        from sqlalchemy import func, select
+
+        from operon.db.schema import Project, SessionRecord
+
+        if pid == DEFAULT_PROJECT_ID:
+            raise HTTPException(status_code=400, detail="cannot delete default project")
+
+        db_factory = _get_db_factory()
+        if db_factory is None:
+            return {"error": "DB not available"}
+        async with db_factory() as db:
+            result = await db.execute(select(Project).where(Project.id == pid))
+            proj = result.scalar_one_or_none()
+            if proj is None:
+                raise HTTPException(status_code=404, detail=f"project {pid} not found")
+
+            count_result = await db.execute(
+                select(func.count(SessionRecord.id)).where(SessionRecord.project_id == pid)
+            )
+            sess_count = count_result.scalar() or 0
+            if sess_count > 0 and not force:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"project has {sess_count} sessions; use ?force=true to detach them",
+                )
+
+            # detach sessions (SET NULL)
+            if sess_count > 0:
+                from sqlalchemy import update
+
+                await db.execute(
+                    update(SessionRecord)
+                    .where(SessionRecord.project_id == pid)
+                    .values(project_id=None)
+                )
+            await db.delete(proj)
+            await db.commit()
+            return {
+                "id": pid,
+                "deleted": True,
+                "sessions_detached": sess_count,
+            }
+
+    @app.get("/api/projects/{pid}")
+    async def get_project(pid: str) -> dict[str, Any]:
+        """project 详情, 含 sessions 列表。"""
+        from fastapi import HTTPException
+        from sqlalchemy import select
+
+        from operon.db.schema import Project, SessionRecord
+
+        db_factory = _get_db_factory()
+        if db_factory is None:
+            return {"error": "DB not available"}
+        async with db_factory() as db:
+            result = await db.execute(select(Project).where(Project.id == pid))
+            proj = result.scalar_one_or_none()
+            if proj is None:
+                raise HTTPException(status_code=404, detail=f"project {pid} not found")
+            sess_result = await db.execute(
+                select(SessionRecord)
+                .where(SessionRecord.project_id == pid)
+                .order_by(SessionRecord.updated_at.desc())
+            )
+            sessions = sess_result.scalars().all()
+            return {
+                "id": proj.id,
+                "name": proj.name,
+                "description": proj.description,
+                "last_session_id": proj.last_session_id,
+                "is_default": proj.id == DEFAULT_PROJECT_ID,
+                "created_at": proj.created_at.isoformat() if proj.created_at else None,
+                "sessions": [
+                    {
+                        "id": s.id,
+                        "title": s.title,
+                        "status": s.status,
+                        "updated_at": s.updated_at.isoformat() if s.updated_at else None,
+                    }
+                    for s in sessions
+                ],
+            }
+
     # ---- 会话 CRUD ----
     @app.get("/api/sessions")
     async def list_sessions() -> list[dict[str, Any]]:
@@ -403,6 +624,11 @@ def create_app() -> FastAPI:
         if disabled_skills is None:
             disabled_skills = app_cfg.disabled_skills or None
 
+        # Layer A.5: project_id 解析 (None/空 → proj_default)
+        from operon.db.session import DEFAULT_PROJECT_ID
+
+        project_id = req.project_id or DEFAULT_PROJECT_ID
+
         active = await manager.create(
             llm=client,
             workspace=workspace,
@@ -418,6 +644,7 @@ def create_app() -> FastAPI:
             load_claude_skills=app_cfg.load_claude_skills,
             load_project_skills=app_cfg.load_project_skills,
             skill_extra_dirs=app_cfg.skill_extra_dirs,
+            project_id=project_id,
         )
         return {
             "id": active.id,

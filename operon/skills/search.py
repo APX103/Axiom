@@ -145,7 +145,9 @@ class SkillIndex:
                 continue
             idf = math.log(1 + (N - df + 0.5) / (df + 0.5))
             f = tf[term]
-            score += idf * (f * (BM25_K1 + 1)) / (f + BM25_K1 * (1 - BM25_B + BM25_B * doc_len / max(1, self._avg_len)))
+            score += idf * (f * (BM25_K1 + 1)) / (
+                f + BM25_K1 * (1 - BM25_B + BM25_B * doc_len / max(1, self._avg_len))
+            )
         return score
 
     def _jaccard_score(self, query_tokens: list[str], doc_idx: int) -> float:

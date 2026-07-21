@@ -447,11 +447,13 @@ Call them; do not score papers or reviews in your head.
 4. **Persist state to files**: `references.bib`, `citation_plan.jsonl`, `results.json`, and \
 section `.tex` files in the workspace. If context compacts, the files survive; your recollection \
 of scores doesn't.
-5. **Iterate until `should_stop` returns True**: the peer-review loop is what pushes the score from \
+5. **Iterate until `should_stop` returns True**: the peer-review loop is what pushes the score \
+from \
 ~6 to 8+. Do not stop after one draft because it "looks fine" — run the review, route the \
 weaknesses, fix, re-review.
 
-This mode is compatible with plan mode: if both are on, set `research_question` when generating the \
+This mode is compatible with plan mode: if both are on, set `research_question` when generating \
+the \
 plan (it's the convergence anchor peer-review checks against)."""
 
 
@@ -480,7 +482,7 @@ def build_system_prompt(ctx: ToolContext, *, plan_mode: bool, deep_review: bool 
             # memory_store.list_by_entity 是 async, 但 build_system_prompt 是 sync
             # 用 asyncio 的事件循环获取结果
             try:
-                loop = asyncio.get_running_loop()
+                asyncio.get_running_loop()
                 # 已在 event loop 里 — 不能直接 run_until_complete
                 # 用同步方式从 DB 读 (SQLAlchemy sync fallback)
                 profile_memories = _sync_load_profile(ctx.memory_store)
@@ -491,7 +493,13 @@ def build_system_prompt(ctx: ToolContext, *, plan_mode: bool, deep_review: bool 
 
         if profile_memories:
             lines = ["<memory_facts>", "### Profile"]
-            for m in profile_memories[:40]:
+            # profile_max_rows 从 config 读 (修死配置: 原来硬编码 [:40])
+            try:
+                from operon.config import load_settings
+                max_rows = load_settings().memory.profile_max_rows
+            except Exception:
+                max_rows = 40
+            for m in profile_memories[:max_rows]:
                 lines.append(f"- [{m.get('evidence', '')}] {m['body']}")
             lines.append("</memory_facts>")
             parts.append("\n".join(lines))
@@ -519,13 +527,19 @@ def _sync_load_profile(store) -> list[dict]:
 
         settings = load_settings()
         db_path = str(settings.db_path or (settings.data_dir / "operon.db"))
+        # profile_max_rows 从 config 读 (修死配置: 原来硬编码 LIMIT 40)
+        max_rows = settings.memory.profile_max_rows
         conn = sqlite3.connect(db_path)
         conn.row_factory = sqlite3.Row
         rows = conn.execute(
             "SELECT id, entity, body, evidence FROM memories "
-            "WHERE entity = 'profile' ORDER BY created_at DESC LIMIT 40"
+            "WHERE entity = 'profile' ORDER BY created_at DESC LIMIT ?",
+            (max_rows,),
         ).fetchall()
         conn.close()
-        return [{"id": r["id"], "entity": r["entity"], "body": r["body"], "evidence": r["evidence"]} for r in rows]
+        return [
+            {"id": r["id"], "entity": r["entity"], "body": r["body"], "evidence": r["evidence"]}
+            for r in rows
+        ]
     except Exception:
         return []

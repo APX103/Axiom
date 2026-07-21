@@ -141,9 +141,11 @@ def _reconstruct_abstract(inverted: dict | None) -> str:
 SEARCH_PAPERS_SPEC = {
     "name": "search_papers",
     "description": (
-        "Search academic papers via OpenAlex. Returns title, authors, year, DOI, citation count, abstract. "
+        "Search academic papers via OpenAlex. Returns title, authors, year, DOI, "
+        "citation count, abstract. "
         "Use for literature review and finding authoritative sources. "
-        "Sort options: relevance_score:desc (default), cited_by_count:desc (most cited), publication_date:desc (newest)."
+        "Sort options: relevance_score:desc (default), cited_by_count:desc (most cited), "
+        "publication_date:desc (newest)."
     ),
     "parameters": {
         "type": "object",
@@ -166,7 +168,9 @@ FETCH_PAPER_SPEC = {
     "description": "Fetch a single paper's full details by DOI via OpenAlex.",
     "parameters": {
         "type": "object",
-        "properties": {"doi": {"type": "string", "description": "DOI (e.g. 10.1145/3292500.3330703)"}},
+        "properties": {
+            "doi": {"type": "string", "description": "DOI (e.g. 10.1145/3292500.3330703)"}
+        },
         "required": ["doi"],
     },
 }

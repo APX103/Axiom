@@ -115,8 +115,16 @@ def test_expand_query_abbrev():
 @pytest.fixture
 def sample_skills():
     return [
-        Skill(name="paper-writer", description="write scientific papers manuscripts", body="academic writing"),
-        Skill(name="figure-maker", description="create plots charts figures matplotlib", body="visualization"),
+        Skill(
+            name="paper-writer",
+            description="write scientific papers manuscripts",
+            body="academic writing",
+        ),
+        Skill(
+            name="figure-maker",
+            description="create plots charts figures matplotlib",
+            body="visualization",
+        ),
         Skill(name="data-cleaner", description="clean preprocess datasets", body="pandas numpy"),
         Skill(name="pdf-reader", description="extract text from pdf documents", body="pypdfium2"),
     ]

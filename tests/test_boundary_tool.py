@@ -10,7 +10,7 @@ import pytest
 
 from operon.frames.model import Frame
 from operon.tools.builtins.boundary import boundary
-from operon.tools.context import PlanState, ToolContext
+from operon.tools.context import ToolContext
 
 
 @pytest.fixture

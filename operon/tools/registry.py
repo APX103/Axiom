@@ -25,7 +25,9 @@ class ToolSpec(BaseModel):
 
     def to_definition(self) -> ToolDefinition:
         """转 LLM ToolDefinition。"""
-        return ToolDefinition(name=self.name, description=self.description, parameters=self.parameters)
+        return ToolDefinition(
+            name=self.name, description=self.description, parameters=self.parameters
+        )
 
 
 class RegisteredTool:

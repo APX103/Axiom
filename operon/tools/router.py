@@ -27,7 +27,9 @@ class ToolRouter:
         self.registry = registry
         self.default_timeout = default_timeout
 
-    async def execute_one(self, tool_use: ToolUseBlock, *, timeout: float | None = None) -> ToolResultBlock:
+    async def execute_one(
+        self, tool_use: ToolUseBlock, *, timeout: float | None = None
+    ) -> ToolResultBlock:
         """执行单个工具调用。
 
         """
@@ -35,7 +37,10 @@ class ToolRouter:
         if tool is None:
             return ToolResultBlock(
                 tool_use_id=tool_use.id,
-                content=f"Error: unknown tool '{tool_use.name}'. Available: {self.registry.names()}",
+                content=(
+                    f"Error: unknown tool '{tool_use.name}'. "
+                    f"Available: {self.registry.names()}"
+                ),
                 is_error=True,
             )
 
@@ -49,7 +54,10 @@ class ToolRouter:
         except TimeoutError:
             return ToolResultBlock(
                 tool_use_id=tool_use.id,
-                content=f"Error: tool '{tool_use.name}' timed out after {timeout or self.default_timeout}s",
+                content=(
+                    f"Error: tool '{tool_use.name}' timed out after "
+                    f"{timeout or self.default_timeout}s"
+                ),
                 is_error=True,
             )
         except Exception as e:

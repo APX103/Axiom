@@ -38,9 +38,24 @@ def test_is_mcp_skill():
 def test_generate_mcp_skills():
     """MCP server 工具生成 mcp-* skill 文档。"""
     tools = [
-        {"server_name": "web_search", "name": "search", "description": "[MCP:web_search] search the web", "input_schema": {}},
-        {"server_name": "web_search", "name": "fetch", "description": "[MCP:web_search] fetch url", "input_schema": {}},
-        {"server_name": "zinc", "name": "query", "description": "search molecules", "input_schema": {}},
+        {
+            "server_name": "web_search",
+            "name": "search",
+            "description": "[MCP:web_search] search the web",
+            "input_schema": {},
+        },
+        {
+            "server_name": "web_search",
+            "name": "fetch",
+            "description": "[MCP:web_search] fetch url",
+            "input_schema": {},
+        },
+        {
+            "server_name": "zinc",
+            "name": "query",
+            "description": "search molecules",
+            "input_schema": {},
+        },
     ]
     mgr = FakeManager(tools)
     skills = generate_mcp_skills(mgr)

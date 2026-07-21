@@ -57,7 +57,8 @@ class Frame(Base):
     agent_name: Mapped[str] = mapped_column(String(255), nullable=False)
     delegate_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     # status: 见 FrameStatus 枚举 (operon.agent.states)
-    # processing|completed|failed|success|replaced|cancelled|awaiting_plan_approval|awaiting_user_response
+    # processing|completed|failed|success|replaced|cancelled
+    # awaiting_plan_approval|awaiting_user_response
     status: Mapped[str] = mapped_column(String(50), nullable=False, default="processing")
     input_data: Mapped[dict | None] = mapped_column(Text, nullable=True)  # JSON
     output_data: Mapped[dict | None] = mapped_column(Text, nullable=True)
@@ -110,12 +111,19 @@ class Frame(Base):
 
 
 class Project(Base):
-    """项目。简化版 (原版 0110.js projects 表更复杂,首版够用即可)。"""
+    """研究项目 (Layer A.5: 产品层一等公民)。
+
+    一个 project 聚合多个 session + 它们的记忆 + artifact。
+    默认 project id 固定为 'proj_default', 老数据无感归属。
+    """
 
     __tablename__ = "projects"
 
     id: Mapped[str] = mapped_column(String(255), primary_key=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
+    # Layer A.5 新字段
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    last_session_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
     created_at: Mapped[datetime] = mapped_column(default=_now)
     updated_at: Mapped[datetime] = mapped_column(default=_now, onupdate=_now)
 
@@ -267,7 +275,8 @@ class CompactionArchive(Base):
         String(36), ForeignKey("frames.id", ondelete="CASCADE"), nullable=False
     )
     compaction_index: Mapped[int] = mapped_column(Integer, nullable=False)
-    fold_kind: Mapped[str] = mapped_column(String(20), nullable=False)  # rc_fold_l1|rc_fold_l2|compact_destructive
+    # rc_fold_l1|rc_fold_l2|compact_destructive
+    fold_kind: Mapped[str] = mapped_column(String(20), nullable=False)
     summary: Mapped[str] = mapped_column(Text, nullable=False)
     archived_messages: Mapped[str] = mapped_column(Text, nullable=False)  # JSON
     created_at: Mapped[datetime] = mapped_column(default=_now)
@@ -331,6 +340,12 @@ class SessionRecord(Base):
     model: Mapped[str | None] = mapped_column(String(255), nullable=True)
     plan_mode: Mapped[bool] = mapped_column(default=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="active")
+    # Layer A.5: 所属 project (FK 到 projects.id, nullable 兼容老 session)
+    project_id: Mapped[str | None] = mapped_column(
+        String(255),
+        ForeignKey("projects.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     # 计划状态快照 (PlanState 的 JSON 序列化), 用于会话从 DB 恢复时重建 plan
     plan_data: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(default=_now)
@@ -343,6 +358,7 @@ class SessionRecord(Base):
     __table_args__ = (
         Index("ix_sessions_status", "status"),
         Index("ix_sessions_updated_at", "updated_at"),
+        Index("ix_sessions_project_id", "project_id"),
     )
 
 
@@ -371,18 +387,42 @@ class SessionMessage(Base):
 class MemoryRecord(Base):
     """三层记忆: profile (用户全局) / project (跨会话) / frame (会话级)。
 
-    简化: 去掉 user_id (单用户), 去掉 categories, 去掉 supersede chain (用 replace 直接更新)。
-    保留: entity 分层 + evidence 标签 + origin 来源 + last_surfaced_at 召回追踪。
+    Layer A 升级 (2026-07):
+    - scope: 作用域 (profile/project/frame), 与老 entity 字段语义一致
+    - entity_type: 语义类型 (claim/evidence/citation/tool_use/note)
+    - meta: JSON 结构化字段, 按 entity_type 派发
+      (claim 的 subject/predicate, citation 的 doi/authors 等)
+    - session_id: 来源 session, 用于跨会话溯源 (老数据为 None)
+    - confidence: LLM 抽取时打的置信度 0-1 (默认 0.5)
+    - origin 多值: user_stated / agent_inferred / extractor / tool_observed
+      (老 user → user_stated)
+
+    简化: 去掉 user_id (单用户), 去掉 supersede chain (用 replace 直接更新)。
     """
 
     __tablename__ = "memories"
 
     id: Mapped[str] = mapped_column(String(20), primary_key=True)  # mem_<12hex>
-    entity: Mapped[str] = mapped_column(String(20), nullable=False)  # profile / project / frame
+    # 老的作用域字段 (profile/project/frame), 保留向后兼容; 新代码应同时写 scope 和 entity
+    entity: Mapped[str] = mapped_column(String(20), nullable=False, default="project")
+    scope: Mapped[str | None] = mapped_column(String(20), nullable=True)  # profile/project/frame
+    # 语义类型 (Layer A): claim/evidence/citation/tool_use/note
+    entity_type: Mapped[str] = mapped_column(String(20), nullable=False, default="note")
     body: Mapped[str] = mapped_column(Text, nullable=False)
     evidence: Mapped[str] = mapped_column(String(20), nullable=False, default="stated")
-    origin: Mapped[str] = mapped_column(String(20), nullable=False, default="user")
+    origin: Mapped[str] = mapped_column(String(20), nullable=False, default="user_stated")
     frame_id: Mapped[str | None] = mapped_column(String(50), nullable=True)  # frame 层用
+    # Layer A: 来源 session
+    session_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    # Layer A.5: 所属 project。profile 层记忆 project_id=NULL (跨 project 共享);
+    # project/frame 层按 project_id 隔离, 召回时不串味。
+    project_id: Mapped[str | None] = mapped_column(
+        String(255),
+        ForeignKey("projects.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    confidence: Mapped[float] = mapped_column(Float, nullable=False, default=0.5)  # Layer A: 0-1
+    meta: Mapped[str | None] = mapped_column(Text, nullable=True)  # Layer A: JSON 字符串
     created_at: Mapped[datetime] = mapped_column(default=_now)
     updated_at: Mapped[datetime] = mapped_column(default=_now, onupdate=_now)
     last_surfaced_at: Mapped[datetime | None] = mapped_column(nullable=True)
@@ -390,4 +430,7 @@ class MemoryRecord(Base):
     __table_args__ = (
         Index("ix_memories_entity", "entity"),
         Index("ix_memories_frame_id", "frame_id"),
+        Index("ix_memories_entity_type", "entity_type"),
+        Index("ix_memories_session_id", "session_id"),
+        Index("ix_memories_project_id", "project_id"),
     )

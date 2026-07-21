@@ -92,7 +92,8 @@ class FrameService:
         frame = self.require(frame_id)
         if frame.status in TERMINAL and status != frame.status:
             raise ValueError(
-                f"frame {frame_id} is terminal ({frame.status.value}), cannot change to {status.value}"
+                f"frame {frame_id} is terminal "
+                f"({frame.status.value}), cannot change to {status.value}"
             )
         frame.status = status
         frame.updated_at = datetime.now(UTC)

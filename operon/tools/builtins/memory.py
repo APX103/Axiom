@@ -39,14 +39,18 @@ WRITE_MEMORY_SPEC = {
         "'replace' to correct existing ones, 'remove' to delete. Write facts "
         "the moment you confirm them — one or two sentences each. Set entity "
         "(profile/project/frame) and evidence (stated/observed/inferred) per "
-        "entry. Skip transient task state."
+        "entry. Optionally set entity_type (claim/evidence/citation/tool_use/note) "
+        "and meta (structured fields). Skip transient task state."
     ),
     "parameters": {
         "type": "object",
         "properties": {
             "entity": {
                 "type": "string",
-                "description": "Default entity for appends: profile / project / frame (default: project).",
+                "description": (
+                    "Default entity for appends: profile / project / frame "
+                    "(default: project)."
+                ),
             },
             "append": {
                 "type": "array",
@@ -54,8 +58,33 @@ WRITE_MEMORY_SPEC = {
                     "type": "object",
                     "properties": {
                         "body": {"type": "string", "description": "The fact (≤1000 chars)."},
-                        "entity": {"type": "string", "description": "Override entity for this entry."},
-                        "evidence": {"type": "string", "description": "stated / observed / inferred (default: inferred)."},
+                        "entity": {
+                            "type": "string",
+                            "description": "Override entity for this entry.",
+                        },
+                        "evidence": {
+                            "type": "string",
+                            "description": "stated / observed / inferred (default: inferred).",
+                        },
+                        "entity_type": {
+                            "type": "string",
+                            "description": (
+                                "Semantic type: claim / evidence / citation / "
+                                "tool_use / note (default: note)."
+                            ),
+                        },
+                        "meta": {
+                            "type": "object",
+                            "description": (
+                                "Structured fields per entity_type. claim: "
+                                "{subject,predicate,object}; citation: "
+                                "{doi,title,authors,year}; etc."
+                            ),
+                        },
+                        "confidence": {
+                            "type": "number",
+                            "description": "Confidence 0-1 (default: 0.5).",
+                        },
                     },
                     "required": ["body"],
                 },
@@ -67,6 +96,10 @@ WRITE_MEMORY_SPEC = {
                     "properties": {
                         "id": {"type": "string"},
                         "body": {"type": "string"},
+                        "meta": {
+                            "type": "object",
+                            "description": "Optional structured fields update.",
+                        },
                     },
                     "required": ["id", "body"],
                 },
@@ -101,7 +134,7 @@ SEARCH_MEMORY_SPEC = {
 
 
 async def read_memory(ctx: ToolContext, *, entity: str) -> str:
-    """读取某层所有记忆。"""
+    """读取某层所有记忆。Layer A: 输出含 entity_type 标签。"""
     if ctx.memory_store is None:
         return "Memory not available."
     entries = await ctx.memory_store.list_by_entity(
@@ -112,7 +145,8 @@ async def read_memory(ctx: ToolContext, *, entity: str) -> str:
     lines = [f"=== {entity} ({len(entries)} entries) ==="]
     for e in entries:
         age = e.get("created_at", "")[:10] if e.get("created_at") else ""
-        lines.append(f"[{age}] [{e.get('evidence', '')}] {e['body']}  [{e['id']}]")
+        et = e.get("entity_type", "note")
+        lines.append(f"[{age}] [{et}] [{e.get('evidence', '')}] {e['body']}  [{e['id']}]")
     return "\n".join(lines)
 
 
@@ -124,7 +158,7 @@ async def write_memory(
     replace: list[dict] | None = None,
     remove: list[str] | None = None,
 ) -> str:
-    """写入记忆。"""
+    """写入记忆。Layer A: 支持 entity_type / meta / confidence。"""
     if ctx.memory_store is None:
         return "Memory not available."
     count = 0
@@ -134,12 +168,25 @@ async def write_memory(
         ev = item.get("evidence", "inferred")
         if body:
             await ctx.memory_store.append(
-                ent, body, evidence=ev, origin="user",
+                ent, body,
+                evidence=ev, origin="user_stated",
                 frame_id=ctx.frame.id if ent == "frame" else None,
+                # Layer A 新字段
+                scope=ent,
+                entity_type=item.get("entity_type", "note"),
+                meta=item.get("meta") if isinstance(item.get("meta"), dict) else None,
+                session_id=ctx.session_id,
+                confidence=item.get("confidence", 0.5),
+                # Layer A.5
+                project_id=getattr(ctx, "project_id", None),
             )
             count += 1
     for item in (replace or [])[:20]:
-        await ctx.memory_store.replace(item["id"], item["body"])
+        meta = item.get("meta")
+        await ctx.memory_store.replace(
+            item["id"], item["body"],
+            meta=meta if isinstance(meta, dict) else None,
+        )
         count += 1
     for mid in (remove or [])[:20]:
         await ctx.memory_store.remove(mid)
@@ -148,7 +195,7 @@ async def write_memory(
 
 
 async def search_memory(ctx: ToolContext, *, query: str) -> str:
-    """搜索全部记忆。"""
+    """搜索全部记忆。Layer A: 输出含 scope + entity_type 标签。"""
     if ctx.memory_store is None:
         return "Memory not available."
     # 用实时搜索 (不用缓存索引, 覆盖最新数据)
@@ -162,7 +209,9 @@ async def search_memory(ctx: ToolContext, *, query: str) -> str:
         return f"No memories match '{query}'."
     lines = [f"=== search '{query}' ({len(results)} results) ==="]
     for r in results:
+        scope = r.get("scope", r.get("entity", ""))
+        et = r.get("entity_type", "note")
         lines.append(
-            f"[{r.get('entity', '')}] [{r.get('evidence', '')}] {r['body']}  [{r['id']}]"
+            f"[{scope}] [{et}] [{r.get('evidence', '')}] {r['body']}  [{r['id']}]"
         )
     return "\n".join(lines)

@@ -19,14 +19,22 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # macOS 出两版前端: classic (默认) 与 v2 (现代主题)
           - target: aarch64-apple-darwin
             runner: macos-latest
             arch: aarch64
             platform: macos
+            ui: classic
+          - target: aarch64-apple-darwin
+            runner: macos-latest
+            arch: aarch64
+            platform: macos
+            ui: v2
           - target: x86_64-unknown-linux-gnu
             runner: ubuntu-22.04
             arch: x86_64
             platform: linux
+            ui: classic
 
     runs-on: ${{ matrix.runner }}
     steps:
@@ -37,32 +45,9 @@ jobs:
         env:
           TAG: ${{ github.ref_name }}
         run: |
-          # 从 tag (v0.0.12) strip 掉前导 v 得到期望版本
+          # 从 tag (v0.0.12) strip 掉前导 v 得到期望版本, 调 scripts/check_version.py
           EXPECTED="${TAG#v}"
-          echo "Expected version (from tag): $EXPECTED"
-
-          PKG=$(grep -E '^[[:space:]]*"version"' frontend/package.json | head -1 | sed -E 's/.*"version"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/')
-          PYPROJECT=$(grep -E '^version[[:space:]]*=' pyproject.toml | head -1 | sed -E 's/version[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/')
-          CARGO=$(grep -E '^version[[:space:]]*=' src-tauri/Cargo.toml | head -1 | sed -E 's/version[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/')
-          TAURI=$(grep -E '"version"' src-tauri/tauri.conf.json | head -1 | sed -E 's/.*"version"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/')
-
-          echo "frontend/package.json:       $PKG"
-          echo "pyproject.toml:              $PYPROJECT"
-          echo "src-tauri/Cargo.toml:        $CARGO"
-          echo "src-tauri/tauri.conf.json:   $TAURI"
-
-          fail=0
-          for v in "$PKG" "$PYPROJECT" "$CARGO" "$TAURI"; do
-            if [ "$v" != "$EXPECTED" ]; then
-              echo "::error::Version '$v' does not match tag '$EXPECTED'"
-              fail=1
-            fi
-          done
-          if [ "$fail" -ne 0 ]; then
-            echo "::error::Version mismatch — bump all of package.json / pyproject.toml / Cargo.toml / tauri.conf.json to $EXPECTED before tagging."
-            exit 1
-          fi
-          echo "All version files consistent with tag $EXPECTED."
+          python scripts/check_version.py --expected "$EXPECTED"
 
       - name: Install Python
         uses: actions/setup-python@v5
@@ -96,11 +81,11 @@ jobs:
       - name: Build Python backend
         run: uv run pyinstaller operon-backend.spec --clean --noconfirm
 
-      - name: Build frontend
+      - name: Build frontend (${{ matrix.ui }})
         run: |
           cd frontend
           bun install
-          bun run build
+          VITE_UI_VARIANT=${{ matrix.ui }} bun run build
 
       - name: Build Tauri bundle
         env:
@@ -110,10 +95,17 @@ jobs:
           cd src-tauri
           bun x @tauri-apps/cli build --target ${{ matrix.target }}
 
+      - name: Rename v2 bundle (避免与 classic dmg 同名冲突)
+        if: matrix.ui == 'v2'
+        run: |
+          cd "src-tauri/target/${{ matrix.target }}/release/bundle/dmg"
+          for f in *.dmg; do mv "$f" "${f%.dmg}-v2.dmg"; done
+          ls -la
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.platform }}-${{ matrix.arch }}-bundle
+          name: ${{ matrix.platform }}-${{ matrix.arch }}-${{ matrix.ui }}-bundle
           path: |
             src-tauri/target/${{ matrix.target }}/release/bundle/**/*.dmg
             src-tauri/target/${{ matrix.target }}/release/bundle/**/*.deb

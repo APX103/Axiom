@@ -37,6 +37,15 @@ export interface VerificationConfig {
   min_checkpoint_interval_ms?: number;
 }
 
+export interface TraceConfig {
+  enabled: boolean;
+  log_dir?: string;
+  retention_days?: number;
+  log_llm_payload?: boolean;
+  log_tool_args?: boolean;
+  log_tool_result_summary?: boolean;
+}
+
 export interface AppSettings {
   version: number;
   llm_providers: LLMProvider[];
@@ -50,6 +59,7 @@ export interface AppSettings {
   load_project_skills: boolean;
   skill_extra_dirs: string[];
   verification: VerificationConfig;
+  trace: TraceConfig;
 }
 
 export interface SkillInfo {
@@ -75,7 +85,14 @@ export interface McpServerStatus {
 
 export interface MemoryInfo {
   id: string;
+  // 老的作用域字段 (profile/project/frame), 向后兼容
   entity: string;
+  // Layer A: 作用域 (与 entity 语义一致) + 语义类型 + 结构化字段
+  scope?: string;
+  entity_type?: string;  // claim / evidence / citation / tool_use / note
+  meta?: Record<string, unknown> | null;
+  session_id?: string | null;
+  confidence?: number;
   body: string;
   evidence: string;
   origin: string;
@@ -91,9 +108,23 @@ export interface SessionInfo {
   workspace: string;
   model: string | null;
   plan_mode: boolean;
+  // Layer A.5: 所属 project id (老 session 是 'proj_default')
+  project_id: string | null;
   created_at: string | null;
   updated_at: string | null;
   live: boolean;
+}
+
+// Layer A.5: Project
+export interface ProjectInfo {
+  id: string;
+  name: string;
+  description: string | null;
+  last_session_id: string | null;
+  session_count: number;
+  last_activity_at: string | null;
+  created_at: string | null;
+  is_default: boolean;
 }
 
 // WebSocket 事件 (对应 operon/api/callbacks.py 发出的 dict)

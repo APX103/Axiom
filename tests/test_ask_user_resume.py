@@ -28,7 +28,10 @@ class FakeLLM(LLMClient):
         self.responses = list(responses)
         self.calls = 0
 
-    async def chat(self, messages, *, system=None, tools=None, model=None, max_tokens=8192, temperature=None, **kw):
+    async def chat(
+        self, messages, *, system=None, tools=None, model=None,
+        max_tokens=8192, temperature=None, **kw
+    ):
         self.calls += 1
         if not self.responses:
             raise AssertionError("FakeLLM ran out of scripted responses")
@@ -43,7 +46,9 @@ class FakeLLM(LLMClient):
 
 def _ask_user_resp(question: str, options: list[str]) -> LLMResponse:
     return LLMResponse(
-        content=[ToolUseBlock(id="t1", name="ask_user", input={"question": question, "options": options})],
+        content=[
+            ToolUseBlock(id="t1", name="ask_user", input={"question": question, "options": options})
+        ],
         stop_reason=StopReason.TOOL_USE,
         model="fake",
         usage=TokenUsage(input_tokens=10, output_tokens=5),

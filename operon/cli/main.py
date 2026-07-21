@@ -334,8 +334,12 @@ def demo_survey(
             )
             demo_sid = active.id
             typer.echo("")
-            typer.secho("✓ 已创建预置会话 (朋友点此链接直达论文页):", fg=typer.colors.GREEN, bold=True)
-            typer.secho(f"  http://{lan_ip}:{port}/paper/{demo_sid}", fg=typer.colors.CYAN, bold=True)
+            typer.secho(
+                "✓ 已创建预置会话 (朋友点此链接直达论文页):", fg=typer.colors.GREEN, bold=True
+            )
+            typer.secho(
+                f"  http://{lan_ip}:{port}/paper/{demo_sid}", fg=typer.colors.CYAN, bold=True
+            )
             typer.secho(f"  http://127.0.0.1:{port}/paper/{demo_sid}", fg=typer.colors.CYAN)
             typer.echo("  (Ctrl+C 退出服务)")
         except Exception as e:

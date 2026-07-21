@@ -6,11 +6,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 
-class Verdict(str, Enum):
+class Verdict(StrEnum):
     """裁决。对照原版 verdict enum (0835.js:25)。"""
 
     PASS = "pass"  # 已追踪到
@@ -18,7 +18,7 @@ class Verdict(str, Enum):
     FAIL = "fail"  # 未发生的声明 / 实质矛盾 / 伪造引用 / 方法错误
 
 
-class CheckStatus(str, Enum):
+class CheckStatus(StrEnum):
     """检查记录状态。对照原版 verification_checks.status enum。"""
 
     OPEN = "open"
@@ -26,7 +26,7 @@ class CheckStatus(str, Enum):
     UNADDRESSED = "unaddressed"
 
 
-class DispositionOutcome(str, Enum):
+class DispositionOutcome(StrEnum):
     """prior findings 的处置结果。对照原版 prior_dispositions.outcome。"""
 
     RESOLVED = "resolved"

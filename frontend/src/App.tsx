@@ -3,7 +3,7 @@
 // 支持月之亮面/暗面主题切换。
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { approvePlan, createSession, deleteFile, deleteSession, getSessionState, getSettings, health, listSessions, listTemplates, apiBase } from "./api";
+import { approvePlan, createProject, createSession, deleteFile, deleteSession, getSessionState, getSettings, health, listProjects, listSessions, listTemplates, updateProject, apiBase } from "./api";
 import { useSession } from "./hooks/useSession";
 import { useTheme } from "./hooks/useTheme";
 import { MessageView } from "./components/Message";
@@ -13,7 +13,7 @@ import { ResizableSidebar } from "./components/ResizableSidebar";
 import { SettingsModal, fromApiSettings, loadConfig, type FullConfig } from "./components/SettingsModal";
 import { PaperView } from "./components/PaperView";
 import { UpdateBanner } from "./components/UpdateBanner";
-import type { SessionInfo, TemplateInfo } from "./types";
+import type { ProjectInfo, SessionInfo, TemplateInfo } from "./types";
 
 const SID_KEY = "operon-py-active-sid";
 
@@ -32,6 +32,88 @@ function usePaperRoute(): string | null {
   if (typeof window === "undefined") return null;
   const m = window.location.pathname.match(/^\/paper\/([^/]+)/);
   return m ? m[1] : null;
+}
+
+// Layer A.5: 新建 project 的小 modal
+function NewProjectModal({
+  onClose,
+  onCreated,
+}: {
+  onClose: () => void;
+  onCreated: (p: ProjectInfo) => void;
+}) {
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const submit = async () => {
+    if (!name.trim()) {
+      setError("项目名不能为空");
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      const p = await createProject(name.trim(), description.trim() || undefined);
+      onCreated(p);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
+      <div
+        className="bg-elevated rounded-xl border border-border shadow-2xl w-full max-w-md p-6"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 className="text-base font-semibold text-default mb-4">新建项目</h2>
+        <div className="space-y-3">
+          <label className="block">
+            <span className="text-xs text-muted">项目名 *</span>
+            <input
+              type="text"
+              value={name}
+              autoFocus
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && submit()}
+              placeholder="如: kinase 142 位点研究"
+              className="mt-1 w-full px-3 py-2 bg-page rounded-md text-sm text-default border border-border focus:outline-none focus:border-accent"
+            />
+          </label>
+          <label className="block">
+            <span className="text-xs text-muted">描述 (可选)</span>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="这个项目做什么..."
+              rows={2}
+              className="mt-1 w-full px-3 py-2 bg-page rounded-md text-sm text-default border border-border focus:outline-none focus:border-accent resize-none"
+            />
+          </label>
+          {error && <div className="text-xs text-error">{error}</div>}
+        </div>
+        <div className="flex gap-2 mt-5">
+          <button
+            onClick={onClose}
+            className="flex-1 py-2 rounded-lg bg-page text-sm text-muted hover:bg-hover transition-colors"
+          >
+            取消
+          </button>
+          <button
+            onClick={submit}
+            disabled={submitting || !name.trim()}
+            className="flex-1 py-2 rounded-lg bg-accent text-inverse text-sm font-medium hover:bg-accent-hover disabled:opacity-50 transition-colors"
+          >
+            {submitting ? "创建中..." : "创建"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function App() {
@@ -64,6 +146,11 @@ function Workbench() {
   const [planMode, setPlanMode] = useState(false);
   const [deepReview, setDeepReview] = useState(false);
   const [sidebarTab, setSidebarTab] = useState<"sessions" | "files">("sessions");
+  // Layer A.5: project 切换器
+  const [projects, setProjects] = useState<ProjectInfo[]>([]);
+  const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
+  const [showProjectModal, setShowProjectModal] = useState(false);
+  const [projectDropdownOpen, setProjectDropdownOpen] = useState(false);
   // 论文模板 (新建会话时复制进工作区作为 main.tex preamble)
   const [templates, setTemplates] = useState<TemplateInfo[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<string>("article");
@@ -84,6 +171,39 @@ function Workbench() {
       return [];
     }
   }, []);
+
+  // Layer A.5: 加载 project 列表 + 初始化默认 project + 恢复上次选中
+  const refreshProjects = useCallback(async () => {
+    try {
+      let list = await listProjects();
+      // 列表为空时自动创建默认 project (后端迁移会建, 这里双保险)
+      if (list.length === 0) {
+        await createProject("默认项目");
+        list = await listProjects();
+      }
+      setProjects(list);
+      // 恢复上次选中的 project (localStorage 持久化)
+      const savedPid = localStorage.getItem("axiom_current_project_id");
+      const exists = list.some((p) => p.id === savedPid);
+      if (exists) {
+        setCurrentProjectId(savedPid);
+      } else {
+        // 默认选 proj_default (或第一个)
+        const def = list.find((p) => p.is_default) ?? list[0];
+        if (def) {
+          setCurrentProjectId(def.id);
+          localStorage.setItem("axiom_current_project_id", def.id);
+        }
+      }
+      return list;
+    } catch {
+      return [];
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshProjects();
+  }, [refreshProjects]);
 
   // 加载论文模板列表 (供新建会话时选择)
   useEffect(() => {
@@ -219,9 +339,15 @@ function Workbench() {
       body.disabled_skills = config.disabled_skills;
     }
     if (selectedTemplate) body.template = selectedTemplate;
+    // Layer A.5: 带 project_id (用当前选中, 后端 fallback 到 proj_default)
+    if (currentProjectId) body.project_id = currentProjectId;
     try {
       const data = await createSession(body);
       setSid(data.id);
+      // 更新 project 的 last_session_id
+      if (currentProjectId) {
+        updateProject(currentProjectId, { last_session_id: data.id }).catch(() => {});
+      }
       refreshSessionList();
       return data.id;
     } catch (e) {
@@ -300,7 +426,7 @@ function Workbench() {
     <div className="h-full flex flex-col bg-page text-default theme-transition">
       <UpdateBanner />
       {/* 顶部标题栏 - SciForge 风格 */}
-      <header className="h-12 bg-subtle flex items-center justify-between px-3 shrink-0 z-20 border-b border-border">
+      <header className="app-header h-12 bg-subtle flex items-center justify-between px-3 shrink-0 z-20 border-b border-border">
         <div className="flex items-center gap-2.5">
           <div className="w-7 h-7 rounded-lg bg-accent/10 flex items-center justify-center">
             <LogoIcon width={16} height={16} className="text-accent" />
@@ -351,6 +477,59 @@ function Workbench() {
                 </button>
               </div>
 
+              {/* Layer A.5: project 切换器 */}
+              <div className="px-2.5 pb-2 relative">
+                <button
+                  onClick={() => setProjectDropdownOpen((v) => !v)}
+                  className="w-full px-2.5 py-2 rounded-md bg-page hover:bg-hover text-xs text-default border border-border flex items-center justify-between gap-2 transition-colors"
+                  title="切换项目"
+                >
+                  <span className="truncate flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
+                    <span className="truncate">
+                      {projects.find((p) => p.id === currentProjectId)?.name || "选择项目"}
+                    </span>
+                  </span>
+                  <ChevronDownIcon width={12} height={12} className="shrink-0 text-faint" />
+                </button>
+                {projectDropdownOpen && (
+                  <>
+                    {/* 点击外部关闭 */}
+                    <div className="fixed inset-0 z-10" onClick={() => setProjectDropdownOpen(false)} />
+                    <div className="absolute left-2.5 right-2.5 top-full mt-1 z-20 rounded-md bg-elevated border border-border shadow-lg overflow-hidden">
+                      {projects.map((p) => (
+                        <button
+                          key={p.id}
+                          onClick={() => {
+                            setCurrentProjectId(p.id);
+                            localStorage.setItem("axiom_current_project_id", p.id);
+                            setProjectDropdownOpen(false);
+                          }}
+                          className={`w-full px-2.5 py-2 text-left text-xs flex items-center justify-between gap-2 transition-colors ${
+                            p.id === currentProjectId ? "bg-accent/15 text-accent" : "text-default hover:bg-hover"
+                          }`}
+                        >
+                          <span className="truncate">{p.name}</span>
+                          <span className="text-[10px] text-faint shrink-0">{p.session_count}</span>
+                        </button>
+                      ))}
+                      <div className="border-t border-border">
+                        <button
+                          onClick={() => {
+                            setProjectDropdownOpen(false);
+                            setShowProjectModal(true);
+                          }}
+                          className="w-full px-2.5 py-2 text-left text-xs text-accent hover:bg-accent/10 flex items-center gap-1.5 transition-colors"
+                        >
+                          <PlusIcon width={12} height={12} />
+                          新建项目...
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+
               {/* 论文模板选择 (新建会话时复制进工作区作为 main.tex preamble) */}
               {templates.length > 0 && (
                 <div className="px-2.5 py-2">
@@ -384,11 +563,18 @@ function Workbench() {
 
               <div className="flex-1 overflow-y-auto px-2.5 py-1 min-h-0">
                 {sidebarTab === "sessions" ? (
-                  sessions.length === 0 ? (
-                    <EmptyState icon="" text="暂无会话" sub="点击上方开始新会话" />
+                  // Layer A.5: 按 currentProjectId 过滤 session 列表
+                  (currentProjectId
+                    ? sessions.filter((s) => (s.project_id || "proj_default") === currentProjectId)
+                    : sessions
+                  ).length === 0 ? (
+                    <EmptyState icon="" text="此项目暂无会话" sub="点击上方开始新会话" />
                   ) : (
                     <div className="space-y-0.5">
-                      {sessions.map((s) => (
+                      {(currentProjectId
+                        ? sessions.filter((s) => (s.project_id || "proj_default") === currentProjectId)
+                        : sessions
+                      ).map((s) => (
                         <SessionItem
                           key={s.id}
                           info={s}
@@ -560,7 +746,7 @@ function Workbench() {
       </div>
 
       {/* 底部状态栏 - SciForge 风格 */}
-      <footer className="h-7 bg-subtle flex items-center justify-between px-3 text-[11px] text-faint shrink-0 shadow-[0_-1px_0_0_rgba(15,23,42,0.04)]">
+      <footer className="app-footer h-7 bg-subtle flex items-center justify-between px-3 text-[11px] text-faint shrink-0 shadow-[0_-1px_0_0_rgba(15,23,42,0.04)]">
         <div className="flex items-center gap-3">
           <span className="flex items-center gap-1.5">
             <GitBranchIcon />
@@ -582,6 +768,19 @@ function Workbench() {
             setShowSettings(false);
             setBackendStatus("checking");
             health().then(() => setBackendStatus("online")).catch(() => setBackendStatus("offline"));
+          }}
+        />
+      )}
+
+      {/* Layer A.5: 新建 project modal */}
+      {showProjectModal && (
+        <NewProjectModal
+          onClose={() => setShowProjectModal(false)}
+          onCreated={(p) => {
+            setCurrentProjectId(p.id);
+            localStorage.setItem("axiom_current_project_id", p.id);
+            setShowProjectModal(false);
+            refreshProjects();
           }}
         />
       )}
@@ -1016,6 +1215,14 @@ function PlusIcon({ width = 14, height = 14 }: { width?: number; height?: number
     <svg width={width} height={height} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <line x1="12" y1="5" x2="12" y2="19" />
       <line x1="5" y1="12" x2="19" y2="12" />
+    </svg>
+  );
+}
+
+function ChevronDownIcon({ width = 14, height = 14, className = "" }: { width?: number; height?: number; className?: string }) {
+  return (
+    <svg width={width} height={height} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <polyline points="6 9 12 15 18 9" />
     </svg>
   );
 }

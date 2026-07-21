@@ -41,7 +41,9 @@ def estimate_message_tokens(msg: Message) -> int:
             for b in msg.content:
                 if isinstance(b, ToolResultBlock):
                     c = b.content
-                    extra += len(c) if isinstance(c, str) else len(json.dumps(c, ensure_ascii=False))
+                    extra += (
+                        len(c) if isinstance(c, str) else len(json.dumps(c, ensure_ascii=False))
+                    )
         return server_out + extra // CHARS_PER_TOKEN
 
     # 折叠摘要 (优先级 2)
@@ -72,7 +74,9 @@ def estimate_message_tokens(msg: Message) -> int:
             # 未知 block (image/document) — 视觉块按 VISION_DEFAULT
             bdict = b if isinstance(b, dict) else json.loads(b.model_dump_json())
             if isinstance(bdict, dict) and bdict.get("type") in ("image", "document"):
-                chars += (bdict.get("_vision_token_hint") or VISION_DEFAULT_TOKENS) * CHARS_PER_TOKEN
+                chars += (
+                    (bdict.get("_vision_token_hint") or VISION_DEFAULT_TOKENS) * CHARS_PER_TOKEN
+                )
             else:
                 chars += len(json.dumps(bdict, ensure_ascii=False, default=str))
     return chars // CHARS_PER_TOKEN

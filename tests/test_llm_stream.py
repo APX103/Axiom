@@ -38,8 +38,12 @@ def test_stream_aggregator_tool_call_delta():
     agg = StreamAggregator()
     # tool_call 分多个 chunk 到达: name 和 arguments 都是增量
     chunks = [
-        {"choices": [{"delta": {"tool_calls": [{"index": 0, "id": "call_1", "function": {"name": "write"}}]}}]},
-        {"choices": [{"delta": {"tool_calls": [{"index": 0, "function": {"arguments": '{"path":"a.'}}]}}]},
+        {"choices": [{"delta": {"tool_calls": [
+            {"index": 0, "id": "call_1", "function": {"name": "write"}},
+        ]}}]},
+        {"choices": [{"delta": {"tool_calls": [
+            {"index": 0, "function": {"arguments": '{"path":"a.'}},
+        ]}}]},
         {"choices": [{"delta": {"tool_calls": [{"index": 0, "function": {"arguments": "tex"}}]}}]},
         {"choices": [{"delta": {"tool_calls": [{"index": 0, "function": {"arguments": '"}'}}]}}]},
         {"choices": [{"delta": {}, "finish_reason": "tool_calls"}]},
@@ -61,7 +65,9 @@ def test_stream_aggregator_mixed_text_and_tool():
     agg = StreamAggregator()
     chunks = [
         {"choices": [{"delta": {"content": "Let me write that."}}]},
-        {"choices": [{"delta": {"tool_calls": [{"index": 0, "id": "c1", "function": {"name": "f", "arguments": "{}"}}]}}]},
+        {"choices": [{"delta": {"tool_calls": [
+            {"index": 0, "id": "c1", "function": {"name": "f", "arguments": "{}"}},
+        ]}}]},
         {"choices": [{"delta": {}, "finish_reason": "tool_calls"}]},
     ]
     deltas = [agg.feed(c) for c in chunks]

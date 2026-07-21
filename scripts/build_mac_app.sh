@@ -27,10 +27,11 @@ uv sync
 echo "[build] building Python backend with PyInstaller..."
 uv run pyinstaller operon-backend.spec --clean --noconfirm
 
-echo "[build] building frontend..."
+echo "[build] building frontend (UI_VARIANT=${UI_VARIANT:-classic})..."
 cd "${ROOT}/frontend"
 bun install --frozen-lockfile 2>/dev/null || bun install
-bun run build
+# UI_VARIANT=classic(默认) | v2 —— 选择编译哪套前端主题
+VITE_UI_VARIANT="${UI_VARIANT:-classic}" bun run build
 
 echo "[build] building Tauri bundle..."
 cd "${ROOT}/src-tauri"

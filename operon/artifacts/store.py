@@ -120,8 +120,10 @@ class ArtifactStore:
         self.workspace = workspace.resolve()
         self._artifacts: dict[str, ArtifactRecord] = {}  # artifact_id → record
         self._versions: dict[str, VersionRecord] = {}  # version_id → record
-        self._by_filename: dict[tuple[str, str, str], str] = {}  # (project,frame,filename) → artifact_id
-        self._deps: list[tuple[str, str, str]] = []  # [(version_id, depends_on_version_id, ref_name)] DAG
+        # (project,frame,filename) → artifact_id
+        self._by_filename: dict[tuple[str, str, str], str] = {}
+        # [(version_id, depends_on_version_id, ref_name)] DAG
+        self._deps: list[tuple[str, str, str]] = []
         # SQLAlchemy async_sessionmaker (None=纯内存)
         self._db = db_session_factory
 
@@ -205,7 +207,11 @@ class ArtifactStore:
         ):
             cur_latest = self._versions.get(art.latest_version_id)
             cur_num = cur_latest.version_number if cur_latest else 0
-            base_num = self._versions[expected_parent].version_number if expected_parent in self._versions else 0
+            base_num = (
+                self._versions[expected_parent].version_number
+                if expected_parent in self._versions
+                else 0
+            )
             stale_base = {
                 "based_on_version_id": expected_parent,
                 "based_on_version_number": base_num,

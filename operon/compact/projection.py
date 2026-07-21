@@ -83,7 +83,10 @@ def render_summary_block(rs: RollingSummaryMeta) -> str:
         </summary>
     """
     scope = "overview" if rs.level >= 2 else "detail"
-    hint = f'(exact values and specifics: use the summary_query tool with summary="{rs.id}", question="...")'
+    hint = (
+        '(exact values and specifics: use the summary_query tool with '
+        f'summary="{rs.id}", question="...")'
+    )
     return f'<summary id={rs.id} scope={scope}>\n{rs.text}\n\n{hint}\n</summary>'
 
 
@@ -109,7 +112,9 @@ def prepare_messages_for_llm(
     if not repositioned:
         return list(messages)
 
-    uuid_to_idx = {getattr(m, "uuid", None): i for i, m in enumerate(messages) if getattr(m, "uuid", None)}
+    uuid_to_idx = {
+        getattr(m, "uuid", None): i for i, m in enumerate(messages) if getattr(m, "uuid", None)
+    }
 
     # 每条 summary 的插入位置 = 它覆盖范围里第一条消息的 index
     insert_at: dict[str, int] = {}
@@ -118,7 +123,9 @@ def prepare_messages_for_llm(
         rs = getattr(m, "rolling_summary", None)
         if u and rs and u in repositioned:
             if rs.folds_uuids:
-                first_idx = next((uuid_to_idx.get(f) for f in rs.folds_uuids if f in uuid_to_idx), None)
+                first_idx = next(
+                    (uuid_to_idx.get(f) for f in rs.folds_uuids if f in uuid_to_idx), None
+                )
             else:
                 first_idx = uuid_to_idx.get(rs.from_uuid)
             insert_at[u] = first_idx if first_idx is not None else 0
@@ -160,7 +167,12 @@ def prepare_messages_for_llm(
             if smsg:
                 srs = getattr(smsg, "rolling_summary", None)
                 if srs:
-                    out.append(Message(role=Role.ASSISTANT, content=[TextBlock(text=render_summary_block(srs))]))
+                    out.append(
+                        Message(
+                            role=Role.ASSISTANT,
+                            content=[TextBlock(text=render_summary_block(srs))],
+                        )
+                    )
                 inserted.add(su)
 
     # 末尾若以 assistant 结尾,补 [Continue.]

@@ -5,6 +5,14 @@ import App from "./App";
 import LandingPage from "./LandingPage";
 import { ThemeProvider } from "./hooks/useTheme";
 import "./index.css";
+// v2 现代主题: 全部规则限定在 html.ui-v2 作用域, 经典版永不匹配, 零影响。
+import "./v2/theme-v2.css";
+
+// UI 变体开关: 默认经典版; 以 VITE_UI_VARIANT=v2 编译/启动时启用 v2 主题。
+// 构建期静态替换, 经典版产物中此分支为死代码。
+if (import.meta.env.VITE_UI_VARIANT === "v2") {
+  document.documentElement.classList.add("ui-v2");
+}
 
 const isTauri = typeof window !== "undefined" && !!window.__TAURI_INTERNALS__;
 

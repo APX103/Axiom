@@ -35,7 +35,10 @@ class MockReviewerLLM(LLMClient):
         self.findings = findings
         self.calls = 0
 
-    async def chat(self, messages, *, system=None, tools=None, model=None, max_tokens=8192, temperature=None, **kw):
+    async def chat(
+        self, messages, *, system=None, tools=None, model=None, max_tokens=8192,
+        temperature=None, **kw
+    ):
         self.calls += 1
         return LLMResponse(
             content=[
@@ -68,7 +71,11 @@ def frame_with_work():
             Message(role=Role.USER, content="写3个文件"),
             Message(
                 role=Role.ASSISTANT,
-                content=[ToolUseBlock(id="t1", name="write_file", input={"path": "a.txt", "content": "x"})],
+                content=[
+                    ToolUseBlock(
+                        id="t1", name="write_file", input={"path": "a.txt", "content": "x"}
+                    )
+                ],
             ),
             Message(
                 role=Role.USER,
@@ -81,7 +88,11 @@ def frame_with_work():
             ),
             Message(
                 role=Role.ASSISTANT,
-                content=[ToolUseBlock(id="t2", name="write_file", input={"path": "b.txt", "content": "y"})],
+                content=[
+                    ToolUseBlock(
+                        id="t2", name="write_file", input={"path": "b.txt", "content": "y"}
+                    )
+                ],
             ),
             Message(
                 role=Role.USER,
@@ -89,7 +100,11 @@ def frame_with_work():
             ),
             Message(
                 role=Role.ASSISTANT,
-                content=[ToolUseBlock(id="t3", name="write_file", input={"path": "c.txt", "content": "z"})],
+                content=[
+                    ToolUseBlock(
+                        id="t3", name="write_file", input={"path": "c.txt", "content": "z"}
+                    )
+                ],
             ),
             Message(
                 role=Role.USER,
@@ -239,7 +254,9 @@ async def test_bounce_cap_suppresses_after_max(frame_with_work):
 async def test_notice_text_format(frame_with_work):
     """通知文本含 [Auditor] 和 findings 标记。对照 kjz。"""
     svc, f = frame_with_work
-    findings_data = [{"msg_idx": 1, "claim": "伪造引用", "verdict": "fail", "evidence": "doi 不存在"}]
+    findings_data = [
+        {"msg_idx": 1, "claim": "伪造引用", "verdict": "fail", "evidence": "doi 不存在"}
+    ]
     llm = MockReviewerLLM(findings_data)
     cfg = VerificationConfig(enabled=True, min_artifact_delta=3, min_checkpoint_interval_ms=0)
     v = Verifier(llm=llm, frame_service=svc, frame=f, config=cfg)

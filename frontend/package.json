@@ -1,11 +1,13 @@
 {
   "name": "axiom-frontend",
   "private": true,
-  "version": "0.0.14",
+  "version": "0.0.15",
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:v2": "VITE_UI_VARIANT=v2 vite",
     "build": "tsc -b && vite build",
+    "build:v2": "tsc -b && VITE_UI_VARIANT=v2 vite build",
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",

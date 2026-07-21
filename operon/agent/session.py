@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -18,6 +19,8 @@ from operon.tools.registry import ToolRegistry
 from operon.tools.router import ToolRouter
 
 from .runner import Agent, AgentCallbacks, RunResult
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -49,6 +52,9 @@ class SessionConfig:
     load_project_skills: bool = True
     # 额外自定义 skill 目录路径列表。
     skill_extra_dirs: list[str] | None = None
+    # Layer A.5: 所属 project id。用于 frame.project_id + 记忆按 project 隔离。
+    # None 时 frame.project_id 也 None, agent 第一次保存 artifact 时自动生成 proj_<root>。
+    project_id: str | None = None
 
 
 class Session:
@@ -59,7 +65,9 @@ class Session:
         result = await session.run("帮我列出文件")
     """
 
-    def __init__(self, *, llm: LLMClient, config: SessionConfig, callbacks: AgentCallbacks | None = None):
+    def __init__(
+        self, *, llm: LLMClient, config: SessionConfig, callbacks: AgentCallbacks | None = None
+    ):
         self.llm = llm
         self.config = config
         self.callbacks = callbacks or AgentCallbacks()
@@ -101,9 +109,11 @@ class Session:
         config.workspace.mkdir(parents=True, exist_ok=True)
 
         # 根 frame
+        # Layer A.5: session 创建时就赋 frame.project_id (替代 artifact_tool 的惰性赋值)
         frame = self.frame_service.create_root_frame(
             agent_name="MAIN",
             model=self.config.model,
+            project_id=self.config.project_id,
         )
 
         # 工具上下文
@@ -174,15 +184,25 @@ class Session:
         from operon.memory.recall import build_index
         from operon.memory.store import MemoryStore
 
-        ctx.memory_store = MemoryStore(db_session_factory=config.db_session_factory)
+        # memory.enabled 开关真正生效 (修死配置: 原来写了 enabled 字段但从不读)
+        # 关闭时不初始化 memory_store / memory_index, runner 的 recall/extract 自然跳过
         try:
-            all_mems = await ctx.memory_store.list_all()
-            ctx.memory_index = build_index(all_mems)
-        except Exception as e:
-            import logging
+            from operon.config import load_settings
+            memory_enabled = load_settings().memory.enabled
+        except Exception:
+            memory_enabled = True
 
-            logging.getLogger(__name__).warning("memory index build failed: %s", e)
-            ctx.memory_index = build_index([])
+        if memory_enabled:
+            ctx.memory_store = MemoryStore(db_session_factory=config.db_session_factory)
+            try:
+                all_mems = await ctx.memory_store.list_all()
+                ctx.memory_index = build_index(all_mems)
+            except Exception as e:
+                logger.warning("memory index build failed: %s", e)
+                ctx.memory_index = build_index([])
+        else:
+            ctx.memory_store = None
+            ctx.memory_index = None
 
         # 初始化 host 对象 (阶段 6, 给 python kernel 的进程内接口)
         from operon.host import make_host
@@ -197,18 +217,35 @@ class Session:
         # 暴露 llm + registry 给 ctx (供 delegate 工具构造子 Agent)
         ctx.llm = self.llm
         ctx.registry = self.registry
+        # Layer A.5: ctx.project_id 方便工具拿 (与 frame.project_id 一致)
+        ctx.project_id = frame.project_id
 
         # 连接 MCP server + 注册 MCP 工具 (双轨)
         if config.mcp_servers:
             from operon.mcp.manager import MCPServerManager
             from operon.mcp.skill_gen import generate_mcp_skills
-            from operon.tools.builtins.mcp_proxy import register_mcp_tools
+            from operon.tools.builtins.mcp_proxy import (
+                register_mcp_search_tools,
+                register_mcp_tools,
+            )
 
             self.mcp_manager = MCPServerManager()
             for srv in config.mcp_servers:
                 await self.mcp_manager.add_server(srv)
-            # 轨道 1: MCP 工具自动注册成 agent 工具 (直接调 mcp__server__tool)
-            n = register_mcp_tools(self.registry, self.mcp_manager)
+
+            # 轨道 1: MCP 工具注册成 agent 工具
+            # 工具数 ≤ threshold → 全量直接暴露 (现状); 超过 → 改用 mcp_search/mcp_call
+            # 元工具模式, 避免每轮把所有 MCP schema 塞进 LLM 请求撑爆 context。
+            total_mcp = len(self.mcp_manager.list_all_tools())
+            threshold = self._load_mcp_threshold()
+            if total_mcp <= threshold:
+                n = register_mcp_tools(self.registry, self.mcp_manager)
+            else:
+                n = register_mcp_search_tools(self.registry, self.mcp_manager)
+                logger.info(
+                    "MCP tools (%d) > threshold (%d), using mcp_search/mcp_call meta-tools",
+                    total_mcp, threshold,
+                )
             self._mcp_tool_count = n
             # 轨道 2: 生成 mcp-* skill 文档 (发现层, 对照原版 0772.js RxO)
             for s in generate_mcp_skills(self.mcp_manager):
@@ -218,10 +255,25 @@ class Session:
                 ctx.host._mcp_manager = self.mcp_manager
         return ctx
 
+    @staticmethod
+    def _load_mcp_threshold() -> int:
+        """从 operon.config.Settings 读 MCP search 阈值。失败回退默认 30。"""
+        try:
+            from operon.config import load_settings
+
+            settings = load_settings()
+            return settings.mcp.search_threshold
+        except Exception:
+            return 30
+
     async def run(self, user_input: str) -> RunResult:
         """创建根 frame + 注册工具 + 跑 agent。"""
         ctx = await self.prepare()
         frame = ctx.frame
+
+        # trace recorder (从 settings.trace 读配置; enabled=False 时返回零开销 _NullRecorder)
+        # 用 frame.id 作为 session_id 维度 (一个 frame = 一次完整 agent run)
+        trace_recorder = self._make_trace_recorder(frame.id)
 
         # agent
         router = ToolRouter(self.registry)
@@ -236,12 +288,36 @@ class Session:
             max_tokens=self.config.max_tokens,
             plan_mode=self.config.plan_mode,
             callbacks=self.callbacks,
+            trace_recorder=trace_recorder,
         )
         result = await agent.run(user_input)
+        # 关闭 trace recorder
+        if hasattr(trace_recorder, "close"):
+            trace_recorder.close()
         # 关闭 MCP 连接
         if self.mcp_manager is not None:
             await self.mcp_manager.close_all()
         return result
+
+    @staticmethod
+    def _make_trace_recorder(session_id: str):
+        """从 operon.config.Settings 读 trace 配置, 创建 recorder。
+
+        enabled=False (默认) 时返回 _NullRecorder (零开销)。
+        """
+        try:
+            from operon.config import load_settings
+            from operon.observability import get_trace_recorder
+
+            settings = load_settings()
+            return get_trace_recorder(
+                settings.trace,
+                session_id=session_id,
+                data_dir=settings.data_dir,
+            )
+        except Exception:
+            # 任何失败都退化为不记 trace (不能影响主流程)
+            return None
 
 
 async def run_session(
