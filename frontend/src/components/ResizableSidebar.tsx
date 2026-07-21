@@ -63,7 +63,8 @@ export function ResizableSidebar({
   if (collapsed) {
     return (
       <div
-        className={`shrink-0 h-full bg-subtle flex flex-col items-center py-3 ${className}`}
+        data-side={side}
+        className={`app-sidebar shrink-0 h-full bg-subtle flex flex-col items-center py-3 ${className}`}
         style={{
           width: 40,
           boxShadow:
@@ -87,7 +88,8 @@ export function ResizableSidebar({
 
   return (
     <aside
-      className={`relative shrink-0 h-full bg-subtle flex flex-col ${
+      data-side={side}
+      className={`app-sidebar relative shrink-0 h-full bg-subtle flex flex-col ${
         isFunctionChildren ? "" : side === "left" ? "pr-10" : "pl-10"
       } ${className}`}
       style={{

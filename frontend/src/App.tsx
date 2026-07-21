@@ -426,7 +426,7 @@ function Workbench() {
     <div className="h-full flex flex-col bg-page text-default theme-transition">
       <UpdateBanner />
       {/* 顶部标题栏 - SciForge 风格 */}
-      <header className="h-12 bg-subtle flex items-center justify-between px-3 shrink-0 z-20 border-b border-border">
+      <header className="app-header h-12 bg-subtle flex items-center justify-between px-3 shrink-0 z-20 border-b border-border">
         <div className="flex items-center gap-2.5">
           <div className="w-7 h-7 rounded-lg bg-accent/10 flex items-center justify-center">
             <LogoIcon width={16} height={16} className="text-accent" />
@@ -746,7 +746,7 @@ function Workbench() {
       </div>
 
       {/* 底部状态栏 - SciForge 风格 */}
-      <footer className="h-7 bg-subtle flex items-center justify-between px-3 text-[11px] text-faint shrink-0 shadow-[0_-1px_0_0_rgba(15,23,42,0.04)]">
+      <footer className="app-footer h-7 bg-subtle flex items-center justify-between px-3 text-[11px] text-faint shrink-0 shadow-[0_-1px_0_0_rgba(15,23,42,0.04)]">
         <div className="flex items-center gap-3">
           <span className="flex items-center gap-1.5">
             <GitBranchIcon />
