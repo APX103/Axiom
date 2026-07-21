@@ -160,8 +160,14 @@ SAVE_ARTIFACTS_SPEC = {
                     "type": "object",
                     "properties": {
                         "path": {"type": "string", "description": "Workspace file path"},
-                        "filename": {"type": "string", "description": "Artifact filename (default: basename)"},
-                        "version_of": {"type": "string", "description": "Append to this artifact/version"},
+                        "filename": {
+                            "type": "string",
+                            "description": "Artifact filename (default: basename)",
+                        },
+                        "version_of": {
+                            "type": "string",
+                            "description": "Append to this artifact/version",
+                        },
                         "language": {"type": "string"},
                         "is_intermediate": {"type": "boolean"},
                     },

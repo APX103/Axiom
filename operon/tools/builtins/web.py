@@ -17,7 +17,10 @@ import httpx
 from operon.tools.context import ToolContext
 
 # 常见 User-Agent (避免被反爬挡)
-_UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"
+_UA = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/120.0 Safari/537.36"
+)
 
 
 async def web_search(ctx: ToolContext, query: str, max_results: int = 8) -> str:
@@ -71,22 +74,36 @@ async def _ddg_search(query: str, max_results: int) -> list[dict[str, str]]:
 
     results: list[dict[str, str]] = []
     # DuckDuckGo HTML 结果块
-    for block in re.findall(r'<a[^>]+class="result__a"[^>]*>(.*?)</a>.*?<a[^>]+class="result__snippet"[^>]*>(.*?)</a>', html, re.S):
+    for block in re.findall(
+        r'<a[^>]+class="result__a"[^>]*>(.*?)</a>'
+        r'.*?<a[^>]+class="result__snippet"[^>]*>(.*?)</a>',
+        html,
+        re.S,
+    ):
         title_html, snippet_html = block
         title = _strip_tags(title_html).strip()
         snippet = _strip_tags(snippet_html).strip()
         # 提取 URL (DDG 用 redirect,真实 URL 在 a 标签里)
-        m = re.search(r'href="([^"]+)"', html[html.find(title_html)-200:html.find(title_html)+10] if title_html in html else "")
+        m = re.search(
+            r'href="([^"]+)"',
+            html[html.find(title_html)-200:html.find(title_html)+10] if title_html in html else "",
+        )
         # 简化: 从整个结果区域找
-        results.append({"title": title or "(no title)", "url": _extract_ddg_url(html, title), "snippet": snippet})
+        results.append({
+            "title": title or "(no title)",
+            "url": _extract_ddg_url(html, title),
+            "snippet": snippet,
+        })
         if len(results) >= max_results:
             break
     # 备用解析: 更宽松
     if not results:
-        for m in re.finditer(r'<a rel="nofollow" class="result__url"[^>]*href="([^"]+)"', html):
+        for _m in re.finditer(r'<a rel="nofollow" class="result__url"[^>]*href="([^"]+)"', html):
             pass
         # 用 result__a 的 href
-        for m in re.finditer(r'<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>(.+?)</a>', html, re.S):
+        for m in re.finditer(
+            r'<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>(.+?)</a>', html, re.S
+        ):
             raw_url, title_html = m.group(1), m.group(2)
             title = _strip_tags(title_html).strip()
             # DDG 的 href 形如 //duckduckgo.com/l/?uddg=<encoded>
@@ -151,7 +168,8 @@ WEB_SEARCH_SPEC = {
 
 FETCH_URL_SPEC = {
     "name": "fetch_url",
-    "description": "Fetch and read the text content of a web page. Use to read full articles/docs found via web_search.",
+    "description": "Fetch and read the text content of a web page. "
+    "Use to read full articles/docs found via web_search.",
     "parameters": {
         "type": "object",
         "properties": {

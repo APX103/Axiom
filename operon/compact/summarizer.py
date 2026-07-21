@@ -34,7 +34,8 @@ if TYPE_CHECKING:
 
 SUMMARIZER_SYSTEM = (
     "You are a conversation summarizer. Summarize the given conversation chunk into a concise "
-    "summary that preserves: key decisions, results, file/artifact names, identifiers, numeric values, "
+    "summary that preserves: key decisions, results, file/artifact names, "
+    "identifiers, numeric values, "
     "and any open tasks. Be factual and specific. Do not add information not present. "
     "Do not call any tools. Output only the summary text."
 )
@@ -72,10 +73,16 @@ def _serialize_blocks(blocks) -> str:
         if t == "text":
             out.append(bdict.get("text", ""))
         elif t == "tool_use":
-            out.append(f"[tool_use {bdict.get('name')}] {json.dumps(bdict.get('input', {}), ensure_ascii=False)}")
+            out.append(
+                f"[tool_use {bdict.get('name')}] "
+                f"{json.dumps(bdict.get('input', {}), ensure_ascii=False)}"
+            )
         elif t == "tool_result":
             c = bdict.get("content", "")
-            out.append(f"[tool_result] {c if isinstance(c, str) else json.dumps(c, ensure_ascii=False)}")
+            out.append(
+                "[tool_result] "
+                f"{c if isinstance(c, str) else json.dumps(c, ensure_ascii=False)}"
+            )
         elif t == "thinking":
             out.append(f"[thinking] {bdict.get('thinking', '')}")
         else:
@@ -96,7 +103,9 @@ async def summarize_chunk(
         RollingSummaryMeta (成功) | None (失败)
     """
     # 取 chunk 消息
-    uuid_to_idx = {getattr(m, "uuid", None): i for i, m in enumerate(messages) if getattr(m, "uuid", None)}
+    uuid_to_idx = {
+        getattr(m, "uuid", None): i for i, m in enumerate(messages) if getattr(m, "uuid", None)
+    }
 
     if chunk_range.folds_uuids:  # L2
         chunk = [messages[uuid_to_idx[u]] for u in chunk_range.folds_uuids if u in uuid_to_idx]
@@ -118,7 +127,8 @@ async def summarize_chunk(
     best_text: str | None = None
     best_tokens = 0
 
-    for attempt in range(1, GATE_MAX_RETRIES + 1):
+    # attempt 在循环结束后用于 RollingSummaryMeta.attempt, 故非未用变量。
+    for attempt in range(1, GATE_MAX_RETRIES + 1):  # noqa: B007
         try:
             chunk_msgs = _build_chunk_messages(chunk, target)
             resp = await llm.chat(
@@ -142,7 +152,8 @@ async def summarize_chunk(
 
         # 退化检测
         dmin = degenerate_min(chunk_tokens)
-        if best_text and final_tokens < best_tokens * DEGENERATE_DRAFT_RATIO and final_tokens < dmin:
+        if (best_text and final_tokens < best_tokens * DEGENERATE_DRAFT_RATIO
+                and final_tokens < dmin):
             raw = best_text
             final_tokens = best_tokens
 

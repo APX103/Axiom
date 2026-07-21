@@ -447,11 +447,13 @@ Call them; do not score papers or reviews in your head.
 4. **Persist state to files**: `references.bib`, `citation_plan.jsonl`, `results.json`, and \
 section `.tex` files in the workspace. If context compacts, the files survive; your recollection \
 of scores doesn't.
-5. **Iterate until `should_stop` returns True**: the peer-review loop is what pushes the score from \
+5. **Iterate until `should_stop` returns True**: the peer-review loop is what pushes the score \
+from \
 ~6 to 8+. Do not stop after one draft because it "looks fine" — run the review, route the \
 weaknesses, fix, re-review.
 
-This mode is compatible with plan mode: if both are on, set `research_question` when generating the \
+This mode is compatible with plan mode: if both are on, set `research_question` when generating \
+the \
 plan (it's the convergence anchor peer-review checks against)."""
 
 
@@ -480,7 +482,7 @@ def build_system_prompt(ctx: ToolContext, *, plan_mode: bool, deep_review: bool 
             # memory_store.list_by_entity 是 async, 但 build_system_prompt 是 sync
             # 用 asyncio 的事件循环获取结果
             try:
-                loop = asyncio.get_running_loop()
+                asyncio.get_running_loop()
                 # 已在 event loop 里 — 不能直接 run_until_complete
                 # 用同步方式从 DB 读 (SQLAlchemy sync fallback)
                 profile_memories = _sync_load_profile(ctx.memory_store)
@@ -535,6 +537,9 @@ def _sync_load_profile(store) -> list[dict]:
             (max_rows,),
         ).fetchall()
         conn.close()
-        return [{"id": r["id"], "entity": r["entity"], "body": r["body"], "evidence": r["evidence"]} for r in rows]
+        return [
+            {"id": r["id"], "entity": r["entity"], "body": r["body"], "evidence": r["evidence"]}
+            for r in rows
+        ]
     except Exception:
         return []

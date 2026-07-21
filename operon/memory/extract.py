@@ -54,9 +54,12 @@ scope (visibility):
 
 entity_type (semantic class):
 - "claim" — a scientific assertion / hypothesis / conclusion. meta: {subject, predicate, object}
-- "evidence" — data or observation supporting/contradicting a claim. meta: {supports_claim_id (optional), direction: "supports"|"contradicts", observation}
-- "citation" — a paper / dataset / external resource. meta: {doi (optional), title, authors (list), year}
-- "tool_use" — a notable tool invocation and its outcome. meta: {tool_name, args_summary, result_summary}
+- "evidence" — data or observation supporting/contradicting a claim. \
+meta: {supports_claim_id (optional), direction: "supports"|"contradicts", observation}
+- "citation" — a paper / dataset / external resource. \
+meta: {doi (optional), title, authors (list), year}
+- "tool_use" — a notable tool invocation and its outcome. \
+meta: {tool_name, args_summary, result_summary}
 - "note" — generic note that doesn't fit above types (default fallback)
 
 For each append/replace, set:

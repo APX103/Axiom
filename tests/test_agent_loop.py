@@ -40,7 +40,10 @@ class FakeLLM(LLMClient):
         self.calls = 0
         self.received_messages: list[list[Message]] = []
 
-    async def chat(self, messages, *, system=None, tools=None, model=None, max_tokens=8192, temperature=None, **kw):
+    async def chat(
+        self, messages, *, system=None, tools=None, model=None, max_tokens=8192,
+        temperature=None, **kw
+    ):
         self.calls += 1
         self.received_messages.append([m.model_copy() for m in messages])
         if not self.responses:

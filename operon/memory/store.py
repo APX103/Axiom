@@ -57,7 +57,9 @@ class MemoryStore:
     def __init__(self, db_session_factory: Any = None) -> None:
         self.db_factory = db_session_factory
 
-    async def list_by_entity(self, entity: str, frame_id: str | None = None) -> list[dict[str, Any]]:
+    async def list_by_entity(
+        self, entity: str, frame_id: str | None = None
+    ) -> list[dict[str, Any]]:
         """列出某层的所有记忆。"""
         if self.db_factory is None:
             return []

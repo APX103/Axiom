@@ -138,7 +138,9 @@ def auto_extract_lineage(code: str, artifact_store: Any | None = None) -> dict[s
 
     # 提取 {{artifact:VID}} 标记 (输入依赖)
     markers = extract_markers(code)
-    lineage["input_artifacts"] = [{"version_id": vid, "caption": caption} for caption, vid in markers]
+    lineage["input_artifacts"] = [
+        {"version_id": vid, "caption": caption} for caption, vid in markers
+    ]
 
     # 提取 host.artifact_path("vid") 调用
     import re

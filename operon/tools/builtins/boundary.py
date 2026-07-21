@@ -27,7 +27,10 @@ BOUNDARY_SPEC = {
         "properties": {
             "label": {
                 "type": "string",
-                "description": "Short label for what just completed (e.g. 'literature search', 'data analysis').",
+                "description": (
+                    "Short label for what just completed "
+                    "(e.g. 'literature search', 'data analysis')."
+                ),
             },
         },
         "required": [],

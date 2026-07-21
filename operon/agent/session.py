@@ -65,7 +65,9 @@ class Session:
         result = await session.run("帮我列出文件")
     """
 
-    def __init__(self, *, llm: LLMClient, config: SessionConfig, callbacks: AgentCallbacks | None = None):
+    def __init__(
+        self, *, llm: LLMClient, config: SessionConfig, callbacks: AgentCallbacks | None = None
+    ):
         self.llm = llm
         self.config = config
         self.callbacks = callbacks or AgentCallbacks()

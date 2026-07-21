@@ -26,9 +26,10 @@ def _read_version() -> str:
 
 __version__ = _read_version()
 
-from .config import Settings, load_settings
-from .llm.base import LLMClient
-from .llm.messages import (
+# __version__ 有意置于子模块导入之前 (单一版本来源), 故下行导入触发 E402 属预期。
+from .config import Settings, load_settings  # noqa: E402
+from .llm.base import LLMClient  # noqa: E402
+from .llm.messages import (  # noqa: E402
     ContentBlock,
     LLMResponse,
     Message,
@@ -41,8 +42,8 @@ from .llm.messages import (
     ToolResultBlock,
     ToolUseBlock,
 )
-from .llm.openai_compat import OpenAICompatClient
-from .llm.token_counter import CHARS_PER_TOKEN, TokenCounter, estimate_tokens
+from .llm.openai_compat import OpenAICompatClient  # noqa: E402
+from .llm.token_counter import CHARS_PER_TOKEN, TokenCounter, estimate_tokens  # noqa: E402
 
 __all__ = [
     "__version__",

@@ -102,7 +102,6 @@ class HostQueryAccessor:
         arts = self._store.list_artifacts() if self._store else []
         rows = []
         for a in arts[:limit]:
-            latest = self._store.get_version(a.latest_version_id) if a.latest_version_id else None
             if "artifact_versions" in sql.upper():
                 for v in self._store.list_versions(a.id):
                     rows.append([
@@ -114,7 +113,10 @@ class HostQueryAccessor:
                     a.id, a.filename, a.project_id, a.latest_version_id, a.frame_id,
                 ])
         cols = (
-            ["id", "artifact_id", "version_number", "content_type", "size_bytes", "checksum", "agent_name", "language", "parent_version_id"]
+            [
+                "id", "artifact_id", "version_number", "content_type", "size_bytes",
+                "checksum", "agent_name", "language", "parent_version_id",
+            ]
             if "artifact_versions" in sql.upper()
             else ["id", "filename", "project_id", "latest_version_id", "frame_id"]
         )

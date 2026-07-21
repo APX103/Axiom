@@ -8,12 +8,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 from uuid import uuid4
 
 
-class SpanKind(str, Enum):
+class SpanKind(StrEnum):
     """Span 类型。用于按 kind 过滤/聚合。"""
 
     TURN = "turn"          # 一轮 agent 迭代

@@ -6,10 +6,10 @@
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import Enum, StrEnum
 
 
-class FrameStatus(str, Enum):
+class FrameStatus(StrEnum):
     """Frame 状态。对照原版 0011.js:126-137 Hc_ 枚举,值严格一致。"""
 
     PROCESSING = "processing"
@@ -41,10 +41,13 @@ NEEDS_INPUT: frozenset[FrameStatus] = frozenset({
 })
 
 # 运行态 — 照搬原版 raw (0815.js:116)。
-RUNNING: frozenset[FrameStatus] = frozenset({FrameStatus.PROCESSING, FrameStatus.AWAITING_USER_RESPONSE})
+RUNNING: frozenset[FrameStatus] = frozenset({
+    FrameStatus.PROCESSING,
+    FrameStatus.AWAITING_USER_RESPONSE,
+})
 
 
-class RunResultKind(str, Enum):
+class RunResultKind(StrEnum):
     """agent run 的最终结果类型。
 
     natural:     正常完成 (无更多工具调用)

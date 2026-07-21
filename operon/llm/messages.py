@@ -13,13 +13,13 @@ Block 类型
 
 from __future__ import annotations
 
-from enum import Enum
-from typing import Any, Literal, Union
+from enum import StrEnum
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
 
-class BlockType(str, Enum):
+class BlockType(StrEnum):
     """Content block 类型。"""
 
     TEXT = "text"
@@ -71,10 +71,10 @@ class ThinkingBlock(BaseModel):
     thinking: str
 
 
-ContentBlock = Union[TextBlock, ToolUseBlock, ToolResultBlock, ThinkingBlock]
+ContentBlock = TextBlock | ToolUseBlock | ToolResultBlock | ThinkingBlock
 
 
-class Role(str, Enum):
+class Role(StrEnum):
     SYSTEM = "system"
     USER = "user"
     ASSISTANT = "assistant"
@@ -109,7 +109,7 @@ class Message(BaseModel):
         return self
 
 
-class StopReason(str, Enum):
+class StopReason(StrEnum):
     """停止原因。
 
     end_turn: 正常结束 (无更多工具调用)

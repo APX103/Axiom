@@ -143,7 +143,9 @@ class MCPClient:
 
         if "error" in data and data["error"] is not None:
             err = data["error"]
-            raise MCPError(err.get("message", "MCP error"), code=err.get("code"), data=err.get("data"))
+            raise MCPError(
+                err.get("message", "MCP error"), code=err.get("code"), data=err.get("data")
+            )
         return data.get("result", {})
 
     async def connect(self) -> None:

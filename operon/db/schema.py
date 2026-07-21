@@ -57,7 +57,8 @@ class Frame(Base):
     agent_name: Mapped[str] = mapped_column(String(255), nullable=False)
     delegate_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     # status: 见 FrameStatus 枚举 (operon.agent.states)
-    # processing|completed|failed|success|replaced|cancelled|awaiting_plan_approval|awaiting_user_response
+    # processing|completed|failed|success|replaced|cancelled
+    # awaiting_plan_approval|awaiting_user_response
     status: Mapped[str] = mapped_column(String(50), nullable=False, default="processing")
     input_data: Mapped[dict | None] = mapped_column(Text, nullable=True)  # JSON
     output_data: Mapped[dict | None] = mapped_column(Text, nullable=True)
@@ -274,7 +275,8 @@ class CompactionArchive(Base):
         String(36), ForeignKey("frames.id", ondelete="CASCADE"), nullable=False
     )
     compaction_index: Mapped[int] = mapped_column(Integer, nullable=False)
-    fold_kind: Mapped[str] = mapped_column(String(20), nullable=False)  # rc_fold_l1|rc_fold_l2|compact_destructive
+    # rc_fold_l1|rc_fold_l2|compact_destructive
+    fold_kind: Mapped[str] = mapped_column(String(20), nullable=False)
     summary: Mapped[str] = mapped_column(Text, nullable=False)
     archived_messages: Mapped[str] = mapped_column(Text, nullable=False)  # JSON
     created_at: Mapped[datetime] = mapped_column(default=_now)
@@ -410,7 +412,8 @@ class MemoryRecord(Base):
     evidence: Mapped[str] = mapped_column(String(20), nullable=False, default="stated")
     origin: Mapped[str] = mapped_column(String(20), nullable=False, default="user_stated")
     frame_id: Mapped[str | None] = mapped_column(String(50), nullable=True)  # frame 层用
-    session_id: Mapped[str | None] = mapped_column(String(50), nullable=True)  # Layer A: 来源 session
+    # Layer A: 来源 session
+    session_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
     # Layer A.5: 所属 project。profile 层记忆 project_id=NULL (跨 project 共享);
     # project/frame 层按 project_id 隔离, 召回时不串味。
     project_id: Mapped[str | None] = mapped_column(

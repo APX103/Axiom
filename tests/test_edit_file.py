@@ -80,7 +80,9 @@ async def test_python_cwd_is_workspace(ctx, tmp_path):
     原 bug: 进程内 exec 继承 operon 进程 CWD,导致 agent 脚本相对路径错误。
     """
     (tmp_path / "marker.txt").write_text("found!")
-    result = await exec_mod.python(ctx, "import os; print(os.getcwd()); print(open('marker.txt').read())")
+    result = await exec_mod.python(
+        ctx, "import os; print(os.getcwd()); print(open('marker.txt').read())"
+    )
     assert str(tmp_path.resolve()) in result or "found!" in result
     assert "found!" in result
 

@@ -18,7 +18,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from operon.config import ModelTier, ModelsConfig, Settings, TraceConfig, VerificationConfig
+from operon.config import ModelsConfig, ModelTier, Settings, TraceConfig, VerificationConfig
 
 
 class LLMProvider(BaseModel):
@@ -244,7 +244,7 @@ class SettingsStore:
         if not self.path.exists():
             return None
         try:
-            with open(self.path, "r", encoding="utf-8") as f:
+            with open(self.path, encoding="utf-8") as f:
                 raw = json.load(f)
             return AppSettings(**raw)
         except Exception:

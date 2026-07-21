@@ -18,7 +18,10 @@ from operon.llm.messages import LLMResponse, StopReason, TextBlock, TokenUsage
 
 
 class MockLLM(LLMClient):
-    async def chat(self, messages, *, system=None, tools=None, model=None, max_tokens=8192, temperature=None, **kw):
+    async def chat(
+        self, messages, *, system=None, tools=None, model=None, max_tokens=8192,
+        temperature=None, **kw
+    ):
         return LLMResponse(
             content=[TextBlock(text="mock response")],
             stop_reason=StopReason.END_TURN,

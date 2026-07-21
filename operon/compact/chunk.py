@@ -208,7 +208,7 @@ def should_trigger_l2(
     # 折叠范围: head[0] 到第 l1_count 个 summary
     seen = 0
     Q = len(head) - 1
-    for idx, (i, m) in enumerate(head):
+    for idx, (_i, m) in enumerate(head):
         if _is_summary(m):
             seen += 1
             if seen == l1_count:
@@ -252,14 +252,23 @@ def pick_next_chunk(
             key = f"{frame_id}:1"
             rec = rc_state.fail_table.get(key)
             ckey = _chunk_key(l1)
-            if rec and rec.get("chunk_key") == ckey and rec.get("fail_count", 0) >= MAX_FORK_FAILURES:
+            if (
+                rec
+                and rec.get("chunk_key") == ckey
+                and rec.get("fail_count", 0) >= MAX_FORK_FAILURES
+            ):
                 # 升级 L2
                 l2 = should_trigger_l2(messages, applied, context_window, ka, pressure=pressure)
                 if l2:
                     return l2
                 # chunk 小: 尝试吸收相邻
-                if l1.chunk_tokens < 2 * MIN_CHUNK_TOKENS and rec.get("fail_count") == MAX_FORK_FAILURES:
-                    alt = should_trigger_l1(messages, ka, applied, pressure=pressure, exclude_to=l1.to_uuid)
+                if (
+                    l1.chunk_tokens < 2 * MIN_CHUNK_TOKENS
+                    and rec.get("fail_count") == MAX_FORK_FAILURES
+                ):
+                    alt = should_trigger_l1(
+                        messages, ka, applied, pressure=pressure, exclude_to=l1.to_uuid
+                    )
                     if alt and alt.from_uuid == l1.from_uuid:
                         alt.absorbed_from_key = ckey
                         return alt

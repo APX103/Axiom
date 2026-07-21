@@ -30,7 +30,8 @@ class MCPServerManager:
 
     用法:
         mgr = MCPServerManager()
-        await mgr.add_server(MCPServerConfig("web_search_prime", url, {"Authorization":"Bearer ..."}))
+        await mgr.add_server(
+            MCPServerConfig("web_search_prime", url, {"Authorization":"Bearer ..."}))
         tools = mgr.list_all_tools()  # [{server_name, tool_name, description, inputSchema}]
         result = await mgr.call_tool("web_search_prime", "search", {"query":"..."})
     """
@@ -85,7 +86,10 @@ class MCPServerManager:
         """路由工具调用到对应 server。"""
         client = self._servers.get(server_name)
         if client is None:
-            return f"Error: MCP server '{server_name}' not connected. Available: {list(self._servers.keys())}"
+            return (
+                f"Error: MCP server '{server_name}' not connected. Available: "
+                f"{list(self._servers.keys())}"
+            )
         try:
             return await client.call_tool(tool_name, arguments)
         except MCPError as e:

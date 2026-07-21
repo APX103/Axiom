@@ -5,7 +5,8 @@
 function_calling 的双向转换。
 
 OpenAI 兼容格式要点:
-- assistant 消息的 tool_calls 是顶层字段 [{id, type:"function", function:{name, arguments(JSON string)}}]
+- assistant 消息的 tool_calls 是顶层字段
+  [{id, type:"function", function:{name, arguments(JSON string)}}]
 - tool 结果是单独的 role="tool" 消息,带 tool_call_id
 - arguments 是 JSON 字符串 (不是 dict),需 json.loads/dumps
 """
@@ -93,7 +94,11 @@ def messages_to_openai(
 
             # tool_result → 独立的 role=tool 消息 (必须紧跟在对应 assistant tool_calls 后)
             for tr in tool_results:
-                content = tr.content if isinstance(tr.content, str) else json.dumps(tr.content, ensure_ascii=False)
+                content = (
+                    tr.content
+                    if isinstance(tr.content, str)
+                    else json.dumps(tr.content, ensure_ascii=False)
+                )
                 out.append({
                     "role": "tool",
                     "tool_call_id": tr.tool_use_id,
@@ -132,7 +137,12 @@ def messages_to_openai(
 
 
 def _extract_text(blocks: list[ContentBlock]) -> str:
-    return "\n".join(b.text for b in blocks if isinstance(b, (TextBlock, ThinkingBlock)) if isinstance(b, TextBlock))
+    return "\n".join(
+        b.text
+        for b in blocks
+        if isinstance(b, (TextBlock, ThinkingBlock))
+        if isinstance(b, TextBlock)
+    )
 
 
 # OpenAI stop_reason → 内部 StopReason

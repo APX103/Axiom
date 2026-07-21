@@ -112,7 +112,10 @@ async def _extract_pdf_text(pdf_path: Path) -> str:
 
 READ_FILE_SPEC = {
     "name": "read_file",
-    "description": "Read a text file from the workspace (txt/md/py/json/csv...). PDF extracts text via pypdfium2.",
+    "description": (
+        "Read a text file from the workspace (txt/md/py/json/csv...). "
+        "PDF extracts text via pypdfium2."
+    ),
     "parameters": {
         "type": "object",
         "properties": {

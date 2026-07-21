@@ -174,7 +174,11 @@ async def _run_tectonic(
         )
         stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=300)
     except TimeoutError:
-        return _fail(ws, str(tex_path.relative_to(ws)), "tectonic timed out after 300s (first compile downloads packages; retry)")
+        return _fail(
+            ws,
+            str(tex_path.relative_to(ws)),
+            "tectonic timed out after 300s (first compile downloads packages; retry)",
+        )
     except FileNotFoundError:
         return _fail(ws, str(tex_path.relative_to(ws)), f"failed to launch tectonic at {tectonic}")
 
@@ -213,7 +217,9 @@ async def _run_tectonic(
 
 
 # 可容错跳过的浮动环境 (跳过它们不影响正文文字)
-_SKIP_ENVS = ("tikzpicture", "algorithm", "algorithmic", "figure", "table", "verbatim", "lstlisting")
+_SKIP_ENVS = (
+    "tikzpicture", "algorithm", "algorithmic", "figure", "table", "verbatim", "lstlisting"
+)
 
 # 错误关键词 → 应跳过的环境。这些错误根因在某个浮动环境里, 但错误信息
 # 不一定含环境名本身 (如 "PGF Math Error" 来自 tikzpicture, "Algpseudocode" 来自 algorithm)。

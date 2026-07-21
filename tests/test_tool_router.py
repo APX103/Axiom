@@ -29,7 +29,11 @@ def router():
     async def boom():
         raise RuntimeError("intentional error")
 
-    reg.register("echo", "echo tool", {"type": "object", "properties": {"text": {"type": "string"}}, "required": ["text"]}, handler=echo)
+    reg.register(
+        "echo", "echo tool",
+        {"type": "object", "properties": {"text": {"type": "string"}}, "required": ["text"]},
+        handler=echo,
+    )
     reg.register("slow", "slow tool", handler=slow)
     reg.register("boom", "error tool", handler=boom)
     return ToolRouter(reg, default_timeout=0.5)

@@ -68,7 +68,9 @@ def output_ceiling_for(chunk_tokens: int, model_max_output: int) -> int:
 
         max(1024, min(floor(chunk_tokens/3), model_max_output, OUTPUT_CEILING))
     """
-    return max(1024, min(chunk_tokens // COMPRESSION_TARGET_DIVISOR, model_max_output, OUTPUT_CEILING))
+    return max(
+        1024, min(chunk_tokens // COMPRESSION_TARGET_DIVISOR, model_max_output, OUTPUT_CEILING)
+    )
 
 
 def degenerate_min(chunk_tokens: int) -> int:

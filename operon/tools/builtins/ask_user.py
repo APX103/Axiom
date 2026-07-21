@@ -32,7 +32,10 @@ async def ask_user(
 
 ASK_USER_SPEC = {
     "name": "ask_user",
-    "description": "Ask the user a question. Use when you need clarification or a decision. Pauses execution.",
+    "description": (
+        "Ask the user a question. Use when you need clarification or a "
+        "decision. Pauses execution."
+    ),
     "parameters": {
         "type": "object",
         "properties": {

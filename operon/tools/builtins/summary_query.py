@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import logging
 
+from operon.tools.context import ToolContext
+
 logger = logging.getLogger(__name__)
 
 SUMMARY_QUERY_SPEC = {
@@ -98,7 +100,10 @@ async def summary_query(ctx: ToolContext, *, summary: str, question: str) -> str
                 if hasattr(b, "text"):
                     lines.append(f"[{role}] {b.text}")
                 elif hasattr(b, "name"):
-                    lines.append(f"[{role}] (tool_use: {b.name} input={json.dumps(b.input, ensure_ascii=False)[:200]})")
+                    lines.append(
+                        f"[{role}] (tool_use: {b.name} "
+                        f"input={json.dumps(b.input, ensure_ascii=False)[:200]})"
+                    )
                 elif hasattr(b, "tool_use_id"):
                     content_str = b.content if isinstance(b.content, str) else str(b.content)
                     lines.append(f"[{role}] (tool_result: {content_str[:200]})")

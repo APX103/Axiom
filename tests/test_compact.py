@@ -97,7 +97,9 @@ def test_projection_drops_covered():
     a = Message(role=Role.USER, content="msg a", uuid="u-a")
     b = Message(role=Role.ASSISTANT, content="msg b", uuid="u-b")
     c = Message(role=Role.USER, content="msg c", uuid="u-c")
-    rs = RollingSummaryMeta(id="s1", text="summary", from_uuid="u-a", to_uuid="u-b", tokens_freed=50, level=1)
+    rs = RollingSummaryMeta(
+        id="s1", text="summary", from_uuid="u-a", to_uuid="u-b", tokens_freed=50, level=1
+    )
     s = Message(role=Role.USER, content="[rolling-summary s1]", uuid="u-s", rolling_summary=rs)
     messages = [a, b, c, s]
 
@@ -112,7 +114,9 @@ def test_projection_unapplied_summary_no_drop():
     """未 applied 的 summary 不 drop 任何东西。"""
     a = Message(role=Role.USER, content="msg a", uuid="u-a")
     b = Message(role=Role.ASSISTANT, content="msg b", uuid="u-b")
-    rs = RollingSummaryMeta(id="s1", text="summary", from_uuid="u-a", to_uuid="u-b", tokens_freed=50, level=1)
+    rs = RollingSummaryMeta(
+        id="s1", text="summary", from_uuid="u-a", to_uuid="u-b", tokens_freed=50, level=1
+    )
     s = Message(role=Role.USER, content="[rolling-summary s1]", uuid="u-s", rolling_summary=rs)
     messages = [a, b, s]
 
@@ -126,7 +130,9 @@ def test_prepare_messages_renders_summary():
     a = Message(role=Role.USER, content="原始消息a", uuid="u-a")
     b = Message(role=Role.ASSISTANT, content="原始消息b", uuid="u-b")
     c = Message(role=Role.USER, content="新消息c", uuid="u-c")
-    rs = RollingSummaryMeta(id="s1", text="这是摘要", from_uuid="u-a", to_uuid="u-b", tokens_freed=50, level=1)
+    rs = RollingSummaryMeta(
+        id="s1", text="这是摘要", from_uuid="u-a", to_uuid="u-b", tokens_freed=50, level=1
+    )
     s = Message(role=Role.USER, content="[rolling-summary s1]", uuid="u-s", rolling_summary=rs)
     messages = [a, b, c, s]
 
@@ -149,7 +155,9 @@ def test_prepare_messages_renders_summary():
 
 def test_render_summary_block_format():
     """summary 块格式: <summary id=X scope=Y>...</summary>。"""
-    rs = RollingSummaryMeta(id="abc", text="摘要内容", from_uuid="a", to_uuid="b", tokens_freed=50, level=1)
+    rs = RollingSummaryMeta(
+        id="abc", text="摘要内容", from_uuid="a", to_uuid="b", tokens_freed=50, level=1
+    )
     block = render_summary_block(rs)
     assert '<summary id=abc' in block
     assert 'scope=detail' in block
@@ -201,11 +209,17 @@ def test_l1_pressure_always_triggers():
 class MockCompactLLM(LLMClient):
     """压缩用的 mock LLM: 返回固定长度的摘要。"""
 
-    def __init__(self, summary_text: str = "压缩摘要: 关键信息保留。这是一个足够长的摘要以确保 token 数大于零。"):
+    def __init__(
+        self,
+        summary_text: str = "压缩摘要: 关键信息保留。这是一个足够长的摘要以确保 token 数大于零。",
+    ):
         self.summary_text = summary_text
         self.calls = 0
 
-    async def chat(self, messages, *, system=None, tools=None, model=None, max_tokens=8192, temperature=None, **kw):
+    async def chat(
+        self, messages, *, system=None, tools=None, model=None,
+        max_tokens=8192, temperature=None, **kw
+    ):
         self.calls += 1
         return LLMResponse(
             content=[TextBlock(text=self.summary_text)],
@@ -229,7 +243,7 @@ async def test_check_rolling_compact_applies_summary():
     rc = new_rolling_compact_state()
     llm = MockCompactLLM("短摘要")
 
-    result = await check_rolling_compact(
+    await check_rolling_compact(
         msgs,
         rc,
         llm,
@@ -277,12 +291,12 @@ async def test_check_rolling_compact_256k_context_window():
     llm = MockCompactLLM("压缩摘要内容足够长确保token大于零")
 
     # 256K budget → wall = 230400, 152K < 230400 不触发
-    r256 = await check_rolling_compact(
+    await check_rolling_compact(
         msgs, rc, llm, context_window=256000, ka_ratio=0.2, frame_id="f256"
     )
     # 152K < 230K wall, 不触发 (idle)
     # 但 180K (45轮) 会触发
-    msgs_big = _make_long_conversation(46)  # ~184000 > 230400? 184K < 230K 还是不够
+    _make_long_conversation(46)  # ~184000 > 230400? 184K < 230K 还是不够
     msgs_bigger = _make_long_conversation(60)  # ~240000 > 230400 触发
     rc2 = new_rolling_compact_state()
     r = await check_rolling_compact(

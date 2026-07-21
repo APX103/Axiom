@@ -81,7 +81,10 @@ EDIT_FILE_SPEC = {
         "type": "object",
         "properties": {
             "path": {"type": "string", "description": "File path relative to workspace"},
-            "old_string": {"type": "string", "description": "Exact text to find (must match whitespace)"},
+            "old_string": {
+                "type": "string",
+                "description": "Exact text to find (must match whitespace)",
+            },
             "new_string": {"type": "string", "description": "Text to replace it with"},
             "replace_all": {
                 "type": "boolean",

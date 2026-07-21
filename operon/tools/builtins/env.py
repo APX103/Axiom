@@ -106,7 +106,11 @@ async def install_packages(ctx: ToolContext, packages: str | list[str]) -> str:
     # 追加到 requirements.txt (去重)
     req = workspace / "requirements.txt"
     existing = req.read_text(encoding="utf-8") if req.exists() else ""
-    existing_pkgs = {line.strip().split("=")[0].lower() for line in existing.splitlines() if line.strip() and not line.startswith("#")}
+    existing_pkgs = {
+        line.strip().split("=")[0].lower()
+        for line in existing.splitlines()
+        if line.strip() and not line.startswith("#")
+    }
     added = []
     for p in pkgs:
         name = p.split("=")[0].split(">")[0].split("<")[0].strip().lower()
@@ -118,7 +122,10 @@ async def install_packages(ctx: ToolContext, packages: str | list[str]) -> str:
             for p in added:
                 f.write(p + "\n")
 
-    return f"Installed {len(pkgs)} package(s) into workspace .venv: {', '.join(pkgs)}\n{out[-200:] if out else ''}".strip()
+    return (
+        f"Installed {len(pkgs)} package(s) into workspace .venv: {', '.join(pkgs)}\n"
+        f"{out[-200:] if out else ''}"
+    ).strip()
 
 
 INSTALL_PACKAGES_SPEC = {

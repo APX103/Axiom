@@ -47,7 +47,10 @@ WRITE_MEMORY_SPEC = {
         "properties": {
             "entity": {
                 "type": "string",
-                "description": "Default entity for appends: profile / project / frame (default: project).",
+                "description": (
+                    "Default entity for appends: profile / project / frame "
+                    "(default: project)."
+                ),
             },
             "append": {
                 "type": "array",
@@ -55,15 +58,28 @@ WRITE_MEMORY_SPEC = {
                     "type": "object",
                     "properties": {
                         "body": {"type": "string", "description": "The fact (≤1000 chars)."},
-                        "entity": {"type": "string", "description": "Override entity for this entry."},
-                        "evidence": {"type": "string", "description": "stated / observed / inferred (default: inferred)."},
+                        "entity": {
+                            "type": "string",
+                            "description": "Override entity for this entry.",
+                        },
+                        "evidence": {
+                            "type": "string",
+                            "description": "stated / observed / inferred (default: inferred).",
+                        },
                         "entity_type": {
                             "type": "string",
-                            "description": "Semantic type: claim / evidence / citation / tool_use / note (default: note).",
+                            "description": (
+                                "Semantic type: claim / evidence / citation / "
+                                "tool_use / note (default: note)."
+                            ),
                         },
                         "meta": {
                             "type": "object",
-                            "description": "Structured fields per entity_type. claim: {subject,predicate,object}; citation: {doi,title,authors,year}; etc.",
+                            "description": (
+                                "Structured fields per entity_type. claim: "
+                                "{subject,predicate,object}; citation: "
+                                "{doi,title,authors,year}; etc."
+                            ),
                         },
                         "confidence": {
                             "type": "number",
@@ -80,7 +96,10 @@ WRITE_MEMORY_SPEC = {
                     "properties": {
                         "id": {"type": "string"},
                         "body": {"type": "string"},
-                        "meta": {"type": "object", "description": "Optional structured fields update."},
+                        "meta": {
+                            "type": "object",
+                            "description": "Optional structured fields update.",
+                        },
                     },
                     "required": ["id", "body"],
                 },

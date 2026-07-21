@@ -5,7 +5,8 @@
 
 简化 (保留核心,去掉并发优化):
 - 保留: checkpoint 触发判断 / 同步 spawn reviewer / findings 写 verification_checks / 通知队列
-- 简化: 去掉 hold/coalesce (直接派发) / shadow reviewer (release 关闭) / bookmarker (默认关闭) / rewind
+- 简化: 去掉 hold/coalesce (直接派发) / shadow reviewer (release 关闭) / bookmarker (默认关闭)
+  / rewind
 - 阈值计算: artifactsWrittenSince / proseCharsSince / authoredInputCharsSince / mdBlockSince
 
 集成点:
@@ -217,9 +218,12 @@ class Verifier:
     async def _run_reviewer(self, prompt: str) -> list[Finding]:
         """调 reviewer LLM,解析 findings。对照原版 spawnReviewersAndAwait。"""
         reviewer_system = (
-            "You are a reviewer auditing an agent's work in a fresh context. Trace each claim against "
-            "the transcript and artifacts. Verdict: pass (traced), warn (label mismatch / plan deviation "
-            "but valid method), fail (claim didn't happen / substantive contradiction / fabricated citation "
+            "You are a reviewer auditing an agent's work in a fresh context. "
+            "Trace each claim against "
+            "the transcript and artifacts. Verdict: pass (traced), "
+            "warn (label mismatch / plan deviation "
+            "but valid method), fail (claim didn't happen / substantive contradiction / "
+            "fabricated citation "
             "/ wrong method). Only report concrete issues; don't flag rounding/paraphrase. "
             "Call submit_output with your findings array. Empty list if all traces cleanly."
         )
@@ -409,8 +413,10 @@ class Verifier:
             f"## Transcript\n{transcript}\n\n"
             f"## Your task\n"
             f"Trace each substantive claim in the transcript against the evidence. "
-            f"Report findings via submit_output. Each finding: {{msg_idx, claim, verdict, evidence}}.\n"
-            f"Verdict: pass=traced, warn=label/plan mismatch but valid, fail=fabricated/contradictory/wrong.\n"
+            f"Report findings via submit_output. Each finding: "
+            f"{{msg_idx, claim, verdict, evidence}}.\n"
+            f"Verdict: pass=traced, warn=label/plan mismatch but valid, "
+            f"fail=fabricated/contradictory/wrong.\n"
             f"Empty findings list if everything traces cleanly."
         )
 

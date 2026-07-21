@@ -81,7 +81,12 @@ def _venv_site_packages(venv_python: Any) -> list[str]:
 
     try:
         out = subprocess.check_output(
-            [str(venv_python), "-c", "import site, sys; print('\\n'.join(site.getsitepackages() + [site.getusersitepackages()]))"],
+            [
+                str(venv_python),
+                "-c",
+                "import site, sys; "
+                "print('\\n'.join(site.getsitepackages() + [site.getusersitepackages()]))",
+            ],
             text=True,
             stderr=subprocess.DEVNULL,
         )

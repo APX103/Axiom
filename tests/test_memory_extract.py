@@ -194,7 +194,10 @@ async def test_extract_memories_parses_layer_a_json():
 @pytest.mark.asyncio
 async def test_extract_memories_handles_markdown_fence():
     """LLM 把 JSON 包在 ```json ... ``` 里也能解析。"""
-    fenced = '```json\n{"append": [{"scope": "project", "body": "x"}], "replace": [], "remove": []}\n```'
+    fenced = (
+        '```json\n{"append": [{"scope": "project", "body": "x"}], '
+        '"replace": [], "remove": []}\n```'
+    )
     llm = FakeLLM(fenced)
 
     from operon.llm.messages import Role

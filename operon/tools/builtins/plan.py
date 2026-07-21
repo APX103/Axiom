@@ -147,7 +147,8 @@ def get_plan_summary(ctx: ToolContext) -> str:
 GENERATE_PLAN_SPEC = {
     "name": "generate_plan",
     "description": (
-        "Generate an execution plan as a list of steps. REQUIRED first action when plan mode is active. "
+        "Generate an execution plan as a list of steps. "
+        "REQUIRED first action when plan mode is active. "
         "After calling this, the plan must be approved before execution proceeds."
     ),
     "parameters": {
