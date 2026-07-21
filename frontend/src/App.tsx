@@ -10,6 +10,7 @@ import { MessageView } from "./components/Message";
 import { WorkspacePanel } from "./components/WorkspacePanel";
 import { PlanPanel } from "./components/PlanPanel";
 import { ResizableSidebar } from "./components/ResizableSidebar";
+import { ConfirmDialog } from "./components/ConfirmDialog";
 import { SettingsModal, fromApiSettings, loadConfig, type FullConfig } from "./components/SettingsModal";
 import { PaperView } from "./components/PaperView";
 import { UpdateBanner } from "./components/UpdateBanner";
@@ -889,6 +890,8 @@ function ProjectTree({ sid }: { sid: string | null }) {
   const [files, setFiles] = useState<{ path: string; size: number; name: string }[]>([]);
   const [refreshTick, setRefreshTick] = useState(0);
   const [hovered, setHovered] = useState<string | null>(null);
+  // 待确认删除的文件 — Tauri 不支持 window.confirm, 用 React 弹窗走确认流程
+  const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   useEffect(() => {
     if (!sid) {
       setFiles([]);
@@ -913,13 +916,8 @@ function ProjectTree({ sid }: { sid: string | null }) {
 
   const handleDelete = async (path: string) => {
     if (!sid) return;
-    if (!confirm(`删除 ${path}?`)) return;
-    try {
-      await deleteFile(sid, path);
-      setRefreshTick((n) => n + 1);
-    } catch (e) {
-      alert(`删除失败: ${e instanceof Error ? e.message : String(e)}`);
-    }
+    await deleteFile(sid, path);
+    setRefreshTick((n) => n + 1);
   };
 
   if (!sid) {
@@ -941,13 +939,14 @@ function ProjectTree({ sid }: { sid: string | null }) {
           className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-hover cursor-pointer text-xs"
           onClick={() => window.open(`${apiBase()}/sessions/${sid}/files/${encodeURIComponent(f.path)}`, "_blank")}
           onMouseEnter={() => setHovered(f.path)}
+          onMouseLeave={() => setHovered(null)}
         >
           <FileIcon path={f.path} />
           <span className="flex-1 truncate text-muted">{f.name}</span>
           <button
             onClick={(e) => {
               e.stopPropagation();
-              handleDelete(f.path);
+              setPendingDelete(f.path);
             }}
             className={`text-faint hover:text-error p-0.5 rounded transition-all ${
               hovered === f.path ? "opacity-100" : "opacity-0"
@@ -963,6 +962,15 @@ function ProjectTree({ sid }: { sid: string | null }) {
           </button>
         </div>
       ))}
+      {/* 删除确认弹窗 (替代 Tauri 不可用的 window.confirm) */}
+      {pendingDelete && (
+        <ConfirmDialog
+          title="删除文件"
+          message={`确定删除 ${pendingDelete} 吗？此操作不可撤销。`}
+          onConfirm={() => handleDelete(pendingDelete)}
+          onCancel={() => setPendingDelete(null)}
+        />
+      )}
     </div>
   );
 }

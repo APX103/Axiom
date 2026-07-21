@@ -2,6 +2,7 @@
 // .tex/.pdf 可点击查看/下载/删除。
 import { useEffect, useState } from "react";
 import { deleteFile, apiBase, openInFileManager } from "../api";
+import { ConfirmDialog } from "./ConfirmDialog";
 import type { ArtifactInfo } from "../types";
 
 export function WorkspacePanel({
@@ -16,6 +17,8 @@ export function WorkspacePanel({
   const [files, setFiles] = useState<{ path: string; size: number; name: string }[]>([]);
   const [refreshTick, setRefreshTick] = useState(0);
   const [hoveredPath, setHoveredPath] = useState<string | null>(null);
+  // 待确认删除的文件 — Tauri 不支持 window.confirm, 用 React 弹窗走确认流程
+  const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   const entries = Object.entries(artifacts);
 
   useEffect(() => {
@@ -42,13 +45,8 @@ export function WorkspacePanel({
 
   const handleDelete = async (path: string) => {
     if (!sid) return;
-    if (!confirm(`删除 ${path}?`)) return;
-    try {
-      await deleteFile(sid, path);
-      setRefreshTick((n) => n + 1);
-    } catch (e) {
-      alert(`删除失败: ${e instanceof Error ? e.message : String(e)}`);
-    }
+    await deleteFile(sid, path);
+    setRefreshTick((n) => n + 1);
   };
 
   const hasTex = files.some((f) => f.path.endsWith(".tex")) || entries.some(([p]) => p.endsWith(".tex"));
@@ -90,7 +88,8 @@ export function WorkspacePanel({
                     sid={sid}
                     hovered={hoveredPath === f.path}
                     onHover={() => setHoveredPath(f.path)}
-                    onDelete={handleDelete}
+                    onHoverEnd={() => setHoveredPath(null)}
+                    onDelete={setPendingDelete}
                   />
                 ))
               : entries.map(([path, info]) => (
@@ -101,12 +100,23 @@ export function WorkspacePanel({
                     sid={sid}
                     hovered={hoveredPath === path}
                     onHover={() => setHoveredPath(path)}
-                    onDelete={handleDelete}
+                    onHoverEnd={() => setHoveredPath(null)}
+                    onDelete={setPendingDelete}
                   />
                 ))}
           </ul>
         )}
       </div>
+
+      {/* 删除确认弹窗 (替代 Tauri 不可用的 window.confirm) */}
+      {pendingDelete && (
+        <ConfirmDialog
+          title="删除文件"
+          message={`确定删除 ${pendingDelete} 吗？此操作不可撤销。`}
+          onConfirm={() => handleDelete(pendingDelete)}
+          onCancel={() => setPendingDelete(null)}
+        />
+      )}
     </div>
   );
 }
@@ -117,6 +127,7 @@ function FileItem({
   sid,
   hovered,
   onHover,
+  onHoverEnd,
   onDelete,
 }: {
   path: string;
@@ -124,6 +135,7 @@ function FileItem({
   sid: string | null;
   hovered: boolean;
   onHover: () => void;
+  onHoverEnd: () => void;
   onDelete: (path: string) => void;
 }) {
   const isViewable = /\.(tex|md|txt|py|csv|json|bib|js|ts|tsx|jsx|html|css|yaml|yml|xml|sh)$/.test(path);
@@ -151,6 +163,7 @@ function FileItem({
       }`}
       onClick={view}
       onMouseEnter={onHover}
+      onMouseLeave={onHoverEnd}
     >
       <div className="flex items-center gap-2 min-w-0">
         <FileIcon path={path} isDoc={isDoc} />
