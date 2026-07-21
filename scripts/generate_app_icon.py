@@ -10,10 +10,10 @@ ROOT = Path(__file__).resolve().parent.parent
 OUT_DIR = ROOT / "src-tauri" / "icons"
 TMP_DIR = ROOT / "Axiom.iconset"
 
-# Axiom accent blue
-COLOR_TOP = "#38bdf8"      # sky-400
-COLOR_MID = "#0ea5e9"      # sky-500
-COLOR_BOT = "#0284c7"      # sky-600
+# Axiom accent green (v2 主题色系: emerald → teal)
+COLOR_TOP = "#34d399"      # emerald-400
+COLOR_MID = "#14b8a6"      # teal-500
+COLOR_BOT = "#0f766e"      # teal-700
 BG = "#f8fafc"             # slate-50
 
 
