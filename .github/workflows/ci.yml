@@ -51,3 +51,7 @@ jobs:
       - name: Frontend build (tsc typecheck + vite build)
         working-directory: frontend
         run: bun run build
+
+      - name: Frontend build v2 variant
+        working-directory: frontend
+        run: bun run build:v2
