@@ -19,22 +19,14 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # macOS 出两版前端: classic (默认) 与 v2 (现代主题)
           - target: aarch64-apple-darwin
             runner: macos-latest
             arch: aarch64
             platform: macos
-            ui: classic
-          - target: aarch64-apple-darwin
-            runner: macos-latest
-            arch: aarch64
-            platform: macos
-            ui: v2
           - target: x86_64-unknown-linux-gnu
             runner: ubuntu-22.04
             arch: x86_64
             platform: linux
-            ui: classic
 
     runs-on: ${{ matrix.runner }}
     steps:
@@ -81,11 +73,11 @@ jobs:
       - name: Build Python backend
         run: uv run pyinstaller operon-backend.spec --clean --noconfirm
 
-      - name: Build frontend (${{ matrix.ui }})
+      - name: Build frontend
         run: |
           cd frontend
           bun install
-          VITE_UI_VARIANT=${{ matrix.ui }} bun run build
+          bun run build
 
       - name: Build Tauri bundle
         env:
@@ -95,17 +87,10 @@ jobs:
           cd src-tauri
           bun x @tauri-apps/cli build --target ${{ matrix.target }}
 
-      - name: Rename v2 bundle (避免与 classic dmg 同名冲突)
-        if: matrix.ui == 'v2'
-        run: |
-          cd "src-tauri/target/${{ matrix.target }}/release/bundle/dmg"
-          for f in *.dmg; do mv "$f" "${f%.dmg}-v2.dmg"; done
-          ls -la
-
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.platform }}-${{ matrix.arch }}-${{ matrix.ui }}-bundle
+          name: ${{ matrix.platform }}-${{ matrix.arch }}-bundle
           path: |
             src-tauri/target/${{ matrix.target }}/release/bundle/**/*.dmg
             src-tauri/target/${{ matrix.target }}/release/bundle/**/*.deb

@@ -115,6 +115,23 @@ export interface SessionInfo {
   live: boolean;
 }
 
+export interface SessionState {
+  id: string;
+  frame_id: string | null;
+  status: string;
+  task_summary: string | null;
+  plan_mode: boolean;
+  plan: PlanSnapshot | null;
+  artifacts: Record<string, ArtifactInfo>;
+  messages: SessionMessage[];
+}
+
+export interface SessionMessage {
+  role: string;
+  content: unknown;
+  harness_notice?: boolean | null;
+}
+
 // Layer A.5: Project
 export interface ProjectInfo {
   id: string;
@@ -136,8 +153,21 @@ export type WSEvent =
   | { type: "thinking"; text: string }
   | { type: "tool_calls"; calls: ToolCall[] }
   | { type: "tool_results"; results: ToolResult[] }
+  | { type: "plan_update"; plan: PlanSnapshot }
   | { type: "notice"; event: string; detail: string }
-  | { type: "complete"; kind: string; final_text: string; awaiting: string | null; pending_ask: PendingAsk | null; error: string | null; usage: Record<string, number>; iterations: number; frame_status: string; plan: PlanSnapshot | null; artifacts: Record<string, ArtifactInfo> }
+  | {
+      type: "complete";
+      kind: string;
+      final_text: string;
+      awaiting: string | null;
+      pending_ask: PendingAsk | null;
+      error: string | null;
+      usage: Record<string, number>;
+      iterations: number;
+      frame_status: string;
+      plan: PlanSnapshot | null;
+      artifacts: Record<string, ArtifactInfo>;
+    }
   | { type: "error"; message: string };
 
 export interface PendingAsk {

@@ -16,7 +16,6 @@ export function WorkspacePanel({
 }) {
   const [files, setFiles] = useState<{ path: string; size: number; name: string }[]>([]);
   const [refreshTick, setRefreshTick] = useState(0);
-  const [hoveredPath, setHoveredPath] = useState<string | null>(null);
   // 待确认删除的文件 — Tauri 不支持 window.confirm, 用 React 弹窗走确认流程
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   const entries = Object.entries(artifacts);
@@ -70,11 +69,7 @@ export function WorkspacePanel({
           </button>
         )}
       </div>
-      <div
-        className="flex-1 overflow-y-auto p-2"
-        onMouseLeave={() => setHoveredPath(null)}
-        onScroll={() => setHoveredPath(null)}
-      >
+      <div className="flex-1 overflow-y-auto p-2">
         {files.length === 0 && entries.length === 0 ? (
           <EmptyHint text="还没有产物" sub="agent 写入的文件会显示在这里" />
         ) : (
@@ -86,9 +81,6 @@ export function WorkspacePanel({
                     path={f.path}
                     size={f.size}
                     sid={sid}
-                    hovered={hoveredPath === f.path}
-                    onHover={() => setHoveredPath(f.path)}
-                    onHoverEnd={() => setHoveredPath(null)}
                     onDelete={setPendingDelete}
                   />
                 ))
@@ -98,9 +90,6 @@ export function WorkspacePanel({
                     path={path}
                     size={info.size}
                     sid={sid}
-                    hovered={hoveredPath === path}
-                    onHover={() => setHoveredPath(path)}
-                    onHoverEnd={() => setHoveredPath(null)}
                     onDelete={setPendingDelete}
                   />
                 ))}
@@ -125,17 +114,11 @@ function FileItem({
   path,
   size,
   sid,
-  hovered,
-  onHover,
-  onHoverEnd,
   onDelete,
 }: {
   path: string;
   size: number;
   sid: string | null;
-  hovered: boolean;
-  onHover: () => void;
-  onHoverEnd: () => void;
   onDelete: (path: string) => void;
 }) {
   const isViewable = /\.(tex|md|txt|py|csv|json|bib|js|ts|tsx|jsx|html|css|yaml|yml|xml|sh)$/.test(path);
@@ -158,12 +141,10 @@ function FileItem({
   };
   return (
     <li
-      className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg ${
+      className={`group flex items-center justify-between px-2.5 py-1.5 rounded-lg ${
         isViewable ? "hover:bg-hover cursor-pointer" : ""
       }`}
       onClick={view}
-      onMouseEnter={onHover}
-      onMouseLeave={onHoverEnd}
     >
       <div className="flex items-center gap-2 min-w-0">
         <FileIcon path={path} isDoc={isDoc} />
@@ -171,24 +152,22 @@ function FileItem({
       </div>
       <div className="flex items-center gap-1 shrink-0">
         <span className="text-[10px] text-faint font-mono">{formatSize(size)}</span>
-        <button
-          onClick={openDir}
-          className={`text-[10px] text-faint hover:text-accent p-1 rounded transition-all ${
-            hovered ? "opacity-100" : "opacity-0"
-          }`}
-          title="打开文件所在目录"
-        >
-          <FolderOpenIcon />
-        </button>
-        <button
-          onClick={handleDelete}
-          className={`text-[10px] text-faint hover:text-error p-1 rounded transition-all ${
-            hovered ? "opacity-100" : "opacity-0"
-          }`}
-          title="删除"
-        >
-          <TrashIcon />
-        </button>
+        <span className="flex items-center gap-1 invisible opacity-0 pointer-events-none transition-opacity group-hover:visible group-hover:opacity-100 group-hover:pointer-events-auto">
+          <button
+            onClick={openDir}
+            className="text-[10px] text-faint hover:text-accent p-1 rounded transition-colors"
+            title="打开文件所在目录"
+          >
+            <FolderOpenIcon />
+          </button>
+          <button
+            onClick={handleDelete}
+            className="text-[10px] text-faint hover:text-error p-1 rounded transition-colors"
+            title="删除"
+          >
+            <TrashIcon />
+          </button>
+        </span>
       </div>
     </li>
   );

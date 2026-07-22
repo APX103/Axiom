@@ -369,13 +369,17 @@ function Workbench() {
   const onApprove = async () => {
     if (!sid) return;
     try {
-      await approvePlan(sid);
-      session.setPlan((p) => (p ? { ...p, approved: true } : p));
+      const approved = await approvePlan(sid);
+      session.setPlan((p) =>
+        p ? { ...p, approved: approved.approved, steps: approved.steps } : p,
+      );
       session.setAwaiting(null);
       session.setStatus("idle");
       // 自动继续执行已批准的计划,无需用户再手动发消息
       const resumePrompt = "继续执行已批准的计划。";
-      session.start(sid, resumePrompt);
+      // Plan 开关可以是单条消息级覆盖，不一定写进会话配置。批准后必须显式
+      // 延续 plan mode，否则恢复执行时 system prompt 会丢失计划与状态纪律。
+      session.start(sid, resumePrompt, true, deepReview);
     } catch (e) {
       alert(`批准失败: ${e instanceof Error ? e.message : e}`);
     }
@@ -1364,4 +1368,3 @@ function SparkleIcon() {
     </svg>
   );
 }
-

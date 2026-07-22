@@ -154,6 +154,8 @@ class Agent:
             if getattr(self.ctx, "pending_ask", None) is not None:
                 self.ctx.pending_ask = None
         await self.callbacks.on_start(self.frame)
+        if self.ctx.plan.steps:
+            await self.callbacks.on_plan_update(self.ctx.plan)
 
         # 记忆召回: 用用户消息做 BM25 搜索, 注入 [Memory] 块
         await self._recall_memory(user_input)
@@ -346,6 +348,7 @@ class Agent:
                 if self.deep_review:
                     from operon.tools.builtins import plan as plan_tools
                     await plan_tools.approve_plan(self.ctx)
+                    await self.callbacks.on_plan_update(self.ctx.plan)
                     logger.info("deep_review: auto-approved plan, continuing")
                 else:
                     return self._result(RunResultKind.AWAITING, awaiting="plan_approval")
@@ -515,6 +518,8 @@ class Agent:
                     summary=self._trace.summarize_result(r.content),
                 )
         await self.callbacks.on_tool_results(results)
+        if any(tu.name in {"generate_plan", "update_step_status"} for tu in tool_uses):
+            await self.callbacks.on_plan_update(self.ctx.plan)
 
         # 工具结果加入历史 (Anthropic 风格: tool_result 作为 user 消息的 content block)
         self.frame.messages.append(Message(role=Role.USER, content=results))
@@ -654,6 +659,11 @@ class Agent:
 
         # 正常完成
         final_text = "".join(b.text for b in resp.content if isinstance(b, TextBlock))
+        if self.plan_mode and self.ctx.plan.approved and self.ctx.plan.steps:
+            from operon.tools.builtins import plan as plan_tools
+
+            if plan_tools.complete_unfinished_steps(self.ctx):
+                await self.callbacks.on_plan_update(self.ctx.plan)
         self.frame_service.update_status(self.frame.id, FrameStatus.COMPLETED)
         await self.callbacks.on_complete(final_text)
         return True, self._result(RunResultKind.NATURAL, final_text=final_text)
@@ -810,5 +820,6 @@ class AgentCallbacks:
     async def on_assistant_text(self, text: str) -> None: ...
     async def on_tool_calls(self, tool_uses: list[ToolUseBlock]) -> None: ...
     async def on_tool_results(self, results: list[ToolResultBlock]) -> None: ...
+    async def on_plan_update(self, plan: Any) -> None: ...
     async def on_event(self, event: str, detail: str) -> None: ...
     async def on_complete(self, final_text: str) -> None: ...

@@ -410,6 +410,12 @@ summaries.
 The plan is presented to the user for review. The user may provide feedback via \
 follow-up messages. Only after the user approves the plan should you begin execution.
 
+**During execution, plan status tracking is mandatory.** The first step is marked \
+`in_progress` when the plan is approved. Before moving to the next step, call \
+`update_step_status` to mark the current step `completed` (or `skipped` with a \
+note), then mark the next step `in_progress`. Do not leave finished work as \
+`pending`, and do not give the final answer until every step has a terminal status.
+
 ## Convergence discipline (for surveys and long deliverables)
 
 A survey commonly fails by staying on-topic for the first section and then drifting: \

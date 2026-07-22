@@ -55,6 +55,7 @@ async def generate_plan(
         )
 
     ctx.plan.steps = normalized
+    ctx.plan.approved = False
     ctx.plan.plan_artifact_id = f"plan_{ctx.frame.id[:8]}"
     # 收敛锚点
     ctx.plan.research_question = research_question
@@ -105,12 +106,36 @@ async def approve_plan(ctx: ToolContext) -> str:
     if not ctx.plan.steps:
         return "Error: no plan to approve"
     ctx.plan.approved = True
+    # 批准即进入执行态。即使模型尚未主动调用 update_step_status，UI 也应
+    # 立即显示一个明确的当前步骤，而不是让整份计划一直停在 pending。
+    if not any(s.get("status") == "in_progress" for s in ctx.plan.steps):
+        first_pending = next(
+            (s for s in ctx.plan.steps if s.get("status") == "pending"),
+            None,
+        )
+        if first_pending is not None:
+            first_pending["status"] = "in_progress"
     # 恢复 processing
     if ctx.frame.status == FrameStatus.AWAITING_PLAN_APPROVAL:
         # update_status 不允许从 awaiting 转 processing (awaiting 不在 TERMINAL,
         # 但原版 awaiting→processing 是合法的),直接设置
         ctx.frame.status = FrameStatus.PROCESSING
     return f"Plan approved ({len(ctx.plan.steps)} steps). Proceeding."
+
+
+def complete_unfinished_steps(ctx: ToolContext) -> bool:
+    """成功结束任务时收口仍未完成的步骤。
+
+    模型应在执行中精确调用 ``update_step_status``；这里是生命周期兜底，确保
+    Agent 已自然成功结束时，计划快照不会仍显示 pending/in_progress。
+    返回是否发生了状态变化，供调用方决定是否推送实时事件。
+    """
+    changed = False
+    for step in ctx.plan.steps:
+        if step.get("status") in {"pending", "in_progress"}:
+            step["status"] = "completed"
+            changed = True
+    return changed
 
 
 def get_plan_summary(ctx: ToolContext) -> str:
