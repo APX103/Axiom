@@ -11,6 +11,14 @@ const isTauri = typeof window !== "undefined" && !!window.__TAURI_INTERNALS__;
 // Tauri 桌面端给 <html> 打标: CSS 据此做 macOS 红绿灯 (Overlay 标题栏) 避让
 if (isTauri) document.documentElement.classList.add("tauri");
 
+// 窗口聚焦状态打标: 聚焦时主卡显示亮边 (macOS 活跃窗口高光描边), 失焦隐去
+const syncWindowFocus = () => {
+  document.documentElement.classList.toggle("window-blurred", !document.hasFocus());
+};
+window.addEventListener("focus", syncWindowFocus);
+window.addEventListener("blur", syncWindowFocus);
+syncWindowFocus();
+
 // 全局错误捕获 — 白屏时在页面上显示错误信息
 window.addEventListener("error", (e) => {
   const root = document.getElementById("root");

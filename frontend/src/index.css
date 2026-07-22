@@ -144,6 +144,7 @@ html.dark body {
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-md);
   overflow: hidden;
+  transition: box-shadow 0.25s ease;
 }
 /* 亮态: 侧栏玻璃带一点冷调, 与主区分开 */
 html:not(.dark) .app-sidebar {
@@ -158,6 +159,21 @@ html:not(.dark) .app-sidebar {
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-md);
   overflow: hidden;
+  transition: box-shadow 0.25s ease;
+}
+
+/* 窗口聚焦时: 卡片加一圈细腻亮边 (macOS 活跃窗口高光描边); 失焦回落为平阴影 */
+html:not(.window-blurred) .app-main-card,
+html:not(.window-blurred) .app-sidebar.floating {
+  box-shadow: var(--shadow-md), inset 0 0 0 1px rgb(255 255 255 / 0.55);
+}
+html.dark:not(.window-blurred) .app-main-card,
+html.dark:not(.window-blurred) .app-sidebar.floating {
+  box-shadow: var(--shadow-md), inset 0 0 0 1px rgb(255 255 255 / 0.1);
+}
+html.window-blurred .app-main-card,
+html.window-blurred .app-sidebar.floating {
+  box-shadow: var(--shadow-sm);
 }
 
 /* 无边框幽灵图标按钮 — 收起/展开、主题、设置等 */
