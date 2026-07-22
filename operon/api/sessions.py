@@ -26,6 +26,7 @@ from operon.llm.messages import Message, Role
 from operon.tools.context import PlanState, ToolContext
 
 from .callbacks import WSCallbacks
+from .events import plan_snapshot
 
 logger = logging.getLogger(__name__)
 
@@ -175,7 +176,7 @@ class SessionManager:
 
             from operon.db.schema import SessionRecord
 
-            snapshot = _plan_snapshot(plan)
+            snapshot = plan_snapshot(plan)
             async with self.db_session_factory() as db:
                 await db.execute(
                     update(SessionRecord)
@@ -709,7 +710,7 @@ class SessionManager:
             "status": f.status.value,
             "task_summary": f.task_summary,
             "plan_mode": active.session.config.plan_mode,
-            "plan": _plan_snapshot(active.ctx.plan),
+            "plan": plan_snapshot(active.ctx.plan),
             "artifacts": active.ctx.artifacts,
             "messages": [
                 {
@@ -779,18 +780,6 @@ class SessionManager:
                     logger.info("Removed workspace dir for session %s: %s", sid, ws)
             except Exception:
                 logger.exception("Failed to remove workspace dir for session %s", sid)
-
-
-def _plan_snapshot(plan: Any) -> dict[str, Any] | None:
-    """把 PlanState 转成前端可用的 plan 快照。"""
-    if not plan or not plan.steps:
-        return None
-    try:
-        from dataclasses import asdict
-
-        return asdict(plan)
-    except Exception:
-        return {"steps": plan.steps, "approved": plan.approved}
 
 
 def _parse_plan_data(raw: str | None) -> dict[str, Any] | None:

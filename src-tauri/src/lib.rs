@@ -12,8 +12,6 @@ use tauri::{Manager, RunEvent, WebviewWindow};
 use tokio::process::{Child, Command};
 use tokio::sync::Mutex;
 
-
-
 struct AppState {
     backend: Arc<Mutex<Option<Child>>>,
     backend_port: Arc<Mutex<u16>>,
@@ -113,9 +111,8 @@ mod traffic_light_swizzle {
             let Some(method) = cls.instance_method(sel!(layout)) else {
                 return;
             };
-            let imp: objc2::runtime::Imp = std::mem::transmute(
-                swizzled_layout as unsafe extern "C" fn(*mut AnyObject, Sel),
-            );
+            let imp: objc2::runtime::Imp =
+                std::mem::transmute(swizzled_layout as unsafe extern "C" fn(*mut AnyObject, Sel));
             let orig = method.set_implementation(imp);
             ORIG_LAYOUT.store(orig as *mut c_void, Ordering::Relaxed);
         }
@@ -197,7 +194,10 @@ fn ensure_data_dir() -> PathBuf {
 /// 生产环境: Tauri bundle 的 Resources/operon-backend
 /// 开发环境:  fallback 到 python3 -m operon.cli.main serve
 fn resolve_backend_binary(app_handle: &tauri::AppHandle) -> (PathBuf, Vec<String>) {
-    let resource_dir = app_handle.path().resource_dir().unwrap_or_else(|_| PathBuf::from("."));
+    let resource_dir = app_handle
+        .path()
+        .resource_dir()
+        .unwrap_or_else(|_| PathBuf::from("."));
     let bundled = resource_dir.join("operon-backend");
     if bundled.is_file() {
         return (bundled, vec!["serve".to_string()]);
@@ -206,7 +206,11 @@ fn resolve_backend_binary(app_handle: &tauri::AppHandle) -> (PathBuf, Vec<String
     // 开发 fallback
     (
         PathBuf::from("python3"),
-        vec!["-m".to_string(), "operon.cli.main".to_string(), "serve".to_string()],
+        vec![
+            "-m".to_string(),
+            "operon.cli.main".to_string(),
+            "serve".to_string(),
+        ],
     )
 }
 
@@ -264,7 +268,10 @@ async fn start_backend(app_handle: &tauri::AppHandle, port: u16) -> std::io::Res
     // macOS 上给后端二进制加可执行权限(避免 bundle 复制后权限丢失)
     #[cfg(target_os = "macos")]
     if bin != PathBuf::from("python3") {
-        let _ = std::process::Command::new("chmod").arg("+x").arg(&bin).status();
+        let _ = std::process::Command::new("chmod")
+            .arg("+x")
+            .arg(&bin)
+            .status();
     }
 
     args.push("--port".to_string());
@@ -284,7 +291,10 @@ async fn start_backend(app_handle: &tauri::AppHandle, port: u16) -> std::io::Res
         .stderr(Stdio::inherit())
         .kill_on_drop(true);
 
-    eprintln!("[axiom] starting backend: {:?} {:?} (cwd={:?})", bin, args, work_dir);
+    eprintln!(
+        "[axiom] starting backend: {:?} {:?} (cwd={:?})",
+        bin, args, work_dir
+    );
 
     let child = cmd.spawn()?;
     set_child_pgid(&child);
@@ -293,7 +303,10 @@ async fn start_backend(app_handle: &tauri::AppHandle, port: u16) -> std::io::Res
 }
 
 #[tauri::command]
-async fn restart_backend(state: tauri::State<'_, AppState>, app_handle: tauri::AppHandle) -> Result<String, String> {
+async fn restart_backend(
+    state: tauri::State<'_, AppState>,
+    app_handle: tauri::AppHandle,
+) -> Result<String, String> {
     let mut guard = state.backend.lock().await;
     if let Some(mut child) = guard.take() {
         kill_backend_tree(&mut child).await;
@@ -320,8 +333,7 @@ struct LatestJson {
 /// 会读取 ALL_PROXY / HTTPS_PROXY / HTTP_PROXY 环境变量。
 fn update_agent() -> ureq::Agent {
     use std::time::Duration;
-    let mut config = ureq::Agent::config_builder()
-        .timeout_global(Some(Duration::from_secs(10)));
+    let mut config = ureq::Agent::config_builder().timeout_global(Some(Duration::from_secs(10)));
     if let Some(proxy) = ureq::Proxy::try_from_env() {
         config = config.proxy(Some(proxy));
     }
@@ -377,16 +389,26 @@ fn check_update(current: String) -> Result<Option<(String, String)>, String> {
 /// Tauri webview 里 window.open 触发不了下载, 所以"下载"按钮改为
 /// 直接打开 Finder (macOS) / Explorer (Win) 定位到该文件。
 ///
-/// path: 相对于 session 工作区的路径 (如 "main.tex" 或 "out/fig.pdf")
-#[tauri::command]
-fn open_in_file_manager(sid: String, path: String) -> Result<(), String> {
-    // 用 ensure_data_dir() 保证和后端写文件的位置一致, 不依赖环境变量
-    let data_dir = ensure_data_dir();
-    let abs = data_dir.join("workspaces").join(&sid).join(&path);
+/// workspace: sessions API 返回的真实工作区路径。
+/// path: 相对于该工作区的路径 (如 "main.tex" 或 "out/fig.pdf")。
+fn resolve_workspace_file(workspace: &str, path: &str) -> Result<PathBuf, String> {
+    let workspace = PathBuf::from(workspace)
+        .canonicalize()
+        .map_err(|e| format!("workspace not found: {e}"))?;
+    let target = workspace
+        .join(path)
+        .canonicalize()
+        .map_err(|e| format!("file not found: {e}"))?;
 
-    if !abs.exists() {
-        return Err(format!("file not found: {}", abs.display()));
+    if !target.starts_with(&workspace) {
+        return Err("refused to open a file outside the session workspace".to_string());
     }
+    Ok(target)
+}
+
+#[tauri::command]
+fn open_in_file_manager(workspace: String, path: String) -> Result<(), String> {
+    let abs = resolve_workspace_file(&workspace, &path)?;
 
     eprintln!("[axiom] open in file manager: {}", abs.display());
 
@@ -585,4 +607,59 @@ pub fn run() {
                 });
             }
         });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::resolve_workspace_file;
+    use std::fs;
+    use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn temp_root() -> PathBuf {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock before unix epoch")
+            .as_nanos();
+        std::env::temp_dir().join(format!(
+            "axiom-workspace-test-{}-{nonce}",
+            std::process::id()
+        ))
+    }
+
+    #[test]
+    fn resolves_a_file_inside_the_real_workspace() {
+        let root = temp_root();
+        let workspace = root.join("workspace");
+        let nested = workspace.join("nested");
+        fs::create_dir_all(&nested).expect("create test workspace");
+        let file = nested.join("paper.tex");
+        fs::write(&file, "test").expect("write test file");
+
+        let resolved = resolve_workspace_file(
+            workspace.to_str().expect("utf-8 workspace"),
+            "nested/paper.tex",
+        )
+        .expect("resolve workspace file");
+
+        assert_eq!(resolved, file.canonicalize().expect("canonical test file"));
+        fs::remove_dir_all(root).expect("remove test workspace");
+    }
+
+    #[test]
+    fn rejects_a_file_outside_the_workspace() {
+        let root = temp_root();
+        let workspace = root.join("workspace");
+        fs::create_dir_all(&workspace).expect("create test workspace");
+        fs::write(root.join("outside.txt"), "test").expect("write outside file");
+
+        let error = resolve_workspace_file(
+            workspace.to_str().expect("utf-8 workspace"),
+            "../outside.txt",
+        )
+        .expect_err("path traversal must be rejected");
+
+        assert!(error.contains("outside the session workspace"));
+        fs::remove_dir_all(root).expect("remove test workspace");
+    }
 }

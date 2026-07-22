@@ -9,6 +9,7 @@
 - text:         assistant 文本块
 - tool_calls:   模型请求的工具调用
 - tool_results: 工具执行结果
+- plan_update:  执行中的 plan 状态快照
 - event:        通用事件 (plan_denial / max_tokens 等)
 - complete:     会话完成 (含 final_text / kind / usage)
 - error:        错误
@@ -16,9 +17,23 @@
 
 from __future__ import annotations
 
+from dataclasses import asdict
 from typing import Any, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+
+def plan_snapshot(plan: Any) -> dict[str, Any] | None:
+    """把运行时 PlanState 转成可安全序列化的独立快照。"""
+    if plan is None or not getattr(plan, "steps", None):
+        return None
+    try:
+        return asdict(plan)
+    except (TypeError, ValueError):
+        return {
+            "steps": [dict(step) for step in plan.steps],
+            "approved": bool(plan.approved),
+        }
 
 
 class WSEvent(BaseModel):
@@ -31,7 +46,6 @@ class StartEvent(BaseModel):
     type: Literal["start"] = "start"
     frame_id: str
     task_summary: str
-    plan_mode: bool
 
 
 class IterationEvent(BaseModel):
@@ -59,6 +73,11 @@ class ToolResultEvent(BaseModel):
     results: list[dict[str, Any]]  # [{tool_use_id, content, is_error}]
 
 
+class PlanUpdateEvent(BaseModel):
+    type: Literal["plan_update"] = "plan_update"
+    plan: dict[str, Any]
+
+
 class NoticeEvent(BaseModel):
     type: Literal["notice"] = "notice"
     event: str  # plan_denial / max_tokens / ...
@@ -70,13 +89,14 @@ class CompleteEvent(BaseModel):
     kind: str  # natural / awaiting / max_iters / error / cancelled
     final_text: str = ""
     awaiting: str | None = None
+    pending_ask: dict[str, Any] | None = None
     error: str | None = None
-    usage: dict[str, int] = {}
+    usage: dict[str, int] = Field(default_factory=dict)
     iterations: int = 0
     # 完成时的 frame 状态快照 (供前端更新 UI)
     frame_status: str = "completed"
     plan: dict[str, Any] | None = None  # {steps: [...], approved: bool}
-    artifacts: dict[str, Any] = {}  # 工作区产物 {path: {size, ...}}
+    artifacts: dict[str, Any] = Field(default_factory=dict)  # 工作区产物 {path: {size, ...}}
 
 
 class ErrorEvent(BaseModel):

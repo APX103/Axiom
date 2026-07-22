@@ -9,13 +9,15 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 from pathlib import Path
 
 import pytest
 
-from operon.agent.runner import MAX_PLAN_DENIALS, RunResultKind
+from operon.agent.runner import MAX_PLAN_DENIALS, AgentCallbacks, RunResultKind
 from operon.agent.session import Session, SessionConfig
 from operon.agent.states import FrameStatus
+from operon.api.callbacks import WSCallbacks
 from operon.llm.messages import (
     LLMResponse,
     StopReason,
@@ -23,7 +25,15 @@ from operon.llm.messages import (
     TokenUsage,
     ToolUseBlock,
 )
-from tests.test_agent_loop import FakeLLM, _text_resp
+from tests.test_agent_loop import FakeLLM, _text_resp, _tool_resp
+
+
+class RecordingCallbacks(AgentCallbacks):
+    def __init__(self) -> None:
+        self.plan_updates: list[list[dict]] = []
+
+    async def on_plan_update(self, plan) -> None:
+        self.plan_updates.append(deepcopy(plan.steps))
 
 
 @pytest.fixture
@@ -85,6 +95,129 @@ async def test_generate_plan_triggers_awaiting(workspace):
     assert result.frame.status == FrameStatus.AWAITING_PLAN_APPROVAL
     # plan steps 已记录
     assert len(result.frame.context) >= 0  # ctx 在 session 内部
+
+
+@pytest.mark.asyncio
+async def test_generate_plan_emits_live_plan_update(workspace):
+    """generate_plan 改变状态后立即发事件，而不是等 complete 才给前端。"""
+    callbacks = RecordingCallbacks()
+    llm = FakeLLM(
+        [
+            LLMResponse(
+                content=[
+                    ToolUseBlock(
+                        id="t1",
+                        name="generate_plan",
+                        input={
+                            "steps": [
+                                {"id": "s1", "description": "第一步"},
+                                {"id": "s2", "description": "第二步"},
+                            ]
+                        },
+                    )
+                ],
+                stop_reason=StopReason.TOOL_USE,
+                model="fake",
+                usage=TokenUsage(input_tokens=10, output_tokens=5),
+            )
+        ]
+    )
+    session = Session(
+        llm=llm,
+        config=SessionConfig(workspace=workspace, plan_mode=True),
+        callbacks=callbacks,
+    )
+
+    await session.run("规划并执行")
+
+    assert callbacks.plan_updates
+    assert [step["status"] for step in callbacks.plan_updates[-1]] == [
+        "pending",
+        "pending",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_approve_starts_first_step_and_success_closes_plan(workspace):
+    """批准后首步进入执行态；Agent 自然成功时不遗留 pending。"""
+    from operon.agent.runner import Agent
+    from operon.frames.service import FrameService
+    from operon.tools.builtins import plan as plan_tools
+    from operon.tools.context import ToolContext
+    from operon.tools.registry import ToolRegistry
+    from operon.tools.router import ToolRouter
+
+    frame_service = FrameService()
+    frame = frame_service.create_root_frame(agent_name="MAIN")
+    ctx = ToolContext(frame=frame, frame_service=frame_service, workspace=workspace)
+    await plan_tools.generate_plan(
+        ctx,
+        steps=[
+            {"id": "s1", "description": "第一步"},
+            {"id": "s2", "description": "第二步"},
+        ],
+    )
+    await plan_tools.approve_plan(ctx)
+    assert [step["status"] for step in ctx.plan.steps] == ["in_progress", "pending"]
+
+    callbacks = RecordingCallbacks()
+    registry = ToolRegistry()
+    registry.register(
+        **plan_tools.UPDATE_STEP_STATUS_SPEC,
+        handler=lambda **kw: plan_tools.update_step_status(ctx, **kw),
+    )
+    agent = Agent(
+        llm=FakeLLM(
+            [
+                _tool_resp(
+                    "update_step_status",
+                    step_id="s1",
+                    status="completed",
+                ),
+                _text_resp("全部完成"),
+            ]
+        ),
+        tool_router=ToolRouter(registry),
+        frame_service=frame_service,
+        frame=frame,
+        ctx=ctx,
+        plan_mode=True,
+        callbacks=callbacks,
+    )
+
+    result = await agent.run("继续执行已批准的计划。")
+
+    assert result.kind == RunResultKind.NATURAL
+    assert [step["status"] for step in ctx.plan.steps] == ["completed", "completed"]
+    assert any(
+        [step["status"] for step in update] == ["completed", "pending"]
+        for update in callbacks.plan_updates
+    )
+    assert [step["status"] for step in callbacks.plan_updates[-1]] == [
+        "completed",
+        "completed",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_ws_callback_serializes_plan_update_snapshot():
+    """SSE/WS 队列中的 plan_update 是完整且与后续突变隔离的快照。"""
+    from operon.tools.context import PlanState
+
+    callbacks = WSCallbacks()
+    plan = PlanState(
+        steps=[{"id": "s1", "description": "第一步", "status": "in_progress"}],
+        approved=True,
+        research_question="核心问题",
+    )
+
+    await callbacks.on_plan_update(plan)
+    event = callbacks.queue.get_nowait()
+    plan.steps[0]["status"] = "completed"
+
+    assert event["type"] == "plan_update"
+    assert event["plan"]["steps"][0]["status"] == "in_progress"
+    assert event["plan"]["research_question"] == "核心问题"
 
 
 @pytest.mark.asyncio

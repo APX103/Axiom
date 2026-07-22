@@ -10,9 +10,8 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-from fastapi import WebSocket
-
 from operon.agent.runner import AgentCallbacks
+from operon.api.events import plan_snapshot
 from operon.llm.messages import ToolResultBlock, ToolUseBlock
 
 
@@ -23,8 +22,7 @@ class WSCallbacks(AgentCallbacks):
     complete 事件由 router 在 run 结束时统一塞入 (带完整 plan/artifacts 快照)。
     """
 
-    def __init__(self, ws: WebSocket | None = None):
-        self.ws = ws
+    def __init__(self) -> None:
         self.queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue(maxsize=1000)
 
     async def _emit(self, event: dict[str, Any]) -> None:
@@ -74,6 +72,12 @@ class WSCallbacks(AgentCallbacks):
             }
         )
 
+    async def on_plan_update(self, plan: Any) -> None:
+        """推送执行中的完整 plan 快照，供前端实时刷新步骤状态。"""
+        snapshot = plan_snapshot(plan)
+        if snapshot is not None:
+            await self._emit({"type": "plan_update", "plan": snapshot})
+
     async def on_event(self, event: str, detail: str) -> None:
         await self._emit({"type": "notice", "event": event, "detail": detail})
 
@@ -82,12 +86,9 @@ class WSCallbacks(AgentCallbacks):
 
     async def emit_complete(self, result: Any, ctx: Any) -> None:
         """run 结束后发 complete 事件 (带 plan/artifacts 快照)。"""
-        plan_snapshot = None
+        current_plan = None
         if ctx is not None and ctx.plan.steps:
-            plan_snapshot = {
-                "steps": ctx.plan.steps,
-                "approved": ctx.plan.approved,
-            }
+            current_plan = plan_snapshot(ctx.plan)
         # ask_user 触发 awaiting=user_response 时, 把问题/选项带给前端渲染选择框。
         # 用户回答后这些会被清掉。
         pending_ask = None
@@ -106,7 +107,7 @@ class WSCallbacks(AgentCallbacks):
                 "usage": result.usage,
                 "iterations": result.iterations,
                 "frame_status": result.frame.status.value,
-                "plan": plan_snapshot,
+                "plan": current_plan,
                 "artifacts": ctx.artifacts if ctx else {},
             }
         )

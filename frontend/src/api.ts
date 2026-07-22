@@ -2,7 +2,18 @@
 // 开发时 Vite proxy /api → http://127.0.0.1:8000
 // Tauri 桌面壳会把后端端口注入到 window.__BACKEND_PORT__
 
-import type { SessionInfo, SkillInfo, McpServerStatus, MemoryInfo } from "./types";
+import type {
+  CompileResult,
+  McpServerStatus,
+  MemoryInfo,
+  PlanStep,
+  ProjectInfo,
+  SessionInfo,
+  SessionState,
+  SkillInfo,
+  TemplateInfo,
+  WSEvent,
+} from "./types";
 
 declare global {
   interface Window {
@@ -29,7 +40,7 @@ export function apiBase(): string {
   return getApiBase();
 }
 
-async function jfetch(url: string, opts?: RequestInit) {
+async function jfetch<T>(url: string, opts?: RequestInit): Promise<T> {
   const resp = await fetch(url, {
     ...opts,
     headers: { "Content-Type": "application/json", ...(opts?.headers || {}) },
@@ -38,7 +49,7 @@ async function jfetch(url: string, opts?: RequestInit) {
     const text = await resp.text();
     throw new Error(`${resp.status}: ${text}`);
   }
-  return resp.json();
+  return (await resp.json()) as T;
 }
 
 export async function health(): Promise<{ status: string }> {
@@ -90,7 +101,7 @@ export async function createSession(
 
 export async function listProjects(
   archived = false,
-): Promise<import("./types").ProjectInfo[]> {
+): Promise<ProjectInfo[]> {
   const q = archived ? "?archived=true" : "";
   return jfetch(`${getApiBase()}/projects${q}`);
 }
@@ -98,7 +109,7 @@ export async function listProjects(
 export async function createProject(
   name: string,
   description?: string,
-): Promise<import("./types").ProjectInfo> {
+): Promise<ProjectInfo> {
   return jfetch(`${getApiBase()}/projects`, {
     method: "POST",
     body: JSON.stringify({ name, description }),
@@ -108,7 +119,7 @@ export async function createProject(
 export async function updateProject(
   pid: string,
   patch: { name?: string; description?: string | null; last_session_id?: string },
-): Promise<import("./types").ProjectInfo> {
+): Promise<ProjectInfo> {
   return jfetch(`${getApiBase()}/projects/${encodeURIComponent(pid)}`, {
     method: "PATCH",
     body: JSON.stringify(patch),
@@ -141,34 +152,28 @@ export async function deleteProject(
   });
 }
 
-export async function approvePlan(sid: string): Promise<{ approved: boolean; steps: unknown[] }> {
+export async function approvePlan(sid: string): Promise<{
+  approved: boolean;
+  steps: PlanStep[];
+}> {
   return jfetch(`${getApiBase()}/sessions/${sid}/approve`, { method: "POST" });
 }
 
-export async function listTemplates(): Promise<import("./types").TemplateInfo[]> {
+export async function listTemplates(): Promise<TemplateInfo[]> {
   return jfetch(`${getApiBase()}/templates`);
 }
 
 export async function compilePdf(
   sid: string,
   path: string,
-): Promise<import("./types").CompileResult> {
+): Promise<CompileResult> {
   return jfetch(`${getApiBase()}/sessions/${sid}/compile`, {
     method: "POST",
     body: JSON.stringify({ path }),
   });
 }
 
-export async function getSessionState(sid: string): Promise<{
-  id: string;
-  frame_id: string | null;
-  status: string;
-  task_summary: string | null;
-  plan_mode: boolean;
-  plan: import("./types").PlanSnapshot | null;
-  artifacts: Record<string, import("./types").ArtifactInfo>;
-  messages: { role: string; content: unknown }[];
-}> {
+export async function getSessionState(sid: string): Promise<SessionState> {
   return jfetch(`${getApiBase()}/sessions/${sid}`);
 }
 
@@ -185,7 +190,7 @@ export async function deleteFile(sid: string, path: string): Promise<{ status: s
 // WebSocket 流式连接。对应 /api/sessions/{sid}/stream
 export function connectStream(
   sid: string,
-  onEvent: (e: import("./types").WSEvent) => void,
+  onEvent: (e: WSEvent) => void,
   onError?: (e: Event) => void
 ): { send: (prompt: string) => void; close: () => void } {
   const proto = "ws:";
@@ -222,7 +227,7 @@ export function connectStream(
 export function connectSSE(
   sid: string,
   prompt: string,
-  onEvent: (e: import("./types").WSEvent) => void,
+  onEvent: (e: WSEvent) => void,
   onError?: (err: unknown) => void,
   planMode?: boolean,
   deepReview?: boolean
@@ -291,9 +296,15 @@ export function connectSSE(
  */
 export async function openInFileManager(sid: string, path: string): Promise<void> {
   if (isTauri()) {
+    // workspace 可能来自历史设置或迁移，不能根据 sid 在 Rust 侧重新猜路径。
+    // sessions API 返回数据库中记录的真实 workspace，是这里唯一可靠的来源。
+    const session = (await listSessions()).find((item) => item.id === sid);
+    if (!session?.workspace) {
+      throw new Error(`找不到会话 ${sid} 的工作区`);
+    }
     // Tauri 桌面壳：调 Rust 命令在 Finder/Explorer 里打开文件所在目录
     const { invoke } = await import("@tauri-apps/api/core");
-    await invoke("open_in_file_manager", { sid, path });
+    await invoke("open_in_file_manager", { workspace: session.workspace, path });
     return;
   }
   // 浏览器回退：直接下载文件（浏览器无法打开本地目录）

@@ -147,6 +147,9 @@ export function useSession() {
           return [...m.slice(0, -1), updated];
         });
         break;
+      case "plan_update":
+        setPlan(e.plan);
+        break;
       case "notice":
         // 简化为系统消息
         setMessages((m) => [
