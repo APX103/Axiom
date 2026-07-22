@@ -67,6 +67,20 @@ function Workbench() {
   const [planMode, setPlanMode] = useState(false);
   const [deepReview, setDeepReview] = useState(false);
   const [sidebarTab, setSidebarTab] = useState<"sessions" | "files">("sessions");
+  // 左栏折叠 (受控; 折叠后整栏隐藏, 红绿灯与展开按钮并入主卡顶栏 — Z code 风格)
+  const [leftCollapsed, setLeftCollapsed] = useState(
+    () => localStorage.getItem("rs-collapsed-left") === "1"
+  );
+  const toggleLeftCollapsed = useCallback(() => {
+    setLeftCollapsed((v) => {
+      const next = !v;
+      try {
+        if (next) localStorage.setItem("rs-collapsed-left", "1");
+        else localStorage.removeItem("rs-collapsed-left");
+      } catch { /* ignore */ }
+      return next;
+    });
+  }, []);
   // 右栏折叠 (受控; 开关在主卡顶栏, 与 Z code 面板开关一致)
   const [rightCollapsed, setRightCollapsed] = useState(
     () => localStorage.getItem("rs-collapsed-right") === "1"
@@ -379,8 +393,16 @@ function Workbench() {
       <UpdateBanner />
       {/* 三栏主体 — macOS Overlay 标题栏: 红绿灯悬浮在左栏顶部, 无独立 titlebar */}
       <div className="flex-1 flex overflow-hidden">
-        {/* 左: 项目/会话侧边栏 */}
-        <ResizableSidebar side="left" defaultWidth={224} minWidth={180} maxWidth={400} storageKey="left">
+        {/* 左: 项目/会话侧边栏 (收起后整栏隐藏, 顶栏按钮并入主卡顶栏) */}
+        <ResizableSidebar
+          side="left"
+          defaultWidth={224}
+          minWidth={180}
+          maxWidth={400}
+          storageKey="left"
+          collapsed={leftCollapsed}
+          onToggleCollapsed={toggleLeftCollapsed}
+        >
           {(toggleCollapsed) => (
             <>
               {/* 顶行: 仅收起按钮; 整个左栏空白处都可拖拽窗口 (aside 上 deep drag-region),
@@ -523,13 +545,24 @@ function Workbench() {
           )}
         </ResizableSidebar>
 
-        {/* 中: 对话流 — 圆角卡片悬浮于窗口背景之上 (表层) */}
-        <main className="flex-1 flex flex-col min-w-0 relative app-main-card m-2">
-          {/* 卡内顶栏: 拖拽区 + 服务状态 / 模型 / 主题 / 设置 / 右栏开关; 底部一条稍实的线 */}
+        {/* 中: 对话流 — 圆角卡片悬浮于窗口背景之上 (表层);
+            左栏收起时顶到窗口顶, 红绿灯与展开按钮并入卡内顶栏 */}
+        <main className={`flex-1 flex flex-col min-w-0 relative app-main-card ${leftCollapsed ? "mx-2 mb-2" : "m-2"}`}>
+          {/* 卡内顶栏: 拖拽区 + (左栏收起时) 左栏开关 + 服务状态 / 模型 / 主题 / 设置 / 右栏开关 */}
           <div
             data-tauri-drag-region="deep"
-            className="h-10 flex items-center justify-end gap-1.5 px-3 shrink-0 edge-b"
+            className={`h-12 flex items-center gap-1.5 shrink-0 edge-b ${leftCollapsed ? "traffic-clear pl-2" : "px-3"}`}
           >
+            {leftCollapsed && (
+              <button
+                onClick={toggleLeftCollapsed}
+                className="ghost-icon-btn"
+                title="展开左栏"
+              >
+                <PanelLeftIcon />
+              </button>
+            )}
+            <div className="flex-1" />
             <BackendBadge status={backendStatus} />
             <ModelBadge config={config} />
             <button
@@ -1236,6 +1269,16 @@ function PanelRightIcon() {
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <rect x="3" y="3" width="18" height="18" rx="2" />
       <line x1="15" y1="3" x2="15" y2="21" />
+    </svg>
+  );
+}
+
+// 左侧面板开关图标 (左栏收起时显示在主卡顶栏左侧)
+function PanelLeftIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <line x1="9" y1="3" x2="9" y2="21" />
     </svg>
   );
 }

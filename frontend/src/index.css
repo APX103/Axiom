@@ -184,9 +184,9 @@ html.dark body {
   color: var(--muted);
 }
 
-/* macOS Overlay 标题栏: 收起窄条顶部避让红绿灯 (已内移) — 仅在 Tauri 内生效 */
-html.tauri .traffic-clear-top {
-  padding-top: 40px;
+/* macOS Overlay 标题栏: 左栏收起时主卡顶栏左侧避让红绿灯 (~76px) — 仅在 Tauri 内生效 */
+html.tauri .traffic-clear {
+  padding-left: 76px;
 }
 
 /* 滚动条 - 极细、半透明 */
