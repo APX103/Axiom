@@ -554,14 +554,17 @@ function Workbench() {
               <PanelRightIcon />
             </button>
           </div>
-          {/* Logo 水印: 衬在主区内容背后 (替代原左栏 Logo) */}
-          <div className="absolute inset-x-0 top-10 bottom-0 flex items-center justify-center pointer-events-none">
-            <LogoIcon width={220} height={220} className="text-faint opacity-[0.05]" />
-          </div>
-          <div
-            ref={scrollRef}
-            className="flex-1 overflow-y-auto px-6 py-6 pb-32 scroll-smooth"
-          >
+          {/* 卡体: 对话区 + 内嵌右栏 (右栏是主卡的右分区, 不是窗口级侧栏) */}
+          <div className="flex-1 flex min-h-0">
+            <section className="flex-1 flex flex-col min-w-0 relative">
+              {/* Logo 水印: 衬在主区内容背后 (替代原左栏 Logo) */}
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <LogoIcon width={220} height={220} className="text-faint opacity-[0.05]" />
+              </div>
+              <div
+                ref={scrollRef}
+                className="flex-1 overflow-y-auto px-6 py-6 pb-32 scroll-smooth"
+              >
             {session.messages.length === 0 ? (
               <Welcome onPick={(t) => setInput(t)} />
             ) : (
@@ -667,39 +670,40 @@ function Workbench() {
               </div>
             </div>
           </div>
-        </main>
+            </section>
 
-        {/* 右: 工作区 + 验证 — 与主卡同属表层; 开关在主卡顶栏, 折叠后整体隐藏 */}
-        <ResizableSidebar
-          side="right"
-          defaultWidth={256}
-          minWidth={200}
-          maxWidth={480}
-          storageKey="right"
-          floating
-          collapsed={rightCollapsed}
-          onToggleCollapsed={toggleRightCollapsed}
-        >
-          {() => (
-            <>
-              <div data-tauri-drag-region="false" className="flex-1 overflow-hidden">
-                <WorkspacePanel
-                  artifacts={session.artifacts}
-                  sid={sid}
-                  onViewPaper={() => setShowPaper(true)}
-                />
-              </div>
-              <div data-tauri-drag-region="false" className="flex-1 overflow-hidden">
-                <PlanPanel
-                  plan={session.plan}
-                  status={session.status}
-                  awaiting={session.awaiting}
-                  onApprove={onApprove}
-                />
-              </div>
-            </>
-          )}
-        </ResizableSidebar>
+            {/* 右: 工作区 + 验证 — 主卡内嵌右分区; 开关在卡内顶栏, 折叠后整体隐藏 */}
+            <ResizableSidebar
+              side="right"
+              defaultWidth={256}
+              minWidth={200}
+              maxWidth={480}
+              storageKey="right"
+              collapsed={rightCollapsed}
+              onToggleCollapsed={toggleRightCollapsed}
+            >
+              {() => (
+                <>
+                  <div data-tauri-drag-region="false" className="flex-1 overflow-hidden">
+                    <WorkspacePanel
+                      artifacts={session.artifacts}
+                      sid={sid}
+                      onViewPaper={() => setShowPaper(true)}
+                    />
+                  </div>
+                  <div data-tauri-drag-region="false" className="flex-1 overflow-hidden">
+                    <PlanPanel
+                      plan={session.plan}
+                      status={session.status}
+                      awaiting={session.awaiting}
+                      onApprove={onApprove}
+                    />
+                  </div>
+                </>
+              )}
+            </ResizableSidebar>
+          </div>
+        </main>
       </div>
 
       {showSettings && (
