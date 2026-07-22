@@ -55,11 +55,14 @@ fn inset_traffic_lights(ns_window_ptr: *mut std::ffi::c_void, x: f64, y: f64) {
     }
 }
 
-/// 红绿灯目标位置 (逻辑像素, 与前端布局对齐)
+/// 红绿灯目标位置 (逻辑像素, 与前端布局对齐)。
+/// 注意: macOS 默认 titlebar 容器高 = 按钮 14 + 系统 inset 18 = 32,
+/// 本实现容器高 = 14 + Y, 按钮在容器内位置不变, 所以要下移 D 像素需 Y = 18 + D。
+/// Y=26 → 按钮顶部距窗口顶 17px, 中线 y=24 (对齐飞书)。
 #[cfg(target_os = "macos")]
 const TRAFFIC_LIGHT_X: f64 = 18.0;
 #[cfg(target_os = "macos")]
-const TRAFFIC_LIGHT_Y: f64 = 16.0;
+const TRAFFIC_LIGHT_Y: f64 = 26.0;
 
 /// 获取一个稳定的工作目录。
 /// 生产环境 bundle 里没有固定 CWD, 所以退回到用户主目录, 避免文件写到 app bundle 里。
@@ -445,6 +448,19 @@ pub fn run() {
             #[cfg(target_os = "macos")]
             if let Ok(ptr) = window.ns_window() {
                 inset_traffic_lights(ptr, TRAFFIC_LIGHT_X, TRAFFIC_LIGHT_Y);
+            }
+            // 启动后 AppKit 还会因 webview 导航/首次布局把按钮复位, 延迟补排几次
+            #[cfg(target_os = "macos")]
+            {
+                let window_for_delay = window.clone();
+                tauri::async_runtime::spawn(async move {
+                    for delay_ms in [500u64, 1500, 4000] {
+                        tokio::time::sleep(std::time::Duration::from_millis(delay_ms)).await;
+                        if let Ok(ptr) = window_for_delay.ns_window() {
+                            inset_traffic_lights(ptr, TRAFFIC_LIGHT_X, TRAFFIC_LIGHT_Y);
+                        }
+                    }
+                });
             }
 
             // 启动后端; 前端自己会探测 /api/health, 所以这里不需要等健康检查。
