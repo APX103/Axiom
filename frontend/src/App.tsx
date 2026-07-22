@@ -462,29 +462,6 @@ function Workbench() {
                 )}
               </div>
 
-              {/* 论文模板选择 (新建会话时复制进工作区作为 main.tex preamble) */}
-              {templates.length > 0 && (
-                <div className="px-2.5 py-2">
-                  <div className="text-[10px] font-medium text-faint uppercase tracking-wider px-2 mb-1.5">
-                    论文模板
-                  </div>
-                  <div className="px-2">
-                    <select
-                      value={selectedTemplate}
-                      onChange={(e) => setSelectedTemplate(e.target.value)}
-                      title={templates.find((t) => t.id === selectedTemplate)?.description || ""}
-                      className="w-full px-2 py-1.5 rounded-md bg-page text-xs text-default border border-border focus:outline-none focus:border-accent"
-                    >
-                      {templates.map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.name} ({t.columns}栏)
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              )}
-
               <div className="px-2.5 py-2">
                 <div className="text-[10px] font-medium text-faint uppercase tracking-wider px-2 mb-1.5">工作区</div>
                 <nav className="space-y-0.5">
@@ -716,6 +693,9 @@ function Workbench() {
         <SettingsModal
           initial={config}
           onClose={() => setShowSettings(false)}
+          templates={templates}
+          selectedTemplate={selectedTemplate}
+          onSelectTemplate={setSelectedTemplate}
           onSave={(c) => {
             setConfig(c);
             setShowSettings(false);
