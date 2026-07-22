@@ -137,17 +137,10 @@ html.dark body {
   backdrop-filter: blur(24px) saturate(180%);
   -webkit-backdrop-filter: blur(24px) saturate(180%);
 }
-/* 贴边侧栏与主区间的 hairline 分界 */
-.app-sidebar.flush[data-side="left"] {
-  border-right: 1px solid var(--border-muted);
-}
-.app-sidebar.flush[data-side="right"] {
-  border-left: 1px solid var(--border-muted);
-}
-/* 浮动侧栏: 圆角卡片, 脱离窗口边缘 */
+/* 贴边侧栏不加分割线 — 靠底色/留白与主区分开 (Z code 式无线框设计) */
+/* 浮动侧栏: 圆角卡片, 脱离窗口边缘, 纯阴影分层不描边 */
 .app-sidebar.floating {
   margin: 8px 8px 8px 0;
-  border: 1px solid var(--border-muted);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-md);
   overflow: hidden;
@@ -157,12 +150,11 @@ html:not(.dark) .app-sidebar {
   background-color: rgb(247 248 252 / 0.62);
 }
 
-/* 主区圆角卡片 — 悬浮于窗口背景之上, 与侧栏/窗口边连成整体 */
+/* 主区圆角卡片 — 悬浮于窗口背景之上, 纯阴影分层不描边 */
 .app-main-card {
   background: rgb(var(--card) / 0.6);
   backdrop-filter: blur(24px) saturate(180%);
   -webkit-backdrop-filter: blur(24px) saturate(180%);
-  border: 1px solid var(--border-muted);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-md);
   overflow: hidden;

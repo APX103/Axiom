@@ -537,7 +537,7 @@ function Workbench() {
           {/* 卡内顶栏: 拖拽区 + 服务状态 / 模型 / 主题 / 设置 */}
           <div
             data-tauri-drag-region="deep"
-            className="h-10 flex items-center justify-end gap-1.5 px-3 shrink-0 hairline-b"
+            className="h-10 flex items-center justify-end gap-1.5 px-3 shrink-0"
           >
             <BackendBadge status={backendStatus} />
             <ModelBadge config={config} />
@@ -675,7 +675,7 @@ function Workbench() {
         <ResizableSidebar side="right" defaultWidth={256} minWidth={200} maxWidth={480} storageKey="right" floating>
           {(toggleCollapsed) => (
             <>
-              <div className="h-10 px-2 flex items-center justify-end hairline-b shrink-0">
+              <div className="h-10 px-2 flex items-center justify-end shrink-0">
                 <button
                   onClick={toggleCollapsed}
                   className="ghost-icon-btn"

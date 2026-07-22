@@ -72,13 +72,7 @@ export function ResizableSidebar({
           // 左栏收起成窄条时, 顶部留出 macOS 红绿灯高度, 避免展开按钮被挡住
           side === "left" ? "traffic-clear-top" : ""
         } ${className}`}
-        style={{
-          width: 40,
-          boxShadow:
-            side === "left"
-              ? "1px 0 0 0 rgba(15,23,42,0.04)"
-              : "-1px 0 0 0 rgba(15,23,42,0.04)",
-        }}
+        style={{ width: 40 }}
       >
         <button
           onClick={toggleCollapsed}
@@ -100,14 +94,7 @@ export function ResizableSidebar({
       className={`app-sidebar ${floating ? "floating" : "flush"} relative shrink-0 self-stretch bg-subtle flex flex-col ${
         isFunctionChildren ? "" : side === "left" ? "pr-10" : "pl-10"
       } ${className}`}
-      style={{
-        width,
-        boxShadow: floating
-          ? undefined
-          : side === "left"
-            ? "1px 0 0 0 rgba(15,23,42,0.04)"
-            : "-1px 0 0 0 rgba(15,23,42,0.04)",
-      }}
+      style={{ width }}
     >
       {isFunctionChildren ? children(toggleCollapsed) : children}
       {!isFunctionChildren && (
