@@ -369,16 +369,9 @@ function Workbench() {
         <ResizableSidebar side="left" defaultWidth={224} minWidth={180} maxWidth={400} storageKey="left">
           {(toggleCollapsed) => (
             <>
-              {/* 顶行: 红绿灯避让 + Logo + 收起按钮 (整行作为窗口拖拽区)
-                  行高 40px: macOS Overlay 红绿灯中线在 y≈20px, 与行内容中线对齐 */}
-              <div
-                data-tauri-drag-region
-                className="traffic-clear h-10 pl-2.5 pr-2 flex items-center gap-2 shrink-0"
-              >
-                <div className="w-6 h-6 rounded-md bg-accent/10 flex items-center justify-center shrink-0">
-                  <LogoIcon width={13} height={13} className="text-accent" />
-                </div>
-                <div className="font-semibold text-[13px] tracking-tight flex-1 select-none">Axiom</div>
+              {/* 顶行: 仅收起按钮; 整个左栏空白处都可拖拽窗口 (aside 上 deep drag-region),
+                  红绿灯已由 trafficLightPosition 内移, 无需再放 Logo 避让 */}
+              <div className="h-12 pr-2 flex items-center justify-end shrink-0">
                 <button
                   onClick={toggleCollapsed}
                   className="ghost-icon-btn"
@@ -501,7 +494,8 @@ function Workbench() {
                 </nav>
               </div>
 
-              <div className="flex-1 overflow-y-auto px-2.5 py-1 min-h-0">
+              {/* 会话/文件列表排除拖拽区: 避免点住条目误拖窗口、双击误最大化 */}
+              <div data-tauri-drag-region="false" className="flex-1 overflow-y-auto px-2.5 py-1 min-h-0">
                 {sidebarTab === "sessions" ? (
                   // Layer A.5: 按 currentProjectId 过滤 session 列表
                   (currentProjectId
@@ -543,7 +537,7 @@ function Workbench() {
         <main className="flex-1 flex flex-col min-w-0 relative app-main-card m-2">
           {/* 卡内顶栏: 拖拽区 + 服务状态 / 模型 / 主题 / 设置 */}
           <div
-            data-tauri-drag-region
+            data-tauri-drag-region="deep"
             className="h-10 flex items-center justify-end gap-1.5 px-3 shrink-0 hairline-b"
           >
             <BackendBadge status={backendStatus} />
@@ -562,6 +556,10 @@ function Workbench() {
             >
               <SettingsIcon />
             </button>
+          </div>
+          {/* Logo 水印: 衬在主区内容背后 (替代原左栏 Logo) */}
+          <div className="absolute inset-x-0 top-10 bottom-0 flex items-center justify-center pointer-events-none">
+            <LogoIcon width={220} height={220} className="text-faint opacity-[0.05]" />
           </div>
           <div
             ref={scrollRef}
@@ -687,14 +685,14 @@ function Workbench() {
                   <ChevronRightIcon width={14} height={14} />
                 </button>
               </div>
-              <div className="flex-1 overflow-hidden">
+              <div data-tauri-drag-region="false" className="flex-1 overflow-hidden">
                 <WorkspacePanel
                   artifacts={session.artifacts}
                   sid={sid}
                   onViewPaper={() => setShowPaper(true)}
                 />
               </div>
-              <div className="flex-1 overflow-hidden">
+              <div data-tauri-drag-region="false" className="flex-1 overflow-hidden">
                 <PlanPanel
                   plan={session.plan}
                   status={session.status}
@@ -978,7 +976,7 @@ function FileIcon({ path }: { path: string }) {
 // 只保留 Logo + 转圈, 不显示状态文字。
 function SplashScreen() {
   return (
-    <div data-tauri-drag-region className="h-full w-full flex flex-col items-center justify-center gap-5 bg-page animate-fade-in">
+    <div data-tauri-drag-region="deep" className="h-full w-full flex flex-col items-center justify-center gap-5 bg-page animate-fade-in">
       <div className="relative flex items-center justify-center">
         {/* 外圈柔和光晕 */}
         <div className="absolute w-20 h-20 rounded-2xl bg-accent/10 blur-xl" />
@@ -1097,10 +1095,6 @@ function Welcome({ onPick }: { onPick: (t: string) => void }) {
   ];
   return (
     <div className="h-full flex flex-col items-center justify-center text-center px-6 min-h-[60vh]">
-      <div className="w-16 h-16 rounded-2xl bg-accent/10 flex items-center justify-center mb-6">
-        <LogoIcon width={32} height={32} className="text-accent" />
-      </div>
-
       <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-accent/15 text-accent text-[10px] font-semibold uppercase tracking-wider mb-4">
         <SparkleIcon />
         AI Research Core

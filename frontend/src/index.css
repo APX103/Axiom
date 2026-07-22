@@ -185,10 +185,7 @@ html:not(.dark) .app-sidebar {
   color: var(--muted);
 }
 
-/* macOS Overlay 标题栏: 红绿灯 (~76×30px) 避让 — 仅在 Tauri 内生效 */
-html.tauri .traffic-clear {
-  padding-left: 76px;
-}
+/* macOS Overlay 标题栏: 收起窄条顶部避让红绿灯 (已由 trafficLightPosition 内移) — 仅在 Tauri 内生效 */
 html.tauri .traffic-clear-top {
   padding-top: 40px;
 }
