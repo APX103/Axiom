@@ -3,7 +3,7 @@
 // 支持月之亮面/暗面主题切换。
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { approvePlan, archiveProject, createProject, createSession, deleteFile, deleteSession, getSessionState, getSettings, health, listProjects, listSessions, listTemplates, updateProject, apiBase } from "./api";
+import { approvePlan, createProject, createSession, deleteFile, deleteSession, getSessionState, getSettings, health, listProjects, listSessions, listTemplates, updateProject, apiBase } from "./api";
 import { useSession } from "./hooks/useSession";
 import { useTheme } from "./hooks/useTheme";
 import { MessageView } from "./components/Message";
@@ -11,7 +11,8 @@ import { WorkspacePanel } from "./components/WorkspacePanel";
 import { PlanPanel } from "./components/PlanPanel";
 import { ResizableSidebar } from "./components/ResizableSidebar";
 import { ConfirmDialog } from "./components/ConfirmDialog";
-import { ArchivedProjectsModal } from "./components/ArchivedProjectsModal";
+import { ProjectFormModal } from "./components/ProjectFormModal";
+import { ProjectManagerModal, type ProjectManagerEvent } from "./components/ProjectManagerModal";
 import { SettingsModal, fromApiSettings, loadConfig, type FullConfig } from "./components/SettingsModal";
 import { PaperView } from "./components/PaperView";
 import { UpdateBanner } from "./components/UpdateBanner";
@@ -34,102 +35,6 @@ function usePaperRoute(): string | null {
   if (typeof window === "undefined") return null;
   const m = window.location.pathname.match(/^\/paper\/([^/]+)/);
   return m ? m[1] : null;
-}
-
-// Layer A.5: 新建/编辑 project 的小 modal (编辑模式传入 initial)
-function ProjectFormModal({
-  onClose,
-  onDone,
-  initial,
-}: {
-  onClose: () => void;
-  onDone: (p: ProjectInfo) => void;
-  initial?: ProjectInfo | null;
-}) {
-  const editing = !!initial;
-  const [name, setName] = useState(initial?.name ?? "");
-  const [description, setDescription] = useState(initial?.description ?? "");
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const submit = async () => {
-    if (!name.trim()) {
-      setError("项目名不能为空");
-      return;
-    }
-    setSubmitting(true);
-    setError(null);
-    try {
-      const desc = description.trim() || undefined;
-      if (editing && initial) {
-        const p = await updateProject(initial.id, {
-          name: name.trim(),
-          description: desc ?? null,
-        });
-        onDone(p);
-      } else {
-        const p = await createProject(name.trim(), desc);
-        onDone(p);
-      }
-    } catch (e) {
-      setError(String(e));
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div
-        className="bg-elevated rounded-xl border border-border shadow-2xl w-full max-w-md p-6"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h2 className="text-base font-semibold text-default mb-4">
-          {editing ? "编辑项目" : "新建项目"}
-        </h2>
-        <div className="space-y-3">
-          <label className="block">
-            <span className="text-xs text-muted">项目名 *</span>
-            <input
-              type="text"
-              value={name}
-              autoFocus
-              onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && submit()}
-              placeholder="如: kinase 142 位点研究"
-              className="mt-1 w-full px-3 py-2 bg-page rounded-md text-sm text-default border border-border focus:outline-none focus:border-accent"
-            />
-          </label>
-          <label className="block">
-            <span className="text-xs text-muted">描述 (可选)</span>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="这个项目做什么..."
-              rows={2}
-              className="mt-1 w-full px-3 py-2 bg-page rounded-md text-sm text-default border border-border focus:outline-none focus:border-accent resize-none"
-            />
-          </label>
-          {error && <div className="text-xs text-error">{error}</div>}
-        </div>
-        <div className="flex gap-2 mt-5">
-          <button
-            onClick={onClose}
-            className="flex-1 py-2 rounded-lg bg-page text-sm text-muted hover:bg-hover transition-colors"
-          >
-            取消
-          </button>
-          <button
-            onClick={submit}
-            disabled={submitting || !name.trim()}
-            className="flex-1 py-2 rounded-lg bg-accent text-inverse text-sm font-medium hover:bg-accent-hover disabled:opacity-50 transition-colors"
-          >
-            {submitting ? (editing ? "保存中..." : "创建中...") : (editing ? "保存" : "创建")}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 export default function App() {
@@ -169,12 +74,8 @@ function Workbench() {
   // 编辑模式时传入的 project; null=新建
   const [projectModalInitial, setProjectModalInitial] = useState<ProjectInfo | null>(null);
   const [projectDropdownOpen, setProjectDropdownOpen] = useState(false);
-  // 下拉项 ⋯ 菜单: 当前展开的 project id
-  const [projectMenuOpenId, setProjectMenuOpenId] = useState<string | null>(null);
-  // 归档确认弹窗的目标 project
-  const [archiveTarget, setArchiveTarget] = useState<ProjectInfo | null>(null);
-  // 已归档项目管理弹窗
-  const [showArchivedModal, setShowArchivedModal] = useState(false);
+  // 独立项目管理面板 (新建/重命名/归档/恢复/删除的统一入口)
+  const [showProjectManager, setShowProjectManager] = useState(false);
   // 论文模板 (新建会话时复制进工作区作为 main.tex preamble)
   const [templates, setTemplates] = useState<TemplateInfo[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<string>("article");
@@ -220,7 +121,10 @@ function Workbench() {
         }
       }
       return list;
-    } catch {
+    } catch (e) {
+      // 后端启动期可能还未就绪, 此处静默失败; 后端转为 online 后会在下方 effect 里重试。
+      // 记录 warn 便于排查 (不弹 UI, 避免启动期网络错误刷屏)。
+      console.warn("[refreshProjects] failed:", e);
       return [];
     }
   }, []);
@@ -276,6 +180,9 @@ function Workbench() {
 
           if (!restoredRef.current) {
             restoredRef.current = true;
+            // 后端刚就绪: 刷新项目列表。挂载时的 refreshProjects 可能在后端未启动时就失败了,
+            // 这里补上, 确保 Tauri 慢启动场景下项目列表能正确加载。
+            void refreshProjects();
             refreshSessionList().then(async (list) => {
               const savedSid = loadSid();
               if (savedSid && list.some((s) => s.id === savedSid)) {
@@ -446,6 +353,13 @@ function Workbench() {
     }
   };
 
+  // Tauri 桌面端: 后端启动前显示全屏 splash, 就绪后再展示主界面。
+  // 浏览器模式后端走代理立即可用, 跳过 splash 避免闪烁。
+  const isTauri = typeof window !== "undefined" && !!window.__TAURI_INTERNALS__;
+  if (isTauri && backendStatus !== "online") {
+    return <SplashScreen status={backendStatus} />;
+  }
+
   return (
     <div className="h-full flex flex-col bg-page text-default theme-transition">
       <UpdateBanner />
@@ -518,80 +432,32 @@ function Workbench() {
                 </button>
                 {projectDropdownOpen && (
                   <>
-                    {/* 点击外部关闭下拉 + ⋯ 菜单 */}
+                    {/* 点击外部关闭下拉 */}
                     <div
                       className="fixed inset-0 z-10"
-                      onClick={() => {
-                        setProjectDropdownOpen(false);
-                        setProjectMenuOpenId(null);
-                      }}
+                      onClick={() => setProjectDropdownOpen(false)}
                     />
                     <div className="absolute left-2.5 right-2.5 top-full mt-1 z-20 rounded-md bg-elevated border border-border shadow-lg overflow-visible">
                       {projects.map((p) => (
-                        <div
+                        <button
                           key={p.id}
-                          className="relative group flex items-center justify-between"
-                          onMouseLeave={() => {
-                            // 鼠标离开整行时收起 ⋯ 菜单
-                            if (projectMenuOpenId === p.id) setProjectMenuOpenId(null);
+                          onClick={() => {
+                            setCurrentProjectId(p.id);
+                            localStorage.setItem("axiom_current_project_id", p.id);
+                            setProjectDropdownOpen(false);
                           }}
+                          className={`w-full px-2.5 py-2 text-left text-xs flex items-center justify-between gap-2 transition-colors ${
+                            p.id === currentProjectId
+                              ? "bg-accent/15 text-accent"
+                              : "text-default hover:bg-hover"
+                          }`}
                         >
-                          <button
-                            onClick={() => {
-                              setCurrentProjectId(p.id);
-                              localStorage.setItem("axiom_current_project_id", p.id);
-                              setProjectDropdownOpen(false);
-                            }}
-                            className={`flex-1 px-2.5 py-2 text-left text-xs flex items-center justify-between gap-2 transition-colors ${
-                              p.id === currentProjectId
-                                ? "bg-accent/15 text-accent"
-                                : "text-default hover:bg-hover"
-                            }`}
-                          >
-                            <span className="truncate">{p.name}</span>
-                            <span className="text-[10px] text-faint shrink-0">{p.session_count}</span>
-                          </button>
-                          {/* 默认项目不显示 ⋯ (受保护, 不可改名/归档) */}
-                          {!p.is_default && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setProjectMenuOpenId(projectMenuOpenId === p.id ? null : p.id);
-                              }}
-                              className={`absolute right-1 top-1/2 -translate-y-1/2 w-5 h-5 rounded flex items-center justify-center text-faint hover:text-default hover:bg-hover transition-colors ${
-                                projectMenuOpenId === p.id ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-                              }`}
-                              title="项目操作"
-                            >
-                              <DotsVerticalIcon width={12} height={12} />
-                            </button>
-                          )}
-                          {projectMenuOpenId === p.id && (
-                            <div className="absolute right-0 top-full z-30 mt-0.5 w-28 rounded-md bg-elevated border border-border shadow-lg overflow-hidden">
-                              <button
-                                onClick={() => {
-                                  setProjectMenuOpenId(null);
-                                  setProjectDropdownOpen(false);
-                                  setProjectModalInitial(p);
-                                  setShowProjectModal(true);
-                                }}
-                                className="w-full px-2.5 py-1.5 text-left text-xs text-default hover:bg-hover transition-colors"
-                              >
-                                重命名…
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setProjectMenuOpenId(null);
-                                  setProjectDropdownOpen(false);
-                                  setArchiveTarget(p);
-                                }}
-                                className="w-full px-2.5 py-1.5 text-left text-xs text-error hover:bg-error/10 transition-colors"
-                              >
-                                归档…
-                              </button>
-                            </div>
-                          )}
-                        </div>
+                          <span className="truncate flex items-center gap-1.5">
+                            {p.is_default && <span className="w-1.5 h-1.5 rounded-full bg-accent shrink-0" />}
+                            {p.name}
+                          </span>
+                          <span className="text-[10px] text-faint shrink-0">{p.session_count}</span>
+                        </button>
                       ))}
                       <div className="border-t border-border">
                         <button
@@ -608,12 +474,12 @@ function Workbench() {
                         <button
                           onClick={() => {
                             setProjectDropdownOpen(false);
-                            setShowArchivedModal(true);
+                            setShowProjectManager(true);
                           }}
                           className="w-full px-2.5 py-2 text-left text-xs text-muted hover:bg-hover flex items-center gap-1.5 transition-colors"
                         >
-                          <ArchiveIcon width={12} height={12} />
-                          已归档项目...
+                          <ProjectsIcon width={12} height={12} />
+                          项目管理...
                         </button>
                       </div>
                     </div>
@@ -837,13 +703,7 @@ function Workbench() {
       </div>
 
       {/* 底部状态栏 - SciForge 风格 */}
-      <footer className="app-footer h-7 bg-subtle flex items-center justify-between px-3 text-[11px] text-faint shrink-0 shadow-[0_-1px_0_0_rgba(15,23,42,0.04)]">
-        <div className="flex items-center gap-3">
-          <span className="flex items-center gap-1.5">
-            <GitBranchIcon />
-            No Git repo
-          </span>
-        </div>
+      <footer className="app-footer h-7 bg-subtle flex items-center justify-end px-3 text-[11px] text-faint shrink-0 shadow-[0_-1px_0_0_rgba(15,23,42,0.04)]">
         <div className="flex items-center gap-3">
           <BackendStatusText status={backendStatus} />
           <span>Local runtime</span>
@@ -884,39 +744,15 @@ function Workbench() {
         />
       )}
 
-      {/* 归档确认弹窗 */}
-      {archiveTarget && (
-        <ConfirmDialog
-          title="归档项目"
-          message={`确定归档「${archiveTarget.name}」?归档后该项目及其会话从侧栏隐藏,可在「已归档项目」中恢复。`}
-          confirmLabel="归档"
-          onConfirm={async () => {
-            await archiveProject(archiveTarget.id);
-            const targetId = archiveTarget.id;
-            setArchiveTarget(null);
-            // 若归档的是当前 project, 切回默认
-            if (currentProjectId === targetId) {
-              const def = projects.find((p) => p.is_default);
-              if (def) {
-                setCurrentProjectId(def.id);
-                localStorage.setItem("axiom_current_project_id", def.id);
-              }
-            }
-            await refreshProjects();
-          }}
-          onCancel={() => setArchiveTarget(null)}
-        />
-      )}
-
-      {/* 已归档项目管理弹窗 */}
-      {showArchivedModal && (
-        <ArchivedProjectsModal
-          onClose={() => setShowArchivedModal(false)}
-          onChanged={async ({ action, project }) => {
-            // 恢复后自动切到该项目, 删除则切回默认
-            if (action === "unarchive" && project) {
-              setCurrentProjectId(project.id);
-              localStorage.setItem("axiom_current_project_id", project.id);
+      {/* 独立项目管理面板: 新建/重命名/归档/恢复/删除的统一入口 */}
+      {showProjectManager && (
+        <ProjectManagerModal
+          onClose={() => setShowProjectManager(false)}
+          currentProjectId={currentProjectId}
+          onChanged={async ({ switchTo }) => {
+            if (switchTo) {
+              setCurrentProjectId(switchTo);
+              localStorage.setItem("axiom_current_project_id", switchTo);
             }
             await refreshProjects();
           }}
@@ -1130,6 +966,32 @@ function FileIcon({ path }: { path: string }) {
       <path d="M16 17H8" />
       <path d="M10 9H8" />
     </svg>
+  );
+}
+
+// 全屏启动屏: Tauri 桌面端后端启动期间显示, 就绪后由 App 切换到主界面。
+// 复用 LogoIcon + SpinnerIcon, 文案随状态变化 (checking/waiting → 启动中…/等待后端服务)。
+function SplashScreen({ status }: { status: BackendStatus }) {
+  const text =
+    status === "offline"
+      ? "服务离线,正在重连…"
+      : status === "waiting"
+      ? "等待后端服务…"
+      : "启动中…";
+  return (
+    <div className="h-full w-full flex flex-col items-center justify-center gap-5 bg-page animate-fade-in">
+      <div className="relative flex items-center justify-center">
+        {/* 外圈柔和光晕 */}
+        <div className="absolute w-20 h-20 rounded-2xl bg-accent/10 blur-xl" />
+        <div className="relative w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center shadow-lg">
+          <LogoIcon width={30} height={30} className="text-white" />
+        </div>
+      </div>
+      <div className="flex flex-col items-center gap-2.5">
+        <SpinnerIcon className="w-4 h-4 text-accent" />
+        <div className="text-sm text-muted">{text}</div>
+      </div>
+    </div>
   );
 }
 
@@ -1372,24 +1234,11 @@ function ChevronDownIcon({ width = 14, height = 14, className = "" }: { width?: 
   );
 }
 
-// 竖三点菜单图标 (project 下拉项右侧的操作入口)
-function DotsVerticalIcon({ width = 14, height = 14 }: { width?: number; height?: number }) {
-  return (
-    <svg width={width} height={height} viewBox="0 0 24 24" fill="currentColor">
-      <circle cx="12" cy="5" r="1.6" />
-      <circle cx="12" cy="12" r="1.6" />
-      <circle cx="12" cy="19" r="1.6" />
-    </svg>
-  );
-}
-
-// 归档箱图标 (已归档项目入口)
-function ArchiveIcon({ width = 14, height = 14 }: { width?: number; height?: number }) {
+// 项目管理图标 (项目管理入口)
+function ProjectsIcon({ width = 14, height = 14 }: { width?: number; height?: number }) {
   return (
     <svg width={width} height={height} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="21 8 21 21 3 21 3 8" />
-      <rect x="1" y="3" width="22" height="5" />
-      <line x1="10" y1="12" x2="14" y2="12" />
+      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
     </svg>
   );
 }
@@ -1434,13 +1283,3 @@ function SparkleIcon() {
   );
 }
 
-function GitBranchIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="6" y1="3" x2="6" y2="15" />
-      <circle cx="18" cy="6" r="3" />
-      <circle cx="6" cy="18" r="3" />
-      <path d="M18 9a9 9 0 0 1-9 9" />
-    </svg>
-  );
-}

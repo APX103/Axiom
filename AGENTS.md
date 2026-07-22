@@ -24,11 +24,10 @@
 ## Build & Release
 
 - macOS app: run `bash scripts/build_mac_app.sh`.
-- Frontend UI variants: `classic` (default) and `v2` (modern aurora-glass theme).
-  - Dev: `cd frontend && bun run dev` / `bun run dev:v2`
-  - Build: `cd frontend && bun run build` / `bun run build:v2`
-  - macOS app: `UI_VARIANT=v2 bash scripts/build_mac_app.sh`
-  - Implementation: build-time flag `VITE_UI_VARIANT`; `main.tsx` adds `ui-v2` class to `<html>`, all v2 styles live scoped in `frontend/src/v2/theme-v2.css`.
+- Frontend UI: single "Aurora Glass" theme (styles in `frontend/src/index.css`).
+  - Dev: `cd frontend && bun run dev`
+  - Build: `cd frontend && bun run build`
+  - macOS app: `bash scripts/build_mac_app.sh`
 - Bump version in all relevant files before a release:
   - `pyproject.toml`
   - `frontend/package.json`
