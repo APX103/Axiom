@@ -598,7 +598,7 @@ function Workbench() {
               )}
           </div>
 
-          {/* 悬浮输入区 - SciForge 风格药丸条 */}
+          {/* 悬浮输入区 - 药丸条 */}
           <div className="absolute bottom-5 left-0 right-0 px-6">
             <div className="max-w-3xl mx-auto">
               <div className="floating-input p-2">

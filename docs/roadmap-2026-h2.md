@@ -2,7 +2,7 @@
 
 > 三件真正有品味的事。
 >
-> 起源：调研 SciForge Evidence DAG → 讨论"AI 时代科研验证的本质" → 讨论"AI 品味如何提升"
+> 起源：讨论"AI 时代科研验证的本质" → 讨论"AI 品味如何提升"
 > → 用户问出最致命的问题："既然是 skills，我直接用 Codex + skills 不就好了吗？Axiom 凭什么存在？"
 >
 > 这个问题筛掉了之前所有 commodity 层的方向（idea-stress-test / claim-falsifier /

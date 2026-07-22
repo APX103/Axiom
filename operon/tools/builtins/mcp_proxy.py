@@ -9,8 +9,8 @@ session 创建时:
 3. 工具数 > threshold: register_mcp_search_tools 只注册 mcp_search / mcp_call
    元工具, 避免每轮把所有 MCP schema 塞进 LLM 请求撑爆 context
 
-阈值切换的动机: SciForge 用 mcp_search/mcp_describe/mcp_call 三件套解决 MCP
-工具爆炸, 我们简化成 search/call 两件 (describe 内联到 search 结果里)。
+阈值切换的动机: MCP 工具数爆炸时, 改用 mcp_search / mcp_call 两件套元工具
+(describe 信息内联到 search 结果里), 避免把所有 schema 塞进 LLM 请求撑爆 context。
 """
 
 from __future__ import annotations

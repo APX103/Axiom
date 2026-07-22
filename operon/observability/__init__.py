@@ -6,7 +6,7 @@
 2. 结构化 trace 记录器: append-only JSONL, 记录 LLM 调用、工具调用的 span,
    用于调试 agent 行为 (长会话出问题时回溯"为什么卡住"、"为什么这个工具调了 5 次")。
 
-设计立场 (区别于 SciForge full-trace):
+设计立场 (轻量 trace, 不做全量采集):
 - 只做后端落盘, 不接前端流 (保守起步, 先服务调试)
 - JSONL 而非 SQLite (避免 schema 迁移负担, append-only 天然适合)
 - 默认关闭 (enabled=False), 避免性能影响
