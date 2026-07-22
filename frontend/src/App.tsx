@@ -429,7 +429,6 @@ function Workbench() {
                           }`}
                         >
                           <span className="truncate flex items-center gap-1.5">
-                            {p.is_default && <span className="w-1.5 h-1.5 rounded-full bg-accent shrink-0" />}
                             {p.name}
                           </span>
                           <span className="text-[10px] text-faint shrink-0">{p.session_count}</span>
