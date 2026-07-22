@@ -81,7 +81,7 @@ export function ResizableSidebar({
       <div
         data-side={side}
         data-tauri-drag-region="deep"
-        className={`app-sidebar flush shrink-0 self-stretch bg-subtle flex flex-col items-center py-3 ${
+        className={`app-sidebar flush shrink-0 self-stretch flex flex-col items-center py-3 ${
           // 左栏收起成窄条时, 顶部留出 macOS 红绿灯高度, 避免展开按钮被挡住
           side === "left" ? "traffic-clear-top" : ""
         } ${className}`}
@@ -104,7 +104,7 @@ export function ResizableSidebar({
     <aside
       data-side={side}
       data-tauri-drag-region="deep"
-      className={`app-sidebar ${floating ? "floating" : "flush"} relative shrink-0 self-stretch bg-subtle flex flex-col ${
+      className={`app-sidebar ${floating ? "floating" : "flush"} relative shrink-0 self-stretch flex flex-col ${
         isFunctionChildren ? "" : side === "left" ? "pr-10" : "pl-10"
       } ${className}`}
       style={{ width }}
