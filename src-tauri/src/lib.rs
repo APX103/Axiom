@@ -21,12 +21,12 @@ struct AppState {
 
 /// 红绿灯目标位置 (逻辑像素, 与前端布局对齐)。
 /// 注意: macOS 默认 titlebar 容器高 = 按钮 14 + 系统 inset 18 = 32,
-/// 本实现容器高 = 14 + Y, 按钮在容器内位置不变, 所以要下移 D 像素需 Y = 18 + D。
-/// Y=26 → 按钮顶部距窗口顶 17px, 中线 y=24 (对齐飞书)。
+/// 本实现容器高 = 14 + Y, 按钮在容器内位置不变 (底距 9), 按钮中线 = Y - 2。
+/// Y=34 → 中线 y=32, 与 48px 顶栏 (卡顶 y=8) / 64px 左栏顶行的内容中线对齐。
 #[cfg(target_os = "macos")]
 const TRAFFIC_LIGHT_X: f64 = 18.0;
 #[cfg(target_os = "macos")]
-const TRAFFIC_LIGHT_Y: f64 = 26.0;
+const TRAFFIC_LIGHT_Y: f64 = 34.0;
 
 /// macOS: 把红绿灯 (close/mini/zoom) 向右下内移 (幂等)。
 /// tao 自带的 traffic_light_inset 依赖 content view 的 drawRect 重排,

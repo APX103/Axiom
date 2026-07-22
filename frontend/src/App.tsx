@@ -405,9 +405,9 @@ function Workbench() {
         >
           {(toggleCollapsed) => (
             <>
-              {/* 顶行: 仅收起按钮; 整个左栏空白处都可拖拽窗口 (aside 上 deep drag-region),
-                  红绿灯已由 trafficLightPosition 内移, 无需再放 Logo 避让 */}
-              <div className="h-12 pr-2 flex items-center justify-end shrink-0">
+              {/* 顶行: 仅收起按钮; 整个左栏空白处都可拖拽窗口 (aside 上 deep drag-region)。
+                  高 64px: 内容中线 y=32, 与红绿灯中线 (Y=34) 对齐, 下方内容整体下移 */}
+              <div className="h-16 pr-2 flex items-center justify-end shrink-0">
                 <button
                   onClick={toggleCollapsed}
                   className="ghost-icon-btn"
@@ -549,11 +549,11 @@ function Workbench() {
             左栏收起时红绿灯与展开按钮并入卡内顶栏 (卡片 margin 不变) */}
         <main className="flex-1 flex flex-col min-w-0 relative app-main-card m-2">
           {/* 卡内顶栏: 拖拽区 + (左栏收起时) 左栏开关 + 服务状态 / 模型 / 主题 / 设置 / 右栏开关
-              左栏收起时 h-8: 卡顶 y=8, 内容中线 y=24, 与红绿灯中线严格对齐 */}
+              高度 48px: 卡顶 y=8, 内容中线 y=32, 与红绿灯中线 (Y=34 → y=32) 对齐 */}
           <div
             data-tauri-drag-region="deep"
-            className={`flex items-center gap-1.5 shrink-0 edge-b ${
-              leftCollapsed ? "traffic-clear h-8 pl-2" : "h-12 px-3"
+            className={`h-12 flex items-center gap-1.5 shrink-0 edge-b ${
+              leftCollapsed ? "traffic-clear pl-2" : "px-3"
             }`}
           >
             {leftCollapsed && (
