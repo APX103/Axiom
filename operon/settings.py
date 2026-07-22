@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import uuid
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
@@ -80,12 +81,40 @@ def mask_key(key: str | None) -> str:
     return f"{key[:4]}****{key[-4:]}"
 
 
+def mask_header_value(value: str | None) -> str:
+    """脱敏 header 值; "Bearer <token>" 形式保留前缀, 只脱敏 token 部分。"""
+    if value and value.startswith("Bearer "):
+        return "Bearer " + mask_key(value[len("Bearer "):])
+    return mask_key(value)
+
+
 def unmask_key(new_value: str, old_value: str | None) -> str:
-    """前端提交 mask 值时保持旧值不变, 否则使用新值。"""
+    """前端提交 mask 值时保持旧值不变, 否则使用新值。
+
+    Bearer-aware: "Bearer <masked token>" 也能匹配回 "Bearer <real token>"。
+    """
+    if old_value and old_value.startswith("Bearer "):
+        token = old_value[len("Bearer "):]
+        if new_value == "Bearer " + mask_key(token):
+            return old_value
     masked_old = mask_key(old_value)
     if new_value == masked_old:
         return old_value or ""
     return new_value
+
+
+def unmask_from_candidates(value: str | None, candidates: Iterable[str | None]) -> str | None:
+    """value 若是 candidates 中某个真实值的脱敏形式, 返回真实值; 否则原样返回。
+
+    前端只能拿到脱敏后的 key (GET /api/settings), 切换/保存后可能把脱敏值原样送回;
+    真正使用 key 的地方 (如建会话) 需要用本函数先还原。
+    """
+    if not value:
+        return value
+    for real in candidates:
+        if real and unmask_key(value, real) == real:
+            return real
+    return value
 
 
 def mask_app_settings(settings: AppSettings) -> AppSettings:
@@ -95,7 +124,7 @@ def mask_app_settings(settings: AppSettings) -> AppSettings:
     ]
     masked_mcps = []
     for s in settings.mcp_servers:
-        masked_headers = {k: mask_key(v) for k, v in s.headers.items()}
+        masked_headers = {k: mask_header_value(v) for k, v in s.headers.items()}
         masked_mcps.append(s.model_copy(update={"headers": masked_headers}))
     masked_api_keys = {k: mask_key(v) for k, v in settings.api_keys.items()}
     return settings.model_copy(

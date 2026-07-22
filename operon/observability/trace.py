@@ -1,6 +1,6 @@
 """Trace 记录器。
 
-设计原则 (区别于 SciForge full-trace):
+设计原则 (轻量 trace, 不做全量采集):
 - 轻量: 只落 JSONL, 不入 SQLite (避免 schema 迁移负担)
 - 异步安全: 用 threading.Lock 保护文件写入 (agent 在 asyncio loop 里跑, 但
   工具可能起线程池; 不上 asyncio.Lock 是为了不让 IO 阻塞 event loop)

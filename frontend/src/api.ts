@@ -88,8 +88,11 @@ export async function createSession(
 
 // ---- Project (Layer A.5) ----
 
-export async function listProjects(): Promise<import("./types").ProjectInfo[]> {
-  return jfetch(`${getApiBase()}/projects`);
+export async function listProjects(
+  archived = false,
+): Promise<import("./types").ProjectInfo[]> {
+  const q = archived ? "?archived=true" : "";
+  return jfetch(`${getApiBase()}/projects${q}`);
 }
 
 export async function createProject(
@@ -104,7 +107,7 @@ export async function createProject(
 
 export async function updateProject(
   pid: string,
-  patch: { name?: string; description?: string; last_session_id?: string },
+  patch: { name?: string; description?: string | null; last_session_id?: string },
 ): Promise<import("./types").ProjectInfo> {
   return jfetch(`${getApiBase()}/projects/${encodeURIComponent(pid)}`, {
     method: "PATCH",
@@ -112,10 +115,26 @@ export async function updateProject(
   });
 }
 
+export async function archiveProject(
+  pid: string,
+): Promise<{ id: string; archived: boolean }> {
+  return jfetch(`${getApiBase()}/projects/${encodeURIComponent(pid)}/archive`, {
+    method: "POST",
+  });
+}
+
+export async function unarchiveProject(
+  pid: string,
+): Promise<{ id: string; archived: boolean }> {
+  return jfetch(`${getApiBase()}/projects/${encodeURIComponent(pid)}/unarchive`, {
+    method: "POST",
+  });
+}
+
 export async function deleteProject(
   pid: string,
   force = false,
-): Promise<{ id: string; deleted: boolean }> {
+): Promise<{ id: string; deleted: boolean; sessions_detached: number }> {
   const q = force ? "?force=true" : "";
   return jfetch(`${getApiBase()}/projects/${encodeURIComponent(pid)}${q}`, {
     method: "DELETE",

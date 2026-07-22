@@ -44,6 +44,7 @@ async def init_engine(db_url: str, *, echo: bool = False) -> AsyncEngine:
         await _migrate_add_plan_data(conn)
         await _migrate_memory_layer_a(conn)
         await _migrate_add_project_id(conn)
+        await _migrate_add_project_archived(conn)
     return engine
 
 
@@ -198,9 +199,13 @@ async def _migrate_add_project_id(conn) -> None:
                 from datetime import UTC, datetime
 
                 now = datetime.now(UTC).isoformat()
+                # 注意: 显式带 archived=0, 否则在 _migrate_add_project_archived
+                # 之后 (或新建库时 create_all 已建出 archived NOT NULL 列) 会触发
+                # NOT NULL constraint failed。
                 sync_conn.exec_driver_sql(
-                    "INSERT INTO projects (id, name, description, created_at, updated_at) "
-                    "VALUES (?, ?, ?, ?, ?)",
+                    "INSERT INTO projects "
+                    "(id, name, description, created_at, updated_at, archived) "
+                    "VALUES (?, ?, ?, ?, ?, 0)",
                     (DEFAULT_PROJECT_ID, DEFAULT_PROJECT_NAME, None, now, now),
                 )
 
@@ -225,6 +230,33 @@ async def _migrate_add_project_id(conn) -> None:
     except Exception as e:
         logger.warning(
             "migration _migrate_add_project_id failed (will retry next launch): %s", e
+        )
+
+
+async def _migrate_add_project_archived(conn) -> None:
+    """Project 软删除字段: projects 表加 archived 列 (BOOLEAN DEFAULT 0 NOT NULL)。
+
+    老库所有 project 默认 archived=0 (未归档)。迁移幂等, 失败不阻断启动。
+    """
+    try:
+        from sqlalchemy import inspect
+
+        def _check_and_add(sync_conn):
+            inspector = inspect(sync_conn)
+            cols = {c["name"] for c in inspector.get_columns("projects")}
+            if "archived" not in cols:
+                sync_conn.exec_driver_sql(
+                    "ALTER TABLE projects ADD COLUMN archived BOOLEAN "
+                    "DEFAULT 0 NOT NULL"
+                )
+
+        await conn.run_sync(_check_and_add)
+        logger.info("migration _migrate_add_project_archived: ok")
+    except Exception as e:
+        logger.warning(
+            "migration _migrate_add_project_archived failed "
+            "(will retry next launch): %s",
+            e,
         )
 
 

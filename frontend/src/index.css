@@ -5,85 +5,91 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================================================
+   Axiom UI — "Aurora Glass" 现代主题 (松绿/青玉色系)
+   原 v2 主题已合并为此处的唯一主题 (classic 主题已移除)。
+   对比度目标: 正文 ≥ 4.5:1, UI 强调色/图形 ≥ 3:1 (WCAG AA), 亮暗两态均满足。
+   ========================================================================== */
+
 @layer base {
   :root {
-    /* 亮面: 蓝灰白底, 高对比度文字, 清晰边框 */
-    --page: 248 250 252;          /* slate-50 #f8fafc */
-    --subtle: 255 255 255;        /* 纯白面板 */
-    --card: 255 255 255;          /* 卡片 */
-    --elevated: 255 255 255;      /* 浮起 */
-    --hover: 226 232 240;         /* slate-200 — 可见的 hover 背景 */
-    --code: #1e293b;              /* slate-800 — 代码块底色 */
+    /* 亮态 token —— 冷调浅灰底, 高对比度文字 */
+    --page: 244 245 248;          /* #f4f5f8 冷调浅灰 */
+    --subtle: 255 255 255;
+    --card: 255 255 255;
+    --elevated: 255 255 255;
+    --hover: 231 233 240;         /* #e7e9f0 冷调 hover */
+    --code: #1b1d26;              /* 代码块底色 (始终深色) */
 
-    --default: #0f172a;           /* slate-900 */
-    --muted: #475569;             /* slate-600 — 提高对比度 */
-    --faint: #64748b;             /* slate-500 — 从 slate-400 提亮 */
+    --default: #1a1b1e;           /* 15.9:1 on page */
+    --muted: #4d5261;             /* 7.4:1 */
+    --faint: #646c7a;             /* 4.7:1 on page */
     --inverse: #ffffff;
-    --link: #0284c7;              /* sky-600 — 亮面下更深, 可读 */
+    --link: #115e59;              /* 7.6:1 */
 
-    --border-default: rgba(15, 23, 42, 0.12);   /* 从 0.06 提到 0.12 */
-    --border-muted: rgba(15, 23, 42, 0.08);
-    --border-focus: #0ea5e9;
+    --border-default: rgb(23 25 45 / 0.10);
+    --border-muted: rgb(23 25 45 / 0.06);
+    --border-focus: #0d9488;      /* teal-600 — 3.8:1 */
 
-    --accent: #0ea5e9;            /* sky-500 */
-    --accent-hover: #0284c7;      /* sky-600 */
-    --accent-secondary: #f59e0b;
-    --accent-secondary-hover: #d97706;
+    --accent: #115e59;            /* teal-800 深松绿 — 白字 7.6:1 */
+    --accent-hover: #134e4a;      /* teal-900 */
+    --accent-secondary: #155e75;  /* cyan-800 深青 — 白字 7.3:1 */
+    --accent-secondary-hover: #164e63;
 
-    --success: #059669;
-    --warning: #d97706;
-    --error: #dc2626;
-    --info: #2563eb;
+    --success: #166534;           /* green-800 — 与 teal 主色拉开色相 */
+    --warning: #92400e;           /* amber-800 */
+    --error: #b91c1c;             /* red-700 */
+    --info: #1d4ed8;              /* blue-700 */
 
-    --shadow-sm: 0 1px 2px 0 rgb(15 23 42 / 0.06);
-    --shadow-md: 0 4px 6px -1px rgb(15 23 42 / 0.08), 0 2px 4px -2px rgb(15 23 42 / 0.08);
-    --shadow-lg: 0 10px 15px -3px rgb(15 23 42 / 0.10), 0 4px 6px -4px rgb(15 23 42 / 0.10);
-    --shadow-xl: 0 20px 25px -5px rgb(15 23 42 / 0.12), 0 8px 10px -6px rgb(15 23 42 / 0.12);
-    --shadow-glow: 0 0 20px rgb(14 165 233 / 0.18);
+    --shadow-sm: 0 1px 2px 0 rgb(23 25 45 / 0.05);
+    --shadow-md: 0 4px 12px -2px rgb(23 25 45 / 0.08), 0 2px 4px -2px rgb(23 25 45 / 0.05);
+    --shadow-lg: 0 12px 28px -6px rgb(23 25 45 / 0.12), 0 4px 10px -4px rgb(23 25 45 / 0.06);
+    --shadow-xl: 0 24px 48px -12px rgb(23 25 45 / 0.16), 0 8px 16px -8px rgb(23 25 45 / 0.08);
+    --shadow-glow: 0 0 24px rgb(17 94 89 / 0.22);
     --shadow-inset: inset 0 1px 0 0 rgb(255 255 255 / 0.8);
 
-    --radius-sm: 6px;
-    --radius-md: 10px;
-    --radius-lg: 14px;
-    --radius-xl: 20px;
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 22px;
     --radius-2xl: 24px;
     --radius-pill: 9999px;
   }
 
   html.dark {
-    /* 暗面: 深灰底, 高对比度浅色文字, 清晰边框 */
-    --page: 13 13 15;             /* 略带蓝调的深色 */
-    --subtle: 22 22 26;           /* 侧边栏/标题栏 */
-    --card: 28 28 32;             /* 卡片 */
-    --elevated: 38 38 42;         /* 浮起 */
-    --hover: 48 48 52;            /* 可见的 hover 背景 — 不是白色而是浅灰 */
-    --code: #18181b;              /* 代码块底色 — 和 page 有区分 */
+    /* 暗态 token —— 带蓝调的深黑底, 高对比度浅色文字 */
+    --page: 13 14 19;             /* #0d0e13 带蓝调的深黑 */
+    --subtle: 22 23 29;           /* #16171d */
+    --card: 27 28 36;             /* #1b1c24 */
+    --elevated: 35 36 46;         /* #23242e */
+    --hover: 44 46 58;            /* #2c2e3a */
+    --code: #121217;
 
-    --default: #f4f4f5;           /* 接近白色 */
-    --muted: #b4b4b8;             /* 提亮 — 从 #a3a3a3 到 #b4b4b8 */
-    --faint: #8b8b90;             /* 提亮 — 从 #737373 到 #8b8b90 */
-    --inverse: #0a0a0b;
-    --link: #5eead4;              /* 提亮 teal — 从 #2dd4bf 到 #5eead4 */
+    --default: #f2f3f7;           /* 15.5:1 on page */
+    --muted: #a9abb8;             /* 7.9:1 on subtle */
+    --faint: #84868f;             /* 4.8:1 on card */
+    --inverse: #0c0d12;
+    --link: #6ee7b7;              /* emerald-300 — 12.2:1 on page */
 
-    --border-default: rgba(255, 255, 255, 0.12);   /* 从 0.06 提到 0.12 */
-    --border-muted: rgba(255, 255, 255, 0.08);
-    --border-focus: #2dd4bf;
+    --border-default: rgb(255 255 255 / 0.10);
+    --border-muted: rgb(255 255 255 / 0.06);
+    --border-focus: #34d399;
 
-    --accent: #2dd4bf;
-    --accent-hover: #5eead4;
-    --accent-secondary: #fbbf24;
-    --accent-secondary-hover: #f59e0b;
+    --accent: #34d399;            /* emerald-400 夜光祖母绿 — 深底 8.8:1, 配深色文字 */
+    --accent-hover: #6ee7b7;
+    --accent-secondary: #22d3ee;  /* cyan-400 夜光青 */
+    --accent-secondary-hover: #67e8f9;
 
-    --success: #34d399;
+    --success: #4ade80;           /* green-400 — 与 emerald 主色拉开 */
     --warning: #fbbf24;
-    --error: #fca5a5;             /* 提亮 — 暗面下红色要浅一些才看得清 */
-    --info: #93c5fd;              /* 提亮 */
+    --error: #f87171;
+    --info: #93c5fd;
 
     --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.4);
-    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.5), 0 2px 4px -2px rgb(0 0 0 / 0.5);
-    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.6), 0 4px 6px -4px rgb(0 0 0 / 0.6);
-    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.65), 0 8px 10px -6px rgb(0 0 0 / 0.65);
-    --shadow-glow: 0 0 30px rgb(45 212 191 / 0.15);
+    --shadow-md: 0 4px 12px -2px rgb(0 0 0 / 0.5), 0 2px 4px -2px rgb(0 0 0 / 0.45);
+    --shadow-lg: 0 12px 28px -6px rgb(0 0 0 / 0.6), 0 4px 10px -4px rgb(0 0 0 / 0.5);
+    --shadow-xl: 0 24px 48px -12px rgb(0 0 0 / 0.65), 0 8px 16px -8px rgb(0 0 0 / 0.55);
+    --shadow-glow: 0 0 28px rgb(52 211 153 / 0.22);
     --shadow-inset: inset 0 1px 0 0 rgb(255 255 255 / 0.06);
   }
 }
@@ -94,20 +100,97 @@ body,
   height: 100%;
 }
 
+/* ---------- 极光背景 (给毛玻璃提供可模糊的纹理) ---------- */
+/* 文字区实际亮度仍由 --page 主导, 渐变 alpha ≤ 8% (亮) / 18% (暗), 对比度不受影响 */
 body {
   margin: 0;
   font-family: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
     "PingFang SC", "Microsoft YaHei", sans-serif;
   background-color: rgb(var(--page));
+  background-image:
+    radial-gradient(55% 45% at 12% 0%, rgb(16 185 129 / 0.08), transparent 70%),
+    radial-gradient(45% 40% at 88% 8%, rgb(20 184 166 / 0.07), transparent 70%),
+    radial-gradient(65% 55% at 50% 105%, rgb(6 182 212 / 0.06), transparent 70%);
+  background-attachment: fixed;
   color: var(--default);
+  letter-spacing: -0.005em;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   transition: background-color 0.25s ease, color 0.25s ease;
 }
 
+html.dark body {
+  background-image:
+    radial-gradient(55% 45% at 12% 0%, rgb(52 211 153 / 0.17), transparent 70%),
+    radial-gradient(45% 40% at 88% 12%, rgb(45 212 191 / 0.12), transparent 70%),
+    radial-gradient(65% 55% at 50% 108%, rgb(34 211 238 / 0.1), transparent 70%);
+}
+
 /* 等宽字体 */
 .font-mono {
   font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+/* ---------- 毛玻璃结构: 侧栏 / 主卡 ---------- */
+.app-sidebar {
+  background-color: rgb(var(--subtle) / 0.55);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+}
+/* 浮动侧栏: 圆角卡片, 脱离窗口边缘, 纯阴影分层不描边 (与主卡同属表层) */
+.app-sidebar.floating {
+  margin: 8px 8px 8px 0;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+/* 左栏 (flush) 与窗口背景一体: 完全透明, 透出 body 底色与极光渐变,
+   亮/暗切换随背景同步变化; 层级靠表层卡片 (主卡+右卡) 的阴影表达 */
+.app-sidebar.flush {
+  background-color: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+/* 主卡内嵌右分区: 与对话区间一条竖线分隔 */
+.app-sidebar.flush[data-side="right"] {
+  border-left: 1px solid var(--border-muted);
+}
+
+/* 主区圆角卡片 — 悬浮于窗口背景之上, 纯阴影分层不描边 */
+.app-main-card {
+  background: rgb(var(--card) / 0.6);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+
+/* 主卡顶栏分隔线 — 比 hairline 稍实 (Z code 标题行风格) */
+.edge-b {
+  border-bottom: 1px solid var(--border-default);
+}
+
+/* 无边框幽灵图标按钮 — 收起/展开、主题、设置等 */
+.ghost-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  color: var(--faint);
+  flex-shrink: 0;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.ghost-icon-btn:hover {
+  background: rgb(var(--hover) / 0.7);
+  color: var(--muted);
+}
+
+/* macOS Overlay 标题栏: 左栏收起时主卡顶栏左侧避让红绿灯 (~76px) — 仅在 Tauri 内生效 */
+html.tauri .traffic-clear {
+  padding-left: 76px;
 }
 
 /* 滚动条 - 极细、半透明 */
@@ -123,7 +206,10 @@ body {
   border-radius: 10px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--faint);
+  background: rgb(13 148 136 / 0.45);
+}
+html.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgb(52 211 153 / 0.45);
 }
 
 /* 选中文字 */
@@ -139,7 +225,7 @@ body {
 }
 
 /* ============================================================
-   SciForge 风格玻璃/卡片工具类
+   玻璃/卡片工具类
    ============================================================ */
 
 /* 基础玻璃面板 */
@@ -194,7 +280,10 @@ body {
 .input-glow:focus {
   outline: none;
   border-color: var(--border-focus);
-  box-shadow: 0 0 0 3px var(--shadow-glow);
+  box-shadow: 0 0 0 3px rgb(13 148 136 / 0.16);
+}
+html.dark .input-glow:focus {
+  box-shadow: 0 0 0 3px rgb(52 211 153 / 0.2);
 }
 
 /* 防止 Tauri 透明窗口下文字发虚 */
@@ -209,33 +298,87 @@ body {
   border-radius: var(--radius-2xl);
 }
 
-/* 底部悬浮输入条 */
+/* ---------- 悬浮输入条 ---------- */
 .floating-input {
-  background: rgb(var(--card));
-  box-shadow: var(--shadow-xl), 0 4px 20px -4px rgb(0 0 0 / 0.15);
+  background: rgb(var(--card) / 0.8);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
   border: 1px solid var(--border-default);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-2xl);
+  box-shadow: var(--shadow-xl), 0 8px 24px -8px rgb(23 25 45 / 0.15);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+.floating-input:focus-within {
+  border-color: rgb(13 148 136 / 0.45);
+  box-shadow: var(--shadow-xl), 0 0 0 4px rgb(13 148 136 / 0.1);
+}
+html.dark .floating-input {
+  box-shadow: var(--shadow-xl), 0 8px 24px -8px rgb(0 0 0 / 0.5);
+}
+html.dark .floating-input:focus-within {
+  border-color: rgb(52 211 153 / 0.5);
+  box-shadow: var(--shadow-xl), 0 0 0 4px rgb(52 211 153 / 0.14);
 }
 
-/* 药丸按钮 */
+/* ---------- 用户消息气泡: 松绿→青玉渐变 ---------- */
+.bg-accent.rounded-br-md {
+  background-image: linear-gradient(135deg, var(--accent) 0%, var(--accent-secondary) 115%);
+  box-shadow: 0 6px 20px -6px rgb(17 94 89 / 0.45);
+}
+html.dark .bg-accent.rounded-br-md {
+  box-shadow: 0 6px 20px -6px rgb(52 211 153 / 0.3);
+}
+
+/* ---------- 弹层玻璃化 ---------- */
+/* 设置弹窗 (工作台中唯一 bg-card + rounded-2xl) */
+.bg-card.rounded-2xl {
+  background-color: rgb(var(--card) / 0.85);
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  border-radius: 20px;
+}
+/* 遮罩层加模糊 */
+.bg-black\/70,
+.bg-black\/40 {
+  backdrop-filter: blur(6px) saturate(120%);
+  -webkit-backdrop-filter: blur(6px) saturate(120%);
+}
+/* 新建项目弹窗 */
+.max-w-md.bg-elevated {
+  background-color: rgb(var(--elevated) / 0.88);
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+}
+/* 项目切换下拉 */
+.absolute.rounded-md.bg-elevated {
+  background-color: rgb(var(--elevated) / 0.88);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  box-shadow: var(--shadow-lg);
+}
+
+/* ---------- 药丸按钮 / Welcome 示例 prompt 玻璃卡片 ---------- */
 .pill-btn {
   display: inline-flex;
   align-items: center;
   gap: 0.375rem;
-  padding: 0.375rem 0.75rem;
-  border-radius: 9999px;
-  font-size: 0.75rem;
-  line-height: 1rem;
+  border-radius: var(--radius-lg);
+  padding: 0.625rem 1rem;
+  font-size: 0.8125rem;
   font-weight: 500;
-  transition-property: color, background-color, border-color, box-shadow;
-  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-  transition-duration: 150ms;
-  background: rgb(var(--hover) / 0.6);
+  background: rgb(var(--card) / 0.62);
+  backdrop-filter: blur(12px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
   border: 1px solid var(--border-default);
-  color: var(--muted);
+  color: var(--default);
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.18s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.18s ease,
+    border-color 0.18s ease, background-color 0.18s ease, color 0.18s ease;
 }
 .pill-btn:hover {
-  background: rgb(var(--hover));
-  border-color: var(--border-default);
+  transform: translateY(-1px);
+  background: rgb(var(--card) / 0.85);
+  border-color: rgb(20 184 166 / 0.4);
+  box-shadow: var(--shadow-md);
   color: var(--default);
 }

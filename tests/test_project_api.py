@@ -197,3 +197,82 @@ def test_list_projects_ordered_default_first(app_and_client):
     projects = r.json()
     # 默认 project 排首位
     assert projects[0]["id"] == "proj_default"
+
+
+# ---- Archive / Unarchive (软删除) ----
+
+
+def test_archive_project(app_and_client):
+    """归档后默认列表里看不到, archived=true 列表里能看到。"""
+    _, client, _ = app_and_client
+    created = client.post("/api/projects", json={"name": "要归档"}).json()
+    pid = created["id"]
+
+    r = client.post(f"/api/projects/{pid}/archive")
+    assert r.status_code == 200
+    assert r.json()["archived"] is True
+
+    # 默认列表 (archived=false) 不含该 project
+    active = client.get("/api/projects").json()
+    assert not any(p["id"] == pid for p in active)
+
+    # 归档列表 (archived=true) 含该 project
+    archived = client.get("/api/projects?archived=true").json()
+    match = next((p for p in archived if p["id"] == pid), None)
+    assert match is not None
+    assert match["archived"] is True
+
+
+def test_unarchive_project(app_and_client):
+    """恢复后重新出现在默认列表。"""
+    _, client, _ = app_and_client
+    pid = client.post("/api/projects", json={"name": "恢复测试"}).json()["id"]
+    client.post(f"/api/projects/{pid}/archive")
+
+    r = client.post(f"/api/projects/{pid}/unarchive")
+    assert r.status_code == 200
+    assert r.json()["archived"] is False
+
+    active = client.get("/api/projects").json()
+    assert any(p["id"] == pid and p["archived"] is False for p in active)
+
+
+def test_archive_default_project_rejected(app_and_client):
+    """默认 project 不允许归档 (400)。"""
+    _, client, _ = app_and_client
+    r = client.post("/api/projects/proj_default/archive")
+    assert r.status_code == 400
+
+
+def test_archive_nonexistent_project_404(app_and_client):
+    _, client, _ = app_and_client
+    r = client.post("/api/projects/proj_bogus/archive")
+    assert r.status_code == 404
+
+
+def test_list_projects_excludes_archived_by_default(app_and_client):
+    """新建的 project 默认未归档; 归档某个后, 其余仍在默认列表。"""
+    _, client, _ = app_and_client
+    pid_keep = client.post("/api/projects", json={"name": "保留"}).json()["id"]
+    pid_arch = client.post("/api/projects", json={"name": "归档掉"}).json()["id"]
+    client.post(f"/api/projects/{pid_arch}/archive")
+
+    active = client.get("/api/projects").json()
+    active_ids = {p["id"] for p in active}
+    assert pid_keep in active_ids
+    assert pid_arch not in active_ids
+
+
+def test_delete_archived_project_permanent(app_and_client):
+    """归档后的 project 可以永久删除 (DELETE), 会话被解绑 (force)。"""
+    _, client, _ = app_and_client
+    pid = client.post("/api/projects", json={"name": "彻底删除"}).json()["id"]
+    client.post(f"/api/projects/{pid}/archive")
+
+    r = client.delete(f"/api/projects/{pid}?force=true")
+    assert r.status_code == 200
+    assert r.json()["deleted"] is True
+
+    # 归档列表里也没了
+    archived = client.get("/api/projects?archived=true").json()
+    assert not any(p["id"] == pid for p in archived)

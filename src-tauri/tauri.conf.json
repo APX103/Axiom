@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Axiom",
-  "version": "0.0.15",
+  "version": "0.0.17",
   "identifier": "com.operonpy.axiom",
   "build": {
     "beforeDevCommand": "cd ../frontend && bun run dev",
@@ -24,7 +24,8 @@
         "visible": true,
         "transparent": false,
         "decorations": true,
-        "titleBarStyle": "Visible"
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true
       }
     ],
     "security": {

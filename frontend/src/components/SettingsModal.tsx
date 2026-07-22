@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { saveSettings, listSkills, getMcpTools, listMemories, deleteMemory } from "../api";
 import { version as CURRENT_VERSION } from "../../package.json";
-import type { AppSettings, LLMProvider, MCPServer, SkillInfo, McpServerStatus, MemoryInfo, VerificationConfig, TraceConfig } from "../types";
+import type { AppSettings, LLMProvider, MCPServer, SkillInfo, McpServerStatus, MemoryInfo, VerificationConfig, TraceConfig, TemplateInfo } from "../types";
 
 const STORAGE_KEY = "operon-py-app-config";
 
@@ -128,7 +128,9 @@ export function fromApiSettings(raw: Record<string, unknown>): FullConfig {
     id: s.id,
     name: s.name,
     url: s.url,
-    key: (s.headers?.Authorization as string) || "",
+    // 后端存的是完整 header 值 ("Bearer <token>"), 弹窗里只编辑 token 部分;
+    // 保存时 toApiSettings 会重新补 "Bearer " 前缀, 这里必须剥掉, 否则会叠成双重前缀。
+    key: ((s.headers?.Authorization as string) || "").replace(/^Bearer\s+/i, ""),
     enabled: s.enabled,
   }));
 
@@ -166,10 +168,17 @@ export function SettingsModal({
   initial,
   onClose,
   onSave,
+  templates = [],
+  selectedTemplate,
+  onSelectTemplate,
 }: {
   initial: FullConfig;
   onClose: () => void;
   onSave: (c: FullConfig) => void;
+  // 论文模板 (新建会话时复制进工作区); 选择立即生效, 不随"保存"按钮
+  templates?: TemplateInfo[];
+  selectedTemplate?: string;
+  onSelectTemplate?: (id: string) => void;
 }) {
   const [cfg, setCfg] = useState<FullConfig>(initial);
   const [tab, setTab] = useState<"models" | "mcp" | "skills" | "memory" | "academic" | "general">("models");
@@ -710,10 +719,12 @@ export function SettingsModal({
                         if (items.length === 0) return null;
                         return (
                           <div key={key}>
-                            <div className="text-[10px] text-faint mt-2">{label}</div>
-                            {items.map((s) => (
-                              <SkillCard key={s.name} skill={s} onToggle={toggleSkill} />
-                            ))}
+                            <div className="text-[10px] text-faint mt-2 mb-1.5">{label}</div>
+                            <div className="space-y-2">
+                              {items.map((s) => (
+                                <SkillCard key={s.name} skill={s} onToggle={toggleSkill} />
+                              ))}
+                            </div>
                           </div>
                         );
                       })}
@@ -801,6 +812,35 @@ export function SettingsModal({
                   每个会话自动创建独立工作区目录，无需手动配置
                 </div>
               </div>
+
+              {/* 论文模板 (原侧栏下拉, 移入设置统一管理) */}
+              {templates.length > 0 && (
+                <div className="p-3 rounded-lg bg-page space-y-2">
+                  <div>
+                    <div className="text-sm text-default">论文模板</div>
+                    <div className="text-[10px] text-faint">新建会话时复制进工作区作为 main.tex 模板</div>
+                  </div>
+                  <div className="space-y-1">
+                    {templates.map((t) => (
+                      <button
+                        key={t.id}
+                        onClick={() => onSelectTemplate?.(t.id)}
+                        title={t.description || ""}
+                        className={`w-full flex items-center justify-between px-2.5 py-2 rounded-md text-xs transition-colors ${
+                          t.id === selectedTemplate
+                            ? "bg-accent/15 text-accent font-medium"
+                            : "text-default hover:bg-hover"
+                        }`}
+                      >
+                        <span>
+                          {t.name} ({t.columns}栏)
+                        </span>
+                        {t.id === selectedTemplate && <span>✓</span>}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               <label className="flex items-center gap-3 cursor-pointer p-3 rounded-lg bg-page">
                 <input
                   type="checkbox"

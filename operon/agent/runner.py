@@ -139,12 +139,10 @@ class Agent:
 
     async def run(self, user_input: str) -> RunResult:
         """执行一次 agent 会话。"""
-        # 防御: 终态 frame 不允许继续运行,避免后续状态流转报 ValueError
+        # 用户在已结束 (completed/failed/cancelled) 的会话里继续发消息:
+        # 重新打开 frame 进入新一轮 (对话历史保留), 而不是报错让用户新建会话。
         if self.frame.status in TERMINAL:
-            return self._result(
-                RunResultKind.ERROR,
-                error=f"frame is already terminal ({self.frame.status.value}); start a new session",
-            )
+            self.frame_service.reopen(self.frame.id)
         # 初始化: 用户消息入历史
         self.frame.messages.append(Message(role=Role.USER, content=user_input))
         self.frame.task_summary = user_input[:200]

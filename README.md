@@ -84,11 +84,9 @@ Requirements: macOS 10.13+, Python 3.11+, [uv](https://docs.astral.sh/uv/), [bun
 uv sync                              # Python deps
 cd frontend && bun install           # Frontend deps
 uv run operon serve                  # Backend (dev)
-cd frontend && bun run dev           # Frontend (dev, classic UI)
-cd frontend && bun run dev:v2        # Frontend (dev, v2 modern UI)
+cd frontend && bun run dev           # Frontend (dev)
 uv run pytest                        # Tests
-./scripts/build_mac_app.sh           # Build the macOS app (classic UI)
-UI_VARIANT=v2 ./scripts/build_mac_app.sh  # Build with the v2 modern UI
+./scripts/build_mac_app.sh           # Build the macOS app
 ```
 
 ---

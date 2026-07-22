@@ -8,6 +8,11 @@ interface Props {
   minWidth: number;
   maxWidth: number;
   storageKey: string;
+  // floating: 圆角浮动卡片 (脱离窗口边缘); 默认 flush 贴边全高
+  floating?: boolean;
+  // 受控折叠: 提供时折叠状态由父组件管理, 折叠后整体隐藏 (无窄条), 由父组件的按钮恢复
+  collapsed?: boolean;
+  onToggleCollapsed?: () => void;
   children: React.ReactNode | ((toggleCollapsed: () => void) => React.ReactNode);
   className?: string;
 }
@@ -18,11 +23,16 @@ export function ResizableSidebar({
   minWidth,
   maxWidth,
   storageKey,
+  floating = false,
+  collapsed: collapsedProp,
+  onToggleCollapsed,
   children,
   className = "",
 }: Props) {
   const [width, setWidth] = useState(() => loadWidth(storageKey, defaultWidth));
-  const [collapsed, setCollapsed] = useState(() => loadCollapsed(storageKey));
+  const [collapsedInternal, setCollapsedInternal] = useState(() => loadCollapsed(storageKey));
+  const isControlled = collapsedProp !== undefined;
+  const collapsed = isControlled ? collapsedProp : collapsedInternal;
   const [dragging, setDragging] = useState(false);
   const startXRef = useRef(0);
   const startWidthRef = useRef(width);
@@ -55,27 +65,31 @@ export function ResizableSidebar({
   };
 
   const toggleCollapsed = () => {
-    const next = !collapsed;
-    setCollapsed(next);
+    if (isControlled) {
+      onToggleCollapsed?.();
+      return;
+    }
+    const next = !collapsedInternal;
+    setCollapsedInternal(next);
     saveCollapsed(storageKey, next);
   };
 
   if (collapsed) {
+    // 受控模式: 折叠即整体隐藏 (由外部按钮恢复, 如主卡顶栏的面板开关)
+    if (isControlled) return null;
     return (
       <div
         data-side={side}
-        className={`app-sidebar shrink-0 h-full bg-subtle flex flex-col items-center py-3 ${className}`}
-        style={{
-          width: 40,
-          boxShadow:
-            side === "left"
-              ? "1px 0 0 0 rgba(15,23,42,0.04)"
-              : "-1px 0 0 0 rgba(15,23,42,0.04)",
-        }}
+        data-tauri-drag-region="deep"
+        className={`app-sidebar flush shrink-0 self-stretch flex flex-col items-center py-3 ${
+          // 左栏收起成窄条时, 顶部留出 macOS 红绿灯高度, 避免展开按钮被挡住
+          side === "left" ? "traffic-clear-top" : ""
+        } ${className}`}
+        style={{ width: 40 }}
       >
         <button
           onClick={toggleCollapsed}
-          className="w-7 h-7 rounded-lg flex items-center justify-center text-muted hover:bg-hover transition-colors"
+          className="ghost-icon-btn"
           title={side === "left" ? "展开左栏" : "展开右栏"}
         >
           {side === "left" ? <ChevronRightIcon /> : <ChevronLeftIcon />}
@@ -89,22 +103,17 @@ export function ResizableSidebar({
   return (
     <aside
       data-side={side}
-      className={`app-sidebar relative shrink-0 h-full bg-subtle flex flex-col ${
+      data-tauri-drag-region="deep"
+      className={`app-sidebar ${floating ? "floating" : "flush"} relative shrink-0 self-stretch flex flex-col ${
         isFunctionChildren ? "" : side === "left" ? "pr-10" : "pl-10"
       } ${className}`}
-      style={{
-        width,
-        boxShadow:
-          side === "left"
-            ? "1px 0 0 0 rgba(15,23,42,0.04)"
-            : "-1px 0 0 0 rgba(15,23,42,0.04)",
-      }}
+      style={{ width }}
     >
       {isFunctionChildren ? children(toggleCollapsed) : children}
       {!isFunctionChildren && (
         <button
           onClick={toggleCollapsed}
-          className={`absolute top-3 z-10 w-7 h-7 rounded-md flex items-center justify-center text-faint hover:text-muted hover:bg-hover transition-colors ${
+          className={`ghost-icon-btn absolute top-3 z-10 ${
             side === "left" ? "right-2" : "left-2"
           }`}
           title={side === "left" ? "收起左栏" : "收起右栏"}
@@ -114,6 +123,7 @@ export function ResizableSidebar({
       )}
       <div
         onMouseDown={startDrag}
+        data-tauri-drag-region="false"
         className={`absolute top-0 bottom-0 w-1 cursor-col-resize hover:bg-accent/40 transition-colors ${
           side === "left" ? "right-0" : "left-0"
         } ${dragging ? "bg-accent/60" : "bg-transparent"}`}

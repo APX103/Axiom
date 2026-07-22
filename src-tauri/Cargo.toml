@@ -1,6 +1,6 @@
 [package]
 name = "axiom"
-version = "0.0.15"
+version = "0.0.17"
 description = "Local AI workbench built on operon-py"
 authors = ["operon-py"]
 license = "MIT"
@@ -23,6 +23,11 @@ serde_json = "1"
 tokio = { version = "1", features = ["rt-multi-thread", "process", "time", "sync"] }
 nix = { version = "0.31.3", features = ["signal", "process"] }
 ureq = { version = "3.2.1", features = ["json"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+objc2-app-kit = "0.3"
+objc2-foundation = "0.3"
 
 [features]
 # 默认不启用任何特性; Tauri 的 dev 脚本会自动加上 dev 特性。

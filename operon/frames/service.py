@@ -101,6 +101,20 @@ class FrameService:
             frame.completed_at = frame.updated_at
         return frame
 
+    def reopen(self, frame_id: str) -> Frame:
+        """把终态 frame 重新打开为 PROCESSING (用户在已结束的会话里继续发消息)。
+
+        与 update_status 不同, 这是有意绕过终态校验的唯一入口:
+        对话历史保留, completed_at 清空, frame 进入新一轮。
+        """
+        frame = self.require(frame_id)
+        if frame.status not in TERMINAL:
+            return frame
+        frame.status = FrameStatus.PROCESSING
+        frame.completed_at = None
+        frame.updated_at = datetime.now(UTC)
+        return frame
+
     def get_tree(self, root_id: str) -> list[Frame]:
         """返回 root 下所有 frame (按创建顺序)。"""
         root = self.require(root_id)

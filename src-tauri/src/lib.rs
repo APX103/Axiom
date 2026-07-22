@@ -19,6 +19,109 @@ struct AppState {
     backend_port: Arc<Mutex<u16>>,
 }
 
+/// 红绿灯目标位置 (逻辑像素, 与前端布局对齐)。
+/// 注意: macOS 默认 titlebar 容器高 = 按钮 14 + 系统 inset 18 = 32,
+/// 本实现容器高 = 14 + Y, 按钮在容器内位置不变 (底距 9), 按钮中线 = Y - 2。
+/// Y=34 → 中线 y=32, 与 48px 顶栏 (卡顶 y=8) / 64px 左栏顶行的内容中线对齐。
+#[cfg(target_os = "macos")]
+const TRAFFIC_LIGHT_X: f64 = 18.0;
+#[cfg(target_os = "macos")]
+const TRAFFIC_LIGHT_Y: f64 = 34.0;
+
+/// macOS: 把红绿灯 (close/mini/zoom) 向右下内移 (幂等)。
+/// tao 自带的 traffic_light_inset 依赖 content view 的 drawRect 重排,
+/// 但我们的窗口被不透明的 WKWebView 整个盖住, drawRect 不触发, inset 不生效,
+/// 所以这里直接操作 Cocoa。
+/// 幂等性很关键: swizzled layout 里调用本函数, setFrame 会再次触发 layout,
+/// 已在目标位置时必须什么都不做, 否则无限递归。
+#[cfg(target_os = "macos")]
+fn inset_traffic_lights(ns_window_ptr: *mut std::ffi::c_void) {
+    use objc2_app_kit::{NSWindow, NSWindowButton};
+    unsafe {
+        let ns_window = &*(ns_window_ptr as *const NSWindow);
+        let (Some(close), Some(mini), Some(zoom)) = (
+            ns_window.standardWindowButton(NSWindowButton::CloseButton),
+            ns_window.standardWindowButton(NSWindowButton::MiniaturizeButton),
+            ns_window.standardWindowButton(NSWindowButton::ZoomButton),
+        ) else {
+            return;
+        };
+        let Some(container) = close.superview().and_then(|v| v.superview()) else {
+            return;
+        };
+        let close_rect = close.frame();
+        let win_h = ns_window.frame().size.height;
+        // Y = 按钮顶部到窗口顶部的距离; 通过加高 titlebar 容器把按钮往下推
+        let new_height = close_rect.size.height + TRAFFIC_LIGHT_Y;
+        let container_rect = container.frame();
+        let container_ok = (container_rect.size.height - new_height).abs() < 0.5
+            && (container_rect.origin.y - (win_h - new_height)).abs() < 0.5;
+        if !container_ok {
+            let mut r = container_rect;
+            r.size.height = new_height;
+            r.origin.y = win_h - new_height;
+            container.setFrame(r);
+        }
+        // X = close 按钮左缘到窗口左缘的距离, 三颗灯等间距排布
+        let spacing = mini.frame().origin.x - close_rect.origin.x;
+        for (i, button) in [close, mini, zoom].into_iter().enumerate() {
+            let target_x = TRAFFIC_LIGHT_X + i as f64 * spacing;
+            let mut rect = button.frame();
+            if (rect.origin.x - target_x).abs() < 0.5 {
+                continue;
+            }
+            rect.origin.x = target_x;
+            button.setFrameOrigin(rect.origin);
+        }
+    }
+}
+
+/// swizzle NSTitlebarContainerView.layout:
+/// resize 时 AppKit 在布局周期把红绿灯复位到默认位置, 而 Resized 事件与布局存在
+/// 时序差 (先复位、后补排), 肉眼可见跳变。钩住 layout 后, AppKit 每次布局完
+/// 立即在同一周期内补排, 无中间态。
+#[cfg(target_os = "macos")]
+mod traffic_light_swizzle {
+    use super::inset_traffic_lights;
+    use objc2::runtime::{AnyClass, AnyObject, Sel};
+    use objc2::sel;
+    use std::ffi::c_void;
+    use std::ptr;
+    use std::sync::atomic::{AtomicPtr, Ordering};
+
+    static ORIG_LAYOUT: AtomicPtr<c_void> = AtomicPtr::new(ptr::null_mut());
+
+    unsafe extern "C" fn swizzled_layout(this: *mut AnyObject, _cmd: Sel) {
+        unsafe {
+            let orig = ORIG_LAYOUT.load(Ordering::Relaxed);
+            if !orig.is_null() {
+                let orig: unsafe extern "C" fn(*mut AnyObject, Sel) = std::mem::transmute(orig);
+                orig(this, _cmd);
+            }
+            let view = &*(this as *const objc2_app_kit::NSView);
+            if let Some(window) = view.window() {
+                inset_traffic_lights(&*window as *const objc2_app_kit::NSWindow as *mut c_void);
+            }
+        }
+    }
+
+    pub fn install() {
+        unsafe {
+            let Some(cls) = AnyClass::get(c"NSTitlebarContainerView") else {
+                return;
+            };
+            let Some(method) = cls.instance_method(sel!(layout)) else {
+                return;
+            };
+            let imp: objc2::runtime::Imp = std::mem::transmute(
+                swizzled_layout as unsafe extern "C" fn(*mut AnyObject, Sel),
+            );
+            let orig = method.set_implementation(imp);
+            ORIG_LAYOUT.store(orig as *mut c_void, Ordering::Relaxed);
+        }
+    }
+}
+
 /// 获取一个稳定的工作目录。
 /// 生产环境 bundle 里没有固定 CWD, 所以退回到用户主目录, 避免文件写到 app bundle 里。
 fn backend_work_dir() -> PathBuf {
@@ -399,6 +502,27 @@ pub fn run() {
         .setup(move |app| {
             let window = app.get_webview_window("main").unwrap();
 
+            // macOS: 红绿灯内移 (启动时排一次, 之后每次 resize 重排)
+            #[cfg(target_os = "macos")]
+            if let Ok(ptr) = window.ns_window() {
+                inset_traffic_lights(ptr);
+                // 钩住 titlebar 容器 layout, resize 时与 AppKit 布局同周期补排, 消除跳变
+                traffic_light_swizzle::install();
+            }
+            // 启动后 AppKit 还会因 webview 导航/首次布局把按钮复位, 延迟补排几次
+            #[cfg(target_os = "macos")]
+            {
+                let window_for_delay = window.clone();
+                tauri::async_runtime::spawn(async move {
+                    for delay_ms in [500u64, 1500, 4000] {
+                        tokio::time::sleep(std::time::Duration::from_millis(delay_ms)).await;
+                        if let Ok(ptr) = window_for_delay.ns_window() {
+                            inset_traffic_lights(ptr);
+                        }
+                    }
+                });
+            }
+
             // 启动后端; 前端自己会探测 /api/health, 所以这里不需要等健康检查。
             let backend_clone = backend.clone();
             let port = *backend_port.blocking_lock();
@@ -424,7 +548,15 @@ pub fn run() {
             // 主窗口关闭时同步杀掉后端并退出应用 (避免后台占端口)。
             let backend_for_close = backend.clone();
             let app_handle_for_close = app.handle().clone();
+            let window_for_resize = window.clone();
             window.on_window_event(move |event| {
+                // resize 后 AppKit 会把红绿灯复位, 重新内移 (swizzle 未覆盖的路径兜底)
+                #[cfg(target_os = "macos")]
+                if let tauri::WindowEvent::Resized(_) = event {
+                    if let Ok(ptr) = window_for_resize.ns_window() {
+                        inset_traffic_lights(ptr);
+                    }
+                }
                 if let tauri::WindowEvent::CloseRequested { .. } = event {
                     eprintln!("[axiom] main window closing, stopping backend...");
                     let backend_clone = backend_for_close.clone();

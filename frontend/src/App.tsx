@@ -10,6 +10,9 @@ import { MessageView } from "./components/Message";
 import { WorkspacePanel } from "./components/WorkspacePanel";
 import { PlanPanel } from "./components/PlanPanel";
 import { ResizableSidebar } from "./components/ResizableSidebar";
+import { ConfirmDialog } from "./components/ConfirmDialog";
+import { ProjectFormModal } from "./components/ProjectFormModal";
+import { ProjectManagerModal, type ProjectManagerEvent } from "./components/ProjectManagerModal";
 import { SettingsModal, fromApiSettings, loadConfig, type FullConfig } from "./components/SettingsModal";
 import { PaperView } from "./components/PaperView";
 import { UpdateBanner } from "./components/UpdateBanner";
@@ -32,88 +35,6 @@ function usePaperRoute(): string | null {
   if (typeof window === "undefined") return null;
   const m = window.location.pathname.match(/^\/paper\/([^/]+)/);
   return m ? m[1] : null;
-}
-
-// Layer A.5: 新建 project 的小 modal
-function NewProjectModal({
-  onClose,
-  onCreated,
-}: {
-  onClose: () => void;
-  onCreated: (p: ProjectInfo) => void;
-}) {
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const submit = async () => {
-    if (!name.trim()) {
-      setError("项目名不能为空");
-      return;
-    }
-    setSubmitting(true);
-    setError(null);
-    try {
-      const p = await createProject(name.trim(), description.trim() || undefined);
-      onCreated(p);
-    } catch (e) {
-      setError(String(e));
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div
-        className="bg-elevated rounded-xl border border-border shadow-2xl w-full max-w-md p-6"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h2 className="text-base font-semibold text-default mb-4">新建项目</h2>
-        <div className="space-y-3">
-          <label className="block">
-            <span className="text-xs text-muted">项目名 *</span>
-            <input
-              type="text"
-              value={name}
-              autoFocus
-              onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && submit()}
-              placeholder="如: kinase 142 位点研究"
-              className="mt-1 w-full px-3 py-2 bg-page rounded-md text-sm text-default border border-border focus:outline-none focus:border-accent"
-            />
-          </label>
-          <label className="block">
-            <span className="text-xs text-muted">描述 (可选)</span>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="这个项目做什么..."
-              rows={2}
-              className="mt-1 w-full px-3 py-2 bg-page rounded-md text-sm text-default border border-border focus:outline-none focus:border-accent resize-none"
-            />
-          </label>
-          {error && <div className="text-xs text-error">{error}</div>}
-        </div>
-        <div className="flex gap-2 mt-5">
-          <button
-            onClick={onClose}
-            className="flex-1 py-2 rounded-lg bg-page text-sm text-muted hover:bg-hover transition-colors"
-          >
-            取消
-          </button>
-          <button
-            onClick={submit}
-            disabled={submitting || !name.trim()}
-            className="flex-1 py-2 rounded-lg bg-accent text-inverse text-sm font-medium hover:bg-accent-hover disabled:opacity-50 transition-colors"
-          >
-            {submitting ? "创建中..." : "创建"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 export default function App() {
@@ -146,11 +67,43 @@ function Workbench() {
   const [planMode, setPlanMode] = useState(false);
   const [deepReview, setDeepReview] = useState(false);
   const [sidebarTab, setSidebarTab] = useState<"sessions" | "files">("sessions");
+  // 左栏折叠 (受控; 折叠后整栏隐藏, 红绿灯与展开按钮并入主卡顶栏 — Z code 风格)
+  const [leftCollapsed, setLeftCollapsed] = useState(
+    () => localStorage.getItem("rs-collapsed-left") === "1"
+  );
+  const toggleLeftCollapsed = useCallback(() => {
+    setLeftCollapsed((v) => {
+      const next = !v;
+      try {
+        if (next) localStorage.setItem("rs-collapsed-left", "1");
+        else localStorage.removeItem("rs-collapsed-left");
+      } catch { /* ignore */ }
+      return next;
+    });
+  }, []);
+  // 右栏折叠 (受控; 开关在主卡顶栏, 与 Z code 面板开关一致)
+  const [rightCollapsed, setRightCollapsed] = useState(
+    () => localStorage.getItem("rs-collapsed-right") === "1"
+  );
+  const toggleRightCollapsed = useCallback(() => {
+    setRightCollapsed((v) => {
+      const next = !v;
+      try {
+        if (next) localStorage.setItem("rs-collapsed-right", "1");
+        else localStorage.removeItem("rs-collapsed-right");
+      } catch { /* ignore */ }
+      return next;
+    });
+  }, []);
   // Layer A.5: project 切换器
   const [projects, setProjects] = useState<ProjectInfo[]>([]);
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
   const [showProjectModal, setShowProjectModal] = useState(false);
+  // 编辑模式时传入的 project; null=新建
+  const [projectModalInitial, setProjectModalInitial] = useState<ProjectInfo | null>(null);
   const [projectDropdownOpen, setProjectDropdownOpen] = useState(false);
+  // 独立项目管理面板 (新建/重命名/归档/恢复/删除的统一入口)
+  const [showProjectManager, setShowProjectManager] = useState(false);
   // 论文模板 (新建会话时复制进工作区作为 main.tex preamble)
   const [templates, setTemplates] = useState<TemplateInfo[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<string>("article");
@@ -196,7 +149,10 @@ function Workbench() {
         }
       }
       return list;
-    } catch {
+    } catch (e) {
+      // 后端启动期可能还未就绪, 此处静默失败; 后端转为 online 后会在下方 effect 里重试。
+      // 记录 warn 便于排查 (不弹 UI, 避免启动期网络错误刷屏)。
+      console.warn("[refreshProjects] failed:", e);
       return [];
     }
   }, []);
@@ -252,6 +208,9 @@ function Workbench() {
 
           if (!restoredRef.current) {
             restoredRef.current = true;
+            // 后端刚就绪: 刷新项目列表。挂载时的 refreshProjects 可能在后端未启动时就失败了,
+            // 这里补上, 确保 Tauri 慢启动场景下项目列表能正确加载。
+            void refreshProjects();
             refreshSessionList().then(async (list) => {
               const savedSid = loadSid();
               if (savedSid && list.some((s) => s.id === savedSid)) {
@@ -422,58 +381,49 @@ function Workbench() {
     }
   };
 
+  // Tauri 桌面端: 后端启动前显示全屏 splash, 就绪后再展示主界面。
+  // 浏览器模式后端走代理立即可用, 跳过 splash 避免闪烁。
+  const isTauri = typeof window !== "undefined" && !!window.__TAURI_INTERNALS__;
+  if (isTauri && backendStatus !== "online") {
+    return <SplashScreen />;
+  }
+
   return (
     <div className="h-full flex flex-col bg-page text-default theme-transition">
       <UpdateBanner />
-      {/* 顶部标题栏 - SciForge 风格 */}
-      <header className="app-header h-12 bg-subtle flex items-center justify-between px-3 shrink-0 z-20 border-b border-border">
-        <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg bg-accent/10 flex items-center justify-center">
-            <LogoIcon width={16} height={16} className="text-accent" />
-          </div>
-          <div className="font-semibold text-sm tracking-tight">Axiom</div>
-        </div>
-
-        <div className="flex items-center gap-1.5">
-          <BackendBadge status={backendStatus} />
-          <ModelBadge config={config} />
-          <button
-            onClick={toggleTheme}
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-muted hover:bg-hover/60 transition-colors"
-            title={resolvedTheme === "dark" ? "切换到月之亮面" : "切换到月之暗面"}
-          >
-            {resolvedTheme === "dark" ? <MoonIcon /> : <SunIcon />}
-          </button>
-          <button
-            onClick={() => setShowSettings(true)}
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-muted hover:bg-hover/60 transition-colors"
-            title="设置"
-          >
-            <SettingsIcon />
-          </button>
-        </div>
-      </header>
-
-      {/* 三栏主体 */}
+      {/* 三栏主体 — macOS Overlay 标题栏: 红绿灯悬浮在左栏顶部, 无独立 titlebar */}
       <div className="flex-1 flex overflow-hidden">
-        {/* 左: 项目/会话侧边栏 - SciForge 风格 */}
-        <ResizableSidebar side="left" defaultWidth={224} minWidth={180} maxWidth={400} storageKey="left">
+        {/* 左: 项目/会话侧边栏 (收起后整栏隐藏, 顶栏按钮并入主卡顶栏) */}
+        <ResizableSidebar
+          side="left"
+          defaultWidth={224}
+          minWidth={180}
+          maxWidth={400}
+          storageKey="left"
+          collapsed={leftCollapsed}
+          onToggleCollapsed={toggleLeftCollapsed}
+        >
           {(toggleCollapsed) => (
             <>
-              <div className="p-2.5 flex items-center gap-2">
+              {/* 顶行: 仅收起按钮; 整个左栏空白处都可拖拽窗口 (aside 上 deep drag-region)。
+                  高 64px: 内容中线 y=32, 与红绿灯中线 (Y=34) 对齐, 下方内容整体下移 */}
+              <div className="h-16 pr-2 flex items-center justify-end shrink-0">
+                <button
+                  onClick={toggleCollapsed}
+                  className="ghost-icon-btn"
+                  title="收起左栏"
+                >
+                  <ChevronLeftIcon width={14} height={14} />
+                </button>
+              </div>
+
+              <div className="px-2.5 pb-1 flex items-center gap-2">
                 <button
                   onClick={handleNewSession}
                   className="flex-1 h-9 rounded-lg bg-accent hover:bg-accent-hover text-inverse text-sm font-medium shadow-sm transition-all active:scale-[0.98] flex items-center justify-center gap-1.5"
                 >
                   <PlusIcon width={14} height={14} />
                   新会话
-                </button>
-                <button
-                  onClick={toggleCollapsed}
-                  className="shrink-0 w-7 h-9 rounded-lg flex items-center justify-center text-faint hover:text-muted hover:bg-hover transition-colors border border-border"
-                  title="收起左栏"
-                >
-                  <ChevronLeftIcon width={14} height={14} />
                 </button>
               </div>
 
@@ -494,9 +444,12 @@ function Workbench() {
                 </button>
                 {projectDropdownOpen && (
                   <>
-                    {/* 点击外部关闭 */}
-                    <div className="fixed inset-0 z-10" onClick={() => setProjectDropdownOpen(false)} />
-                    <div className="absolute left-2.5 right-2.5 top-full mt-1 z-20 rounded-md bg-elevated border border-border shadow-lg overflow-hidden">
+                    {/* 点击外部关闭下拉 */}
+                    <div
+                      className="fixed inset-0 z-10"
+                      onClick={() => setProjectDropdownOpen(false)}
+                    />
+                    <div className="absolute left-2.5 right-2.5 top-full mt-1 z-20 rounded-md bg-elevated border border-border shadow-lg overflow-visible">
                       {projects.map((p) => (
                         <button
                           key={p.id}
@@ -506,10 +459,14 @@ function Workbench() {
                             setProjectDropdownOpen(false);
                           }}
                           className={`w-full px-2.5 py-2 text-left text-xs flex items-center justify-between gap-2 transition-colors ${
-                            p.id === currentProjectId ? "bg-accent/15 text-accent" : "text-default hover:bg-hover"
+                            p.id === currentProjectId
+                              ? "bg-accent/15 text-accent"
+                              : "text-default hover:bg-hover"
                           }`}
                         >
-                          <span className="truncate">{p.name}</span>
+                          <span className="truncate flex items-center gap-1.5">
+                            {p.name}
+                          </span>
                           <span className="text-[10px] text-faint shrink-0">{p.session_count}</span>
                         </button>
                       ))}
@@ -517,6 +474,7 @@ function Workbench() {
                         <button
                           onClick={() => {
                             setProjectDropdownOpen(false);
+                            setProjectModalInitial(null);
                             setShowProjectModal(true);
                           }}
                           className="w-full px-2.5 py-2 text-left text-xs text-accent hover:bg-accent/10 flex items-center gap-1.5 transition-colors"
@@ -524,34 +482,21 @@ function Workbench() {
                           <PlusIcon width={12} height={12} />
                           新建项目...
                         </button>
+                        <button
+                          onClick={() => {
+                            setProjectDropdownOpen(false);
+                            setShowProjectManager(true);
+                          }}
+                          className="w-full px-2.5 py-2 text-left text-xs text-muted hover:bg-hover flex items-center gap-1.5 transition-colors"
+                        >
+                          <ProjectsIcon width={12} height={12} />
+                          项目管理...
+                        </button>
                       </div>
                     </div>
                   </>
                 )}
               </div>
-
-              {/* 论文模板选择 (新建会话时复制进工作区作为 main.tex preamble) */}
-              {templates.length > 0 && (
-                <div className="px-2.5 py-2">
-                  <div className="text-[10px] font-medium text-faint uppercase tracking-wider px-2 mb-1.5">
-                    论文模板
-                  </div>
-                  <div className="px-2">
-                    <select
-                      value={selectedTemplate}
-                      onChange={(e) => setSelectedTemplate(e.target.value)}
-                      title={templates.find((t) => t.id === selectedTemplate)?.description || ""}
-                      className="w-full px-2 py-1.5 rounded-md bg-page text-xs text-default border border-border focus:outline-none focus:border-accent"
-                    >
-                      {templates.map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.name} ({t.columns}栏)
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              )}
 
               <div className="px-2.5 py-2">
                 <div className="text-[10px] font-medium text-faint uppercase tracking-wider px-2 mb-1.5">工作区</div>
@@ -561,7 +506,8 @@ function Workbench() {
                 </nav>
               </div>
 
-              <div className="flex-1 overflow-y-auto px-2.5 py-1 min-h-0">
+              {/* 会话/文件列表排除拖拽区: 避免点住条目误拖窗口、双击误最大化 */}
+              <div data-tauri-drag-region="false" className="flex-1 overflow-y-auto px-2.5 py-1 min-h-0">
                 {sidebarTab === "sessions" ? (
                   // Layer A.5: 按 currentProjectId 过滤 session 列表
                   (currentProjectId
@@ -599,12 +545,62 @@ function Workbench() {
           )}
         </ResizableSidebar>
 
-        {/* 中: 对话流 */}
-        <main className="flex-1 flex flex-col min-w-0 relative">
+        {/* 中: 对话流 — 圆角卡片悬浮于窗口背景之上 (表层);
+            左栏收起时红绿灯与展开按钮并入卡内顶栏 (卡片 margin 不变) */}
+        <main className="flex-1 flex flex-col min-w-0 relative app-main-card m-2">
+          {/* 卡内顶栏: 拖拽区 + (左栏收起时) 左栏开关 + 服务状态 / 模型 / 主题 / 设置 / 右栏开关
+              高度 48px: 卡顶 y=8, 内容中线 y=32, 与红绿灯中线 (Y=34 → y=32) 对齐 */}
           <div
-            ref={scrollRef}
-            className="flex-1 overflow-y-auto px-6 py-6 pb-32 scroll-smooth"
+            data-tauri-drag-region="deep"
+            className={`h-12 flex items-center gap-1.5 shrink-0 edge-b ${
+              leftCollapsed ? "traffic-clear pl-2" : "px-3"
+            }`}
           >
+            {leftCollapsed && (
+              <button
+                onClick={toggleLeftCollapsed}
+                className="ghost-icon-btn"
+                title="展开左栏"
+              >
+                <PanelLeftIcon />
+              </button>
+            )}
+            <div className="flex-1" />
+            <BackendBadge status={backendStatus} />
+            <ModelBadge config={config} />
+            <button
+              onClick={toggleTheme}
+              className="ghost-icon-btn"
+              title={resolvedTheme === "dark" ? "切换到月之亮面" : "切换到月之暗面"}
+            >
+              {resolvedTheme === "dark" ? <MoonIcon /> : <SunIcon />}
+            </button>
+            <button
+              onClick={() => setShowSettings(true)}
+              className="ghost-icon-btn"
+              title="设置"
+            >
+              <SettingsIcon />
+            </button>
+            <button
+              onClick={toggleRightCollapsed}
+              className={`ghost-icon-btn ${rightCollapsed ? "" : "text-accent"}`}
+              title={rightCollapsed ? "展开右栏" : "收起右栏"}
+            >
+              <PanelRightIcon />
+            </button>
+          </div>
+          {/* 卡体: 对话区 + 内嵌右栏 (右栏是主卡的右分区, 不是窗口级侧栏) */}
+          <div className="flex-1 flex min-h-0">
+            <section className="flex-1 flex flex-col min-w-0 relative">
+              {/* Logo 水印: 衬在主区内容背后 (替代原左栏 Logo) */}
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <LogoIcon width={220} height={220} className="text-faint opacity-[0.05]" />
+              </div>
+              <div
+                ref={scrollRef}
+                className="flex-1 overflow-y-auto px-6 py-6 pb-32 scroll-smooth"
+              >
             {session.messages.length === 0 ? (
               <Welcome onPick={(t) => setInput(t)} />
             ) : (
@@ -641,7 +637,7 @@ function Workbench() {
               )}
           </div>
 
-          {/* 悬浮输入区 - SciForge 风格药丸条 */}
+          {/* 悬浮输入区 - 药丸条 */}
           <div className="absolute bottom-5 left-0 right-0 px-6">
             <div className="max-w-3xl mx-auto">
               <div className="floating-input p-2">
@@ -710,59 +706,49 @@ function Workbench() {
               </div>
             </div>
           </div>
+            </section>
+
+            {/* 右: 工作区 + 验证 — 主卡内嵌右分区; 开关在卡内顶栏, 折叠后整体隐藏 */}
+            <ResizableSidebar
+              side="right"
+              defaultWidth={256}
+              minWidth={200}
+              maxWidth={480}
+              storageKey="right"
+              collapsed={rightCollapsed}
+              onToggleCollapsed={toggleRightCollapsed}
+            >
+              {() => (
+                <SplitPanels
+                  top={
+                    <WorkspacePanel
+                      artifacts={session.artifacts}
+                      sid={sid}
+                      onViewPaper={() => setShowPaper(true)}
+                    />
+                  }
+                  bottom={
+                    <PlanPanel
+                      plan={session.plan}
+                      status={session.status}
+                      awaiting={session.awaiting}
+                      onApprove={onApprove}
+                    />
+                  }
+                />
+              )}
+            </ResizableSidebar>
+          </div>
         </main>
-
-        {/* 右: 工作区 + 验证 */}
-        <ResizableSidebar side="right" defaultWidth={256} minWidth={200} maxWidth={480} storageKey="right">
-          {(toggleCollapsed) => (
-            <>
-              <div className="px-3 py-2 flex items-center justify-end border-b border-border shrink-0">
-                <button
-                  onClick={toggleCollapsed}
-                  className="w-7 h-7 rounded-lg flex items-center justify-center text-faint hover:text-muted hover:bg-hover transition-colors border border-border"
-                  title="收起右栏"
-                >
-                  <ChevronRightIcon width={14} height={14} />
-                </button>
-              </div>
-              <div className="flex-1 overflow-hidden">
-                <WorkspacePanel
-                  artifacts={session.artifacts}
-                  sid={sid}
-                  onViewPaper={() => setShowPaper(true)}
-                />
-              </div>
-              <div className="flex-1 overflow-hidden">
-                <PlanPanel
-                  plan={session.plan}
-                  status={session.status}
-                  awaiting={session.awaiting}
-                  onApprove={onApprove}
-                />
-              </div>
-            </>
-          )}
-        </ResizableSidebar>
       </div>
-
-      {/* 底部状态栏 - SciForge 风格 */}
-      <footer className="app-footer h-7 bg-subtle flex items-center justify-between px-3 text-[11px] text-faint shrink-0 shadow-[0_-1px_0_0_rgba(15,23,42,0.04)]">
-        <div className="flex items-center gap-3">
-          <span className="flex items-center gap-1.5">
-            <GitBranchIcon />
-            No Git repo
-          </span>
-        </div>
-        <div className="flex items-center gap-3">
-          <BackendStatusText status={backendStatus} />
-          <span>Local runtime</span>
-        </div>
-      </footer>
 
       {showSettings && (
         <SettingsModal
           initial={config}
           onClose={() => setShowSettings(false)}
+          templates={templates}
+          selectedTemplate={selectedTemplate}
+          onSelectTemplate={setSelectedTemplate}
           onSave={(c) => {
             setConfig(c);
             setShowSettings(false);
@@ -772,15 +758,38 @@ function Workbench() {
         />
       )}
 
-      {/* Layer A.5: 新建 project modal */}
+      {/* Layer A.5: 新建/编辑 project modal */}
       {showProjectModal && (
-        <NewProjectModal
-          onClose={() => setShowProjectModal(false)}
-          onCreated={(p) => {
-            setCurrentProjectId(p.id);
-            localStorage.setItem("axiom_current_project_id", p.id);
+        <ProjectFormModal
+          initial={projectModalInitial}
+          onClose={() => {
             setShowProjectModal(false);
+            setProjectModalInitial(null);
+          }}
+          onDone={(p) => {
+            // 新建: 切到新 project; 编辑: 只刷新列表
+            if (!projectModalInitial) {
+              setCurrentProjectId(p.id);
+              localStorage.setItem("axiom_current_project_id", p.id);
+            }
+            setShowProjectModal(false);
+            setProjectModalInitial(null);
             refreshProjects();
+          }}
+        />
+      )}
+
+      {/* 独立项目管理面板: 新建/重命名/归档/恢复/删除的统一入口 */}
+      {showProjectManager && (
+        <ProjectManagerModal
+          onClose={() => setShowProjectManager(false)}
+          currentProjectId={currentProjectId}
+          onChanged={async ({ switchTo }) => {
+            if (switchTo) {
+              setCurrentProjectId(switchTo);
+              localStorage.setItem("axiom_current_project_id", switchTo);
+            }
+            await refreshProjects();
           }}
         />
       )}
@@ -790,8 +799,63 @@ function Workbench() {
   );
 }
 
-function SidebarItem({
-  icon,
+// 右栏上下分栏: 工作区 / 计划面板, 中间横线可上下拖动 (20%~80% 边界), 比例持久化
+const SPLIT_KEY = "rs-split-right";
+
+function SplitPanels({ top, bottom }: { top: React.ReactNode; bottom: React.ReactNode }) {
+  const [ratio, setRatio] = useState(() => {
+    try {
+      const raw = localStorage.getItem(SPLIT_KEY);
+      if (raw) return Math.min(0.8, Math.max(0.2, Number(raw) || 0.5));
+    } catch { /* ignore */ }
+    return 0.5;
+  });
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [dragging, setDragging] = useState(false);
+
+  useEffect(() => {
+    if (!dragging) return;
+    const onMove = (e: MouseEvent) => {
+      const el = containerRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const next = Math.min(0.8, Math.max(0.2, (e.clientY - rect.top) / rect.height));
+      setRatio(next);
+      try {
+        localStorage.setItem(SPLIT_KEY, String(next));
+      } catch { /* ignore */ }
+    };
+    const onUp = () => setDragging(false);
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+    return () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+  }, [dragging]);
+
+  return (
+    <div ref={containerRef} data-tauri-drag-region="false" className="flex-1 flex flex-col min-h-0">
+      <div className="overflow-hidden shrink-0" style={{ height: `${ratio * 100}%` }}>
+        {top}
+      </div>
+      {/* 可拖横线 */}
+      <div
+        onMouseDown={(e) => {
+          e.preventDefault();
+          setDragging(true);
+        }}
+        className={`h-[5px] -my-px shrink-0 cursor-row-resize hairline-t transition-colors ${
+          dragging ? "bg-accent/60" : "hover:bg-accent/30"
+        }`}
+        title="拖动调整上下比例"
+      />
+      <div className="flex-1 overflow-hidden min-h-0">{bottom}</div>
+    </div>
+  );
+}
+
+function SidebarItem({  icon,
   label,
   active,
   onClick,
@@ -889,6 +953,8 @@ function ProjectTree({ sid }: { sid: string | null }) {
   const [files, setFiles] = useState<{ path: string; size: number; name: string }[]>([]);
   const [refreshTick, setRefreshTick] = useState(0);
   const [hovered, setHovered] = useState<string | null>(null);
+  // 待确认删除的文件 — Tauri 不支持 window.confirm, 用 React 弹窗走确认流程
+  const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   useEffect(() => {
     if (!sid) {
       setFiles([]);
@@ -913,13 +979,8 @@ function ProjectTree({ sid }: { sid: string | null }) {
 
   const handleDelete = async (path: string) => {
     if (!sid) return;
-    if (!confirm(`删除 ${path}?`)) return;
-    try {
-      await deleteFile(sid, path);
-      setRefreshTick((n) => n + 1);
-    } catch (e) {
-      alert(`删除失败: ${e instanceof Error ? e.message : String(e)}`);
-    }
+    await deleteFile(sid, path);
+    setRefreshTick((n) => n + 1);
   };
 
   if (!sid) {
@@ -941,13 +1002,14 @@ function ProjectTree({ sid }: { sid: string | null }) {
           className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-hover cursor-pointer text-xs"
           onClick={() => window.open(`${apiBase()}/sessions/${sid}/files/${encodeURIComponent(f.path)}`, "_blank")}
           onMouseEnter={() => setHovered(f.path)}
+          onMouseLeave={() => setHovered(null)}
         >
           <FileIcon path={f.path} />
           <span className="flex-1 truncate text-muted">{f.name}</span>
           <button
             onClick={(e) => {
               e.stopPropagation();
-              handleDelete(f.path);
+              setPendingDelete(f.path);
             }}
             className={`text-faint hover:text-error p-0.5 rounded transition-all ${
               hovered === f.path ? "opacity-100" : "opacity-0"
@@ -963,6 +1025,15 @@ function ProjectTree({ sid }: { sid: string | null }) {
           </button>
         </div>
       ))}
+      {/* 删除确认弹窗 (替代 Tauri 不可用的 window.confirm) */}
+      {pendingDelete && (
+        <ConfirmDialog
+          title="删除文件"
+          message={`确定删除 ${pendingDelete} 吗？此操作不可撤销。`}
+          onConfirm={() => handleDelete(pendingDelete)}
+          onCancel={() => setPendingDelete(null)}
+        />
+      )}
     </div>
   );
 }
@@ -988,6 +1059,23 @@ function FileIcon({ path }: { path: string }) {
   );
 }
 
+// 全屏启动屏: Tauri 桌面端后端启动期间显示, 就绪后由 App 切换到主界面。
+// 只保留 Logo + 转圈, 不显示状态文字。
+function SplashScreen() {
+  return (
+    <div data-tauri-drag-region="deep" className="h-full w-full flex flex-col items-center justify-center gap-5 bg-page animate-fade-in">
+      <div className="relative flex items-center justify-center">
+        {/* 外圈柔和光晕 */}
+        <div className="absolute w-20 h-20 rounded-2xl bg-accent/10 blur-xl" />
+        <div className="relative w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center shadow-lg">
+          <LogoIcon width={30} height={30} className="text-white" />
+        </div>
+      </div>
+      <SpinnerIcon className="w-4 h-4 text-accent" />
+    </div>
+  );
+}
+
 function BackendBadge({ status }: { status: BackendStatus }) {
   if (status === "checking" || status === "waiting") {
     return (
@@ -1004,13 +1092,6 @@ function BackendBadge({ status }: { status: BackendStatus }) {
       {up ? "服务在线" : "服务离线"}
     </span>
   );
-}
-
-function BackendStatusText({ status }: { status: BackendStatus }) {
-  if (status === "checking" || status === "waiting") {
-    return <span>等待后端服务</span>;
-  }
-  return <span>{status === "online" ? "服务就绪" : "服务离线"}</span>;
 }
 
 function ModelBadge({ config }: { config: FullConfig }) {
@@ -1094,10 +1175,6 @@ function Welcome({ onPick }: { onPick: (t: string) => void }) {
   ];
   return (
     <div className="h-full flex flex-col items-center justify-center text-center px-6 min-h-[60vh]">
-      <div className="w-16 h-16 rounded-2xl bg-accent/10 flex items-center justify-center mb-6">
-        <LogoIcon width={32} height={32} className="text-accent" />
-      </div>
-
       <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-accent/15 text-accent text-[10px] font-semibold uppercase tracking-wider mb-4">
         <SparkleIcon />
         AI Research Core
@@ -1227,6 +1304,15 @@ function ChevronDownIcon({ width = 14, height = 14, className = "" }: { width?: 
   );
 }
 
+// 项目管理图标 (项目管理入口)
+function ProjectsIcon({ width = 14, height = 14 }: { width?: number; height?: number }) {
+  return (
+    <svg width={width} height={height} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+    </svg>
+  );
+}
+
 function ChevronLeftIcon({ width = 14, height = 14 }: { width?: number; height?: number }) {
   return (
     <svg width={width} height={height} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1235,10 +1321,22 @@ function ChevronLeftIcon({ width = 14, height = 14 }: { width?: number; height?:
   );
 }
 
-function ChevronRightIcon({ width = 14, height = 14 }: { width?: number; height?: number }) {
+// 右侧面板开关图标 (Z code 顶栏面板按钮风格)
+function PanelRightIcon() {
   return (
-    <svg width={width} height={height} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="9 18 15 12 9 6" />
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <line x1="15" y1="3" x2="15" y2="21" />
+    </svg>
+  );
+}
+
+// 左侧面板开关图标 (左栏收起时显示在主卡顶栏左侧)
+function PanelLeftIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <line x1="9" y1="3" x2="9" y2="21" />
     </svg>
   );
 }
@@ -1267,13 +1365,3 @@ function SparkleIcon() {
   );
 }
 
-function GitBranchIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="6" y1="3" x2="6" y2="15" />
-      <circle cx="18" cy="6" r="3" />
-      <circle cx="6" cy="18" r="3" />
-      <path d="M18 9a9 9 0 0 1-9 9" />
-    </svg>
-  );
-}

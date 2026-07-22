@@ -207,8 +207,8 @@ export function PaperView({ sid, onClose }: Props) {
 
   return (
     <div className="fixed inset-0 bg-page z-50 overflow-y-auto">
-      {/* 工具栏 */}
-      <div className="sticky top-0 bg-card border-b border-border px-4 py-2 flex items-center gap-3 z-10 shadow-sm">
+      {/* 工具栏 — h-16: 中线 y=32 与红绿灯对齐; traffic-clear 避让红绿灯 */}
+      <div className="sticky top-0 bg-card border-b border-border traffic-clear pr-4 h-16 flex items-center gap-3 z-10 shadow-sm">
         {/* 左侧: 返回按钮始终可见, 永不缩放 */}
         <div className="flex items-center gap-3 shrink-0">
           <button onClick={onClose} className="text-muted hover:text-default text-sm">
