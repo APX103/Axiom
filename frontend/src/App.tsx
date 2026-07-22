@@ -548,10 +548,13 @@ function Workbench() {
         {/* 中: 对话流 — 圆角卡片悬浮于窗口背景之上 (表层);
             左栏收起时红绿灯与展开按钮并入卡内顶栏 (卡片 margin 不变) */}
         <main className="flex-1 flex flex-col min-w-0 relative app-main-card m-2">
-          {/* 卡内顶栏: 拖拽区 + (左栏收起时) 左栏开关 + 服务状态 / 模型 / 主题 / 设置 / 右栏开关 */}
+          {/* 卡内顶栏: 拖拽区 + (左栏收起时) 左栏开关 + 服务状态 / 模型 / 主题 / 设置 / 右栏开关
+              左栏收起时 h-8: 卡顶 y=8, 内容中线 y=24, 与红绿灯中线严格对齐 */}
           <div
             data-tauri-drag-region="deep"
-            className={`h-12 flex items-center gap-1.5 shrink-0 edge-b ${leftCollapsed ? "traffic-clear pl-2" : "px-3"}`}
+            className={`flex items-center gap-1.5 shrink-0 edge-b ${
+              leftCollapsed ? "traffic-clear h-8 pl-2" : "h-12 px-3"
+            }`}
           >
             {leftCollapsed && (
               <button
