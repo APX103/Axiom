@@ -357,7 +357,7 @@ function Workbench() {
   // 浏览器模式后端走代理立即可用, 跳过 splash 避免闪烁。
   const isTauri = typeof window !== "undefined" && !!window.__TAURI_INTERNALS__;
   if (isTauri && backendStatus !== "online") {
-    return <SplashScreen status={backendStatus} />;
+    return <SplashScreen />;
   }
 
   return (
@@ -369,10 +369,11 @@ function Workbench() {
         <ResizableSidebar side="left" defaultWidth={224} minWidth={180} maxWidth={400} storageKey="left">
           {(toggleCollapsed) => (
             <>
-              {/* 顶行: 红绿灯避让 + Logo + 收起按钮 (整行作为窗口拖拽区) */}
+              {/* 顶行: 红绿灯避让 + Logo + 收起按钮 (整行作为窗口拖拽区)
+                  行高 40px: macOS Overlay 红绿灯中线在 y≈20px, 与行内容中线对齐 */}
               <div
                 data-tauri-drag-region
-                className="traffic-clear h-11 pl-2.5 pr-2 flex items-center gap-2 shrink-0"
+                className="traffic-clear h-10 pl-2.5 pr-2 flex items-center gap-2 shrink-0"
               >
                 <div className="w-6 h-6 rounded-md bg-accent/10 flex items-center justify-center shrink-0">
                   <LogoIcon width={13} height={13} className="text-accent" />
@@ -543,7 +544,7 @@ function Workbench() {
           {/* 卡内顶栏: 拖拽区 + 服务状态 / 模型 / 主题 / 设置 */}
           <div
             data-tauri-drag-region
-            className="h-11 flex items-center justify-end gap-1.5 px-3 shrink-0 hairline-b"
+            className="h-10 flex items-center justify-end gap-1.5 px-3 shrink-0 hairline-b"
           >
             <BackendBadge status={backendStatus} />
             <ModelBadge config={config} />
@@ -677,7 +678,7 @@ function Workbench() {
         <ResizableSidebar side="right" defaultWidth={256} minWidth={200} maxWidth={480} storageKey="right" floating>
           {(toggleCollapsed) => (
             <>
-              <div className="px-2 py-1.5 flex items-center justify-end hairline-b shrink-0">
+              <div className="h-10 px-2 flex items-center justify-end hairline-b shrink-0">
                 <button
                   onClick={toggleCollapsed}
                   className="ghost-icon-btn"
@@ -974,14 +975,8 @@ function FileIcon({ path }: { path: string }) {
 }
 
 // 全屏启动屏: Tauri 桌面端后端启动期间显示, 就绪后由 App 切换到主界面。
-// 复用 LogoIcon + SpinnerIcon, 文案随状态变化 (checking/waiting → 启动中…/等待后端服务)。
-function SplashScreen({ status }: { status: BackendStatus }) {
-  const text =
-    status === "offline"
-      ? "服务离线,正在重连…"
-      : status === "waiting"
-      ? "等待后端服务…"
-      : "启动中…";
+// 只保留 Logo + 转圈, 不显示状态文字。
+function SplashScreen() {
   return (
     <div data-tauri-drag-region className="h-full w-full flex flex-col items-center justify-center gap-5 bg-page animate-fade-in">
       <div className="relative flex items-center justify-center">
@@ -991,10 +986,7 @@ function SplashScreen({ status }: { status: BackendStatus }) {
           <LogoIcon width={30} height={30} className="text-white" />
         </div>
       </div>
-      <div className="flex flex-col items-center gap-2.5">
-        <SpinnerIcon className="w-4 h-4 text-accent" />
-        <div className="text-sm text-muted">{text}</div>
-      </div>
+      <SpinnerIcon className="w-4 h-4 text-accent" />
     </div>
   );
 }
