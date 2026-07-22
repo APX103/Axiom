@@ -67,6 +67,20 @@ function Workbench() {
   const [planMode, setPlanMode] = useState(false);
   const [deepReview, setDeepReview] = useState(false);
   const [sidebarTab, setSidebarTab] = useState<"sessions" | "files">("sessions");
+  // 右栏折叠 (受控; 开关在主卡顶栏, 与 Z code 面板开关一致)
+  const [rightCollapsed, setRightCollapsed] = useState(
+    () => localStorage.getItem("rs-collapsed-right") === "1"
+  );
+  const toggleRightCollapsed = useCallback(() => {
+    setRightCollapsed((v) => {
+      const next = !v;
+      try {
+        if (next) localStorage.setItem("rs-collapsed-right", "1");
+        else localStorage.removeItem("rs-collapsed-right");
+      } catch { /* ignore */ }
+      return next;
+    });
+  }, []);
   // Layer A.5: project 切换器
   const [projects, setProjects] = useState<ProjectInfo[]>([]);
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
@@ -509,12 +523,12 @@ function Workbench() {
           )}
         </ResizableSidebar>
 
-        {/* 中: 对话流 — 圆角卡片悬浮于窗口背景之上 */}
+        {/* 中: 对话流 — 圆角卡片悬浮于窗口背景之上 (表层) */}
         <main className="flex-1 flex flex-col min-w-0 relative app-main-card m-2">
-          {/* 卡内顶栏: 拖拽区 + 服务状态 / 模型 / 主题 / 设置 */}
+          {/* 卡内顶栏: 拖拽区 + 服务状态 / 模型 / 主题 / 设置 / 右栏开关; 底部一条稍实的线 */}
           <div
             data-tauri-drag-region="deep"
-            className="h-10 flex items-center justify-end gap-1.5 px-3 shrink-0"
+            className="h-10 flex items-center justify-end gap-1.5 px-3 shrink-0 edge-b"
           >
             <BackendBadge status={backendStatus} />
             <ModelBadge config={config} />
@@ -531,6 +545,13 @@ function Workbench() {
               title="设置"
             >
               <SettingsIcon />
+            </button>
+            <button
+              onClick={toggleRightCollapsed}
+              className={`ghost-icon-btn ${rightCollapsed ? "" : "text-accent"}`}
+              title={rightCollapsed ? "展开右栏" : "收起右栏"}
+            >
+              <PanelRightIcon />
             </button>
           </div>
           {/* Logo 水印: 衬在主区内容背后 (替代原左栏 Logo) */}
@@ -648,19 +669,19 @@ function Workbench() {
           </div>
         </main>
 
-        {/* 右: 工作区 + 验证 — 浮动圆角卡片 */}
-        <ResizableSidebar side="right" defaultWidth={256} minWidth={200} maxWidth={480} storageKey="right" floating>
-          {(toggleCollapsed) => (
+        {/* 右: 工作区 + 验证 — 与主卡同属表层; 开关在主卡顶栏, 折叠后整体隐藏 */}
+        <ResizableSidebar
+          side="right"
+          defaultWidth={256}
+          minWidth={200}
+          maxWidth={480}
+          storageKey="right"
+          floating
+          collapsed={rightCollapsed}
+          onToggleCollapsed={toggleRightCollapsed}
+        >
+          {() => (
             <>
-              <div className="h-10 px-2 flex items-center justify-end shrink-0">
-                <button
-                  onClick={toggleCollapsed}
-                  className="ghost-icon-btn"
-                  title="收起右栏"
-                >
-                  <ChevronRightIcon width={14} height={14} />
-                </button>
-              </div>
               <div data-tauri-drag-region="false" className="flex-1 overflow-hidden">
                 <WorkspacePanel
                   artifacts={session.artifacts}
@@ -1205,10 +1226,12 @@ function ChevronLeftIcon({ width = 14, height = 14 }: { width?: number; height?:
   );
 }
 
-function ChevronRightIcon({ width = 14, height = 14 }: { width?: number; height?: number }) {
+// 右侧面板开关图标 (Z code 顶栏面板按钮风格)
+function PanelRightIcon() {
   return (
-    <svg width={width} height={height} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="9 18 15 12 9 6" />
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <line x1="15" y1="3" x2="15" y2="21" />
     </svg>
   );
 }

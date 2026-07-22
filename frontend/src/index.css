@@ -138,17 +138,19 @@ html.dark body {
   -webkit-backdrop-filter: blur(24px) saturate(180%);
 }
 /* 贴边侧栏不加分割线 — 靠底色/留白与主区分开 (Z code 式无线框设计) */
-/* 浮动侧栏: 圆角卡片, 脱离窗口边缘, 纯阴影分层不描边 */
+/* 浮动侧栏: 圆角卡片, 脱离窗口边缘, 纯阴影分层不描边 (与主卡同属表层) */
 .app-sidebar.floating {
   margin: 8px 8px 8px 0;
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-md);
   overflow: hidden;
-  transition: box-shadow 0.25s ease;
 }
-/* 亮态: 侧栏玻璃带一点冷调, 与主区分开 */
-html:not(.dark) .app-sidebar {
-  background-color: rgb(247 248 252 / 0.62);
+/* 左栏 (flush) 作后层: 底色比窗口/主卡更深, 视觉上沉到表层卡片之下 */
+html:not(.dark) .app-sidebar.flush {
+  background-color: rgb(236 238 244 / 0.72);
+}
+html.dark .app-sidebar.flush {
+  background-color: rgb(15 16 21 / 0.6);
 }
 
 /* 主区圆角卡片 — 悬浮于窗口背景之上, 纯阴影分层不描边 */
@@ -159,21 +161,11 @@ html:not(.dark) .app-sidebar {
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-md);
   overflow: hidden;
-  transition: box-shadow 0.25s ease;
 }
 
-/* 窗口聚焦时: 卡片加一圈细腻亮边 (macOS 活跃窗口高光描边); 失焦回落为平阴影 */
-html:not(.window-blurred) .app-main-card,
-html:not(.window-blurred) .app-sidebar.floating {
-  box-shadow: var(--shadow-md), inset 0 0 0 1px rgb(255 255 255 / 0.55);
-}
-html.dark:not(.window-blurred) .app-main-card,
-html.dark:not(.window-blurred) .app-sidebar.floating {
-  box-shadow: var(--shadow-md), inset 0 0 0 1px rgb(255 255 255 / 0.1);
-}
-html.window-blurred .app-main-card,
-html.window-blurred .app-sidebar.floating {
-  box-shadow: var(--shadow-sm);
+/* 主卡顶栏分隔线 — 比 hairline 稍实 (Z code 标题行风格) */
+.edge-b {
+  border-bottom: 1px solid var(--border-default);
 }
 
 /* 无边框幽灵图标按钮 — 收起/展开、主题、设置等 */

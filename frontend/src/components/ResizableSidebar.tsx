@@ -10,6 +10,9 @@ interface Props {
   storageKey: string;
   // floating: 圆角浮动卡片 (脱离窗口边缘); 默认 flush 贴边全高
   floating?: boolean;
+  // 受控折叠: 提供时折叠状态由父组件管理, 折叠后整体隐藏 (无窄条), 由父组件的按钮恢复
+  collapsed?: boolean;
+  onToggleCollapsed?: () => void;
   children: React.ReactNode | ((toggleCollapsed: () => void) => React.ReactNode);
   className?: string;
 }
@@ -21,11 +24,15 @@ export function ResizableSidebar({
   maxWidth,
   storageKey,
   floating = false,
+  collapsed: collapsedProp,
+  onToggleCollapsed,
   children,
   className = "",
 }: Props) {
   const [width, setWidth] = useState(() => loadWidth(storageKey, defaultWidth));
-  const [collapsed, setCollapsed] = useState(() => loadCollapsed(storageKey));
+  const [collapsedInternal, setCollapsedInternal] = useState(() => loadCollapsed(storageKey));
+  const isControlled = collapsedProp !== undefined;
+  const collapsed = isControlled ? collapsedProp : collapsedInternal;
   const [dragging, setDragging] = useState(false);
   const startXRef = useRef(0);
   const startWidthRef = useRef(width);
@@ -58,12 +65,18 @@ export function ResizableSidebar({
   };
 
   const toggleCollapsed = () => {
-    const next = !collapsed;
-    setCollapsed(next);
+    if (isControlled) {
+      onToggleCollapsed?.();
+      return;
+    }
+    const next = !collapsedInternal;
+    setCollapsedInternal(next);
     saveCollapsed(storageKey, next);
   };
 
   if (collapsed) {
+    // 受控模式: 折叠即整体隐藏 (由外部按钮恢复, 如主卡顶栏的面板开关)
+    if (isControlled) return null;
     return (
       <div
         data-side={side}
