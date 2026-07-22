@@ -719,10 +719,12 @@ export function SettingsModal({
                         if (items.length === 0) return null;
                         return (
                           <div key={key}>
-                            <div className="text-[10px] text-faint mt-2">{label}</div>
-                            {items.map((s) => (
-                              <SkillCard key={s.name} skill={s} onToggle={toggleSkill} />
-                            ))}
+                            <div className="text-[10px] text-faint mt-2 mb-1.5">{label}</div>
+                            <div className="space-y-2">
+                              {items.map((s) => (
+                                <SkillCard key={s.name} skill={s} onToggle={toggleSkill} />
+                              ))}
+                            </div>
                           </div>
                         );
                       })}
