@@ -131,7 +131,7 @@ html.dark body {
   font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
-/* ---------- 毛玻璃结构: 侧栏 / 主卡 / 底栏 ---------- */
+/* ---------- 毛玻璃结构: 侧栏 / 主卡 ---------- */
 .app-sidebar {
   background-color: rgb(var(--subtle) / 0.55);
   backdrop-filter: blur(24px) saturate(180%);
@@ -177,15 +177,9 @@ html:not(.dark) .app-sidebar {
   color: var(--muted);
 }
 
-/* macOS Overlay 标题栏: 收起窄条顶部避让红绿灯 (已由 trafficLightPosition 内移) — 仅在 Tauri 内生效 */
+/* macOS Overlay 标题栏: 收起窄条顶部避让红绿灯 (已内移) — 仅在 Tauri 内生效 */
 html.tauri .traffic-clear-top {
   padding-top: 40px;
-}
-
-.app-footer {
-  background-color: rgb(var(--subtle) / 0.6);
-  backdrop-filter: blur(16px) saturate(160%);
-  -webkit-backdrop-filter: blur(16px) saturate(160%);
 }
 
 /* 滚动条 - 极细、半透明 */

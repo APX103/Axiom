@@ -681,14 +681,6 @@ function Workbench() {
         </ResizableSidebar>
       </div>
 
-      {/* 底部状态栏 - SciForge 风格 */}
-      <footer className="app-footer h-7 bg-subtle flex items-center justify-end px-3 text-[11px] text-faint shrink-0 shadow-[0_-1px_0_0_rgba(15,23,42,0.04)]">
-        <div className="flex items-center gap-3">
-          <BackendStatusText status={backendStatus} />
-          <span>Local runtime</span>
-        </div>
-      </footer>
-
       {showSettings && (
         <SettingsModal
           initial={config}
@@ -984,13 +976,6 @@ function BackendBadge({ status }: { status: BackendStatus }) {
       {up ? "服务在线" : "服务离线"}
     </span>
   );
-}
-
-function BackendStatusText({ status }: { status: BackendStatus }) {
-  if (status === "checking" || status === "waiting") {
-    return <span>等待后端服务</span>;
-  }
-  return <span>{status === "online" ? "服务就绪" : "服务离线"}</span>;
 }
 
 function ModelBadge({ config }: { config: FullConfig }) {
