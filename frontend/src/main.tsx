@@ -8,6 +8,9 @@ import "./index.css";
 
 const isTauri = typeof window !== "undefined" && !!window.__TAURI_INTERNALS__;
 
+// Tauri 桌面端给 <html> 打标: CSS 据此做 macOS 红绿灯 (Overlay 标题栏) 避让
+if (isTauri) document.documentElement.classList.add("tauri");
+
 // 全局错误捕获 — 白屏时在页面上显示错误信息
 window.addEventListener("error", (e) => {
   const root = document.getElementById("root");

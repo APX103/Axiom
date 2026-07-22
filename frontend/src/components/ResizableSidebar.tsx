@@ -8,6 +8,8 @@ interface Props {
   minWidth: number;
   maxWidth: number;
   storageKey: string;
+  // floating: 圆角浮动卡片 (脱离窗口边缘); 默认 flush 贴边全高
+  floating?: boolean;
   children: React.ReactNode | ((toggleCollapsed: () => void) => React.ReactNode);
   className?: string;
 }
@@ -18,6 +20,7 @@ export function ResizableSidebar({
   minWidth,
   maxWidth,
   storageKey,
+  floating = false,
   children,
   className = "",
 }: Props) {
@@ -64,7 +67,11 @@ export function ResizableSidebar({
     return (
       <div
         data-side={side}
-        className={`app-sidebar shrink-0 h-full bg-subtle flex flex-col items-center py-3 ${className}`}
+        data-tauri-drag-region
+        className={`app-sidebar flush shrink-0 self-stretch bg-subtle flex flex-col items-center py-3 ${
+          // 左栏收起成窄条时, 顶部留出 macOS 红绿灯高度, 避免展开按钮被挡住
+          side === "left" ? "traffic-clear-top" : ""
+        } ${className}`}
         style={{
           width: 40,
           boxShadow:
@@ -75,7 +82,7 @@ export function ResizableSidebar({
       >
         <button
           onClick={toggleCollapsed}
-          className="w-7 h-7 rounded-lg flex items-center justify-center text-muted hover:bg-hover transition-colors"
+          className="ghost-icon-btn"
           title={side === "left" ? "展开左栏" : "展开右栏"}
         >
           {side === "left" ? <ChevronRightIcon /> : <ChevronLeftIcon />}
@@ -89,13 +96,14 @@ export function ResizableSidebar({
   return (
     <aside
       data-side={side}
-      className={`app-sidebar relative shrink-0 h-full bg-subtle flex flex-col ${
+      className={`app-sidebar ${floating ? "floating" : "flush"} relative shrink-0 self-stretch bg-subtle flex flex-col ${
         isFunctionChildren ? "" : side === "left" ? "pr-10" : "pl-10"
       } ${className}`}
       style={{
         width,
-        boxShadow:
-          side === "left"
+        boxShadow: floating
+          ? undefined
+          : side === "left"
             ? "1px 0 0 0 rgba(15,23,42,0.04)"
             : "-1px 0 0 0 rgba(15,23,42,0.04)",
       }}
@@ -104,7 +112,7 @@ export function ResizableSidebar({
       {!isFunctionChildren && (
         <button
           onClick={toggleCollapsed}
-          className={`absolute top-3 z-10 w-7 h-7 rounded-md flex items-center justify-center text-faint hover:text-muted hover:bg-hover transition-colors ${
+          className={`ghost-icon-btn absolute top-3 z-10 ${
             side === "left" ? "right-2" : "left-2"
           }`}
           title={side === "left" ? "收起左栏" : "收起右栏"}

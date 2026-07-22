@@ -131,28 +131,66 @@ html.dark body {
   font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
-/* ---------- 毛玻璃结构: 顶栏 / 侧栏 / 底栏 ---------- */
-.app-header {
-  background-color: rgb(var(--subtle) / 0.7);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-}
-
+/* ---------- 毛玻璃结构: 侧栏 / 主卡 / 底栏 ---------- */
 .app-sidebar {
   background-color: rgb(var(--subtle) / 0.55);
   backdrop-filter: blur(24px) saturate(180%);
   -webkit-backdrop-filter: blur(24px) saturate(180%);
 }
-/* 侧栏与主区间的 hairline 分界 */
-.app-sidebar[data-side="left"] {
+/* 贴边侧栏与主区间的 hairline 分界 */
+.app-sidebar.flush[data-side="left"] {
   border-right: 1px solid var(--border-muted);
 }
-.app-sidebar[data-side="right"] {
+.app-sidebar.flush[data-side="right"] {
   border-left: 1px solid var(--border-muted);
+}
+/* 浮动侧栏: 圆角卡片, 脱离窗口边缘 */
+.app-sidebar.floating {
+  margin: 8px 8px 8px 0;
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
 }
 /* 亮态: 侧栏玻璃带一点冷调, 与主区分开 */
 html:not(.dark) .app-sidebar {
   background-color: rgb(247 248 252 / 0.62);
+}
+
+/* 主区圆角卡片 — 悬浮于窗口背景之上, 与侧栏/窗口边连成整体 */
+.app-main-card {
+  background: rgb(var(--card) / 0.6);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+
+/* 无边框幽灵图标按钮 — 收起/展开、主题、设置等 */
+.ghost-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  color: var(--faint);
+  flex-shrink: 0;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.ghost-icon-btn:hover {
+  background: rgb(var(--hover) / 0.7);
+  color: var(--muted);
+}
+
+/* macOS Overlay 标题栏: 红绿灯 (~76×30px) 避让 — 仅在 Tauri 内生效 */
+html.tauri .traffic-clear {
+  padding-left: 76px;
+}
+html.tauri .traffic-clear-top {
+  padding-top: 40px;
 }
 
 .app-footer {

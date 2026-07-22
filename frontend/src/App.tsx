@@ -363,55 +363,37 @@ function Workbench() {
   return (
     <div className="h-full flex flex-col bg-page text-default theme-transition">
       <UpdateBanner />
-      {/* 顶部标题栏 - SciForge 风格 */}
-      <header className="app-header h-12 bg-subtle flex items-center justify-between px-3 shrink-0 z-20 border-b border-border">
-        <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg bg-accent/10 flex items-center justify-center">
-            <LogoIcon width={16} height={16} className="text-accent" />
-          </div>
-          <div className="font-semibold text-sm tracking-tight">Axiom</div>
-        </div>
-
-        <div className="flex items-center gap-1.5">
-          <BackendBadge status={backendStatus} />
-          <ModelBadge config={config} />
-          <button
-            onClick={toggleTheme}
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-muted hover:bg-hover/60 transition-colors"
-            title={resolvedTheme === "dark" ? "切换到月之亮面" : "切换到月之暗面"}
-          >
-            {resolvedTheme === "dark" ? <MoonIcon /> : <SunIcon />}
-          </button>
-          <button
-            onClick={() => setShowSettings(true)}
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-muted hover:bg-hover/60 transition-colors"
-            title="设置"
-          >
-            <SettingsIcon />
-          </button>
-        </div>
-      </header>
-
-      {/* 三栏主体 */}
+      {/* 三栏主体 — macOS Overlay 标题栏: 红绿灯悬浮在左栏顶部, 无独立 titlebar */}
       <div className="flex-1 flex overflow-hidden">
-        {/* 左: 项目/会话侧边栏 - SciForge 风格 */}
+        {/* 左: 项目/会话侧边栏 */}
         <ResizableSidebar side="left" defaultWidth={224} minWidth={180} maxWidth={400} storageKey="left">
           {(toggleCollapsed) => (
             <>
-              <div className="p-2.5 flex items-center gap-2">
+              {/* 顶行: 红绿灯避让 + Logo + 收起按钮 (整行作为窗口拖拽区) */}
+              <div
+                data-tauri-drag-region
+                className="traffic-clear h-11 pl-2.5 pr-2 flex items-center gap-2 shrink-0"
+              >
+                <div className="w-6 h-6 rounded-md bg-accent/10 flex items-center justify-center shrink-0">
+                  <LogoIcon width={13} height={13} className="text-accent" />
+                </div>
+                <div className="font-semibold text-[13px] tracking-tight flex-1 select-none">Axiom</div>
+                <button
+                  onClick={toggleCollapsed}
+                  className="ghost-icon-btn"
+                  title="收起左栏"
+                >
+                  <ChevronLeftIcon width={14} height={14} />
+                </button>
+              </div>
+
+              <div className="px-2.5 pb-1 flex items-center gap-2">
                 <button
                   onClick={handleNewSession}
                   className="flex-1 h-9 rounded-lg bg-accent hover:bg-accent-hover text-inverse text-sm font-medium shadow-sm transition-all active:scale-[0.98] flex items-center justify-center gap-1.5"
                 >
                   <PlusIcon width={14} height={14} />
                   新会话
-                </button>
-                <button
-                  onClick={toggleCollapsed}
-                  className="shrink-0 w-7 h-9 rounded-lg flex items-center justify-center text-faint hover:text-muted hover:bg-hover transition-colors border border-border"
-                  title="收起左栏"
-                >
-                  <ChevronLeftIcon width={14} height={14} />
                 </button>
               </div>
 
@@ -556,8 +538,30 @@ function Workbench() {
           )}
         </ResizableSidebar>
 
-        {/* 中: 对话流 */}
-        <main className="flex-1 flex flex-col min-w-0 relative">
+        {/* 中: 对话流 — 圆角卡片悬浮于窗口背景之上 */}
+        <main className="flex-1 flex flex-col min-w-0 relative app-main-card m-2">
+          {/* 卡内顶栏: 拖拽区 + 服务状态 / 模型 / 主题 / 设置 */}
+          <div
+            data-tauri-drag-region
+            className="h-11 flex items-center justify-end gap-1.5 px-3 shrink-0 hairline-b"
+          >
+            <BackendBadge status={backendStatus} />
+            <ModelBadge config={config} />
+            <button
+              onClick={toggleTheme}
+              className="ghost-icon-btn"
+              title={resolvedTheme === "dark" ? "切换到月之亮面" : "切换到月之暗面"}
+            >
+              {resolvedTheme === "dark" ? <MoonIcon /> : <SunIcon />}
+            </button>
+            <button
+              onClick={() => setShowSettings(true)}
+              className="ghost-icon-btn"
+              title="设置"
+            >
+              <SettingsIcon />
+            </button>
+          </div>
           <div
             ref={scrollRef}
             className="flex-1 overflow-y-auto px-6 py-6 pb-32 scroll-smooth"
@@ -669,14 +673,14 @@ function Workbench() {
           </div>
         </main>
 
-        {/* 右: 工作区 + 验证 */}
-        <ResizableSidebar side="right" defaultWidth={256} minWidth={200} maxWidth={480} storageKey="right">
+        {/* 右: 工作区 + 验证 — 浮动圆角卡片 */}
+        <ResizableSidebar side="right" defaultWidth={256} minWidth={200} maxWidth={480} storageKey="right" floating>
           {(toggleCollapsed) => (
             <>
-              <div className="px-3 py-2 flex items-center justify-end border-b border-border shrink-0">
+              <div className="px-2 py-1.5 flex items-center justify-end hairline-b shrink-0">
                 <button
                   onClick={toggleCollapsed}
-                  className="w-7 h-7 rounded-lg flex items-center justify-center text-faint hover:text-muted hover:bg-hover transition-colors border border-border"
+                  className="ghost-icon-btn"
                   title="收起右栏"
                 >
                   <ChevronRightIcon width={14} height={14} />
@@ -979,7 +983,7 @@ function SplashScreen({ status }: { status: BackendStatus }) {
       ? "等待后端服务…"
       : "启动中…";
   return (
-    <div className="h-full w-full flex flex-col items-center justify-center gap-5 bg-page animate-fade-in">
+    <div data-tauri-drag-region className="h-full w-full flex flex-col items-center justify-center gap-5 bg-page animate-fade-in">
       <div className="relative flex items-center justify-center">
         {/* 外圈柔和光晕 */}
         <div className="absolute w-20 h-20 rounded-2xl bg-accent/10 blur-xl" />
