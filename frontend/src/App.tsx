@@ -716,23 +716,23 @@ function Workbench() {
               onToggleCollapsed={toggleRightCollapsed}
             >
               {() => (
-                <>
-                  <div data-tauri-drag-region="false" className="flex-1 overflow-hidden">
+                <SplitPanels
+                  top={
                     <WorkspacePanel
                       artifacts={session.artifacts}
                       sid={sid}
                       onViewPaper={() => setShowPaper(true)}
                     />
-                  </div>
-                  <div data-tauri-drag-region="false" className="flex-1 overflow-hidden">
+                  }
+                  bottom={
                     <PlanPanel
                       plan={session.plan}
                       status={session.status}
                       awaiting={session.awaiting}
                       onApprove={onApprove}
                     />
-                  </div>
-                </>
+                  }
+                />
               )}
             </ResizableSidebar>
           </div>
@@ -796,8 +796,63 @@ function Workbench() {
   );
 }
 
-function SidebarItem({
-  icon,
+// 右栏上下分栏: 工作区 / 计划面板, 中间横线可上下拖动 (20%~80% 边界), 比例持久化
+const SPLIT_KEY = "rs-split-right";
+
+function SplitPanels({ top, bottom }: { top: React.ReactNode; bottom: React.ReactNode }) {
+  const [ratio, setRatio] = useState(() => {
+    try {
+      const raw = localStorage.getItem(SPLIT_KEY);
+      if (raw) return Math.min(0.8, Math.max(0.2, Number(raw) || 0.5));
+    } catch { /* ignore */ }
+    return 0.5;
+  });
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [dragging, setDragging] = useState(false);
+
+  useEffect(() => {
+    if (!dragging) return;
+    const onMove = (e: MouseEvent) => {
+      const el = containerRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const next = Math.min(0.8, Math.max(0.2, (e.clientY - rect.top) / rect.height));
+      setRatio(next);
+      try {
+        localStorage.setItem(SPLIT_KEY, String(next));
+      } catch { /* ignore */ }
+    };
+    const onUp = () => setDragging(false);
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+    return () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+  }, [dragging]);
+
+  return (
+    <div ref={containerRef} data-tauri-drag-region="false" className="flex-1 flex flex-col min-h-0">
+      <div className="overflow-hidden shrink-0" style={{ height: `${ratio * 100}%` }}>
+        {top}
+      </div>
+      {/* 可拖横线 */}
+      <div
+        onMouseDown={(e) => {
+          e.preventDefault();
+          setDragging(true);
+        }}
+        className={`h-[5px] -my-px shrink-0 cursor-row-resize hairline-t transition-colors ${
+          dragging ? "bg-accent/60" : "hover:bg-accent/30"
+        }`}
+        title="拖动调整上下比例"
+      />
+      <div className="flex-1 overflow-hidden min-h-0">{bottom}</div>
+    </div>
+  );
+}
+
+function SidebarItem({  icon,
   label,
   active,
   onClick,

@@ -151,6 +151,10 @@ html.dark body {
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
+/* 主卡内嵌右分区: 与对话区间一条竖线分隔 */
+.app-sidebar.flush[data-side="right"] {
+  border-left: 1px solid var(--border-muted);
+}
 
 /* 主区圆角卡片 — 悬浮于窗口背景之上, 纯阴影分层不描边 */
 .app-main-card {
