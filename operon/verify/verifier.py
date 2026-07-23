@@ -16,6 +16,7 @@
 
 from __future__ import annotations
 
+import logging
 import time
 import uuid
 from dataclasses import dataclass
@@ -31,6 +32,8 @@ from .dispositions import (
     Finding,
     Verdict,
 )
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -259,7 +262,10 @@ class Verifier:
                 max_tokens=4096,
                 temperature=0,
             )
-        except Exception:
+        except Exception as e:
+            logger.warning(
+                "reviewer LLM call failed, skipping checkpoint: %s: %s", type(e).__name__, e
+            )
             return []
 
         # 解析 tool_use 里的 findings

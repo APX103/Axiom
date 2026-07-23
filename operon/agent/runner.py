@@ -222,7 +222,11 @@ class Agent:
                 if self._is_prompt_too_long_error(e):
                     self._handle_overflow()
                 # 流式失败 (网络/兼容性) 不致命, 回退非流式重试一次
-                pass
+                logger.warning(
+                    "streamed LLM call failed, falling back to non-stream: %s: %s",
+                    type(e).__name__,
+                    e,
+                )
 
         # 非流式回退
         try:
@@ -364,6 +368,13 @@ class Agent:
 
             self._iter += 1
             await self.callbacks.on_iteration(self._iter)
+            logger.info(
+                "iteration %d/%d start (frame=%s, messages=%d)",
+                self._iter,
+                self.max_iterations,
+                self.frame.id,
+                len(self.frame.messages),
+            )
             # trace: 标记当前轮次上下文 (供 span 共享 frame_id/turn_id)
             turn_id = f"{self.frame.id}-{self._iter}"
             if self._trace is not None:
@@ -404,6 +415,13 @@ class Agent:
                 )
             # 记录 server-side token (用于 RC 锚点估算)
             self.frame.add_usage(resp.usage)
+            logger.info(
+                "LLM response: stop=%s, tool_uses=%d, in=%s out=%s",
+                resp.stop_reason.value if resp.stop_reason else None,
+                sum(1 for b in resp.content if isinstance(b, ToolUseBlock)),
+                getattr(resp.usage, "input_tokens", None) if resp.usage else None,
+                getattr(resp.usage, "output_tokens", None) if resp.usage else None,
+            )
 
             # 5. 处理响应
             should_exit, result = await self._process_llm_response(resp)
@@ -498,6 +516,10 @@ class Agent:
 
         # 有 tool_use → 执行工具
         await self.callbacks.on_tool_calls(tool_uses)
+        logger.info(
+            "executing tools: %s",
+            ", ".join(tu.name for tu in tool_uses),
+        )
         # trace: 每个工具调用一个 span (含耗时和错误)
         if self._trace is not None and self._trace.log_tool_args:
             # 记录工具调用元信息 (不展开参数, 敏感)
@@ -508,6 +530,8 @@ class Agent:
                     iter=self._iter,
                 )
         results = await self.tool_router.execute_tool_calls(tool_uses)
+        n_errors = sum(1 for r in results if r.is_error)
+        logger.info("tools finished: %d result(s), %d error(s)", len(results), n_errors)
         # trace: 工具结果摘要 (可选, 默认开)
         if self._trace is not None and self._trace.log_tool_result_summary:
             for r in results:
@@ -590,8 +614,16 @@ class Agent:
         本阶段实现 plan_produce_denial 门 (对照 1625)。
         """
         # 空内容 end_turn 重试 (对照 0871.js:1344) — harness-notice, 用户不可见
-        if not resp.content and self._empty_turn_retries < 3:
+        # 注意: 只含 thinking 的响应也算空轮 — 推理模型 (step-3.7 等) 在长上下文下
+        # 会只输出 reasoning 就 stop, content 非空但既无可见回复也无工具调用,
+        # 若不当空轮处理会被误判为自然完成, 整个 run 提前收工 (恢复旧 session 续写时高发)。
+        has_text = any(isinstance(b, TextBlock) and b.text.strip() for b in resp.content)
+        if not has_text and self._empty_turn_retries < 3:
             self._empty_turn_retries += 1
+            logger.warning(
+                "empty end_turn (thinking-only or empty response), retry %d/3",
+                self._empty_turn_retries,
+            )
             # deep_review: 空响应时给出强任务提醒 (笨模型容易加载 skill 后空转)
             if self.deep_review:
                 hint = (
@@ -790,7 +822,9 @@ class Agent:
         if self._verifier is None:
             return
         if self._verifier.maybe_checkpoint():
+            logger.info("reviewer checkpoint start (frame=%s)", self.frame.id)
             findings = await self._verifier.checkpoint()
+            logger.info("reviewer checkpoint done: %d finding(s)", len(findings))
             if findings:
                 fail_warn = [f for f in findings if f.is_actionable]
                 if fail_warn:

@@ -644,7 +644,7 @@ function Workbench() {
           {/* 悬浮输入区 - 药丸条 */}
           <div className="absolute bottom-5 left-0 right-0 px-6">
             <div className="max-w-3xl mx-auto">
-              <div className="floating-input p-2">
+              <div className={`floating-input p-2 ${session.status === "running" ? "running" : ""}`}>
                 <textarea
                   value={input}
                   onChange={(e) => setInput(e.target.value)}

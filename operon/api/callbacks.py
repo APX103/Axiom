@@ -8,11 +8,14 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from typing import Any
 
 from operon.agent.runner import AgentCallbacks
 from operon.api.events import plan_snapshot
 from operon.llm.messages import ToolResultBlock, ToolUseBlock
+
+logger = logging.getLogger(__name__)
 
 
 class WSCallbacks(AgentCallbacks):
@@ -29,7 +32,32 @@ class WSCallbacks(AgentCallbacks):
         try:
             self.queue.put_nowait(event)
         except asyncio.QueueFull:
-            pass  # 队列满时丢弃事件 (避免阻塞 agent 循环)
+            etype = event.get("type", "?")
+            if etype == "complete":
+                # complete 是流终止信号, 绝不能丢: 腾出最旧的事件再塞入。
+                # 否则 SSE 消费者永远等不到结束, 前端会永远卡在 running。
+                logger.error(
+                    "event queue full, evicting oldest events to deliver complete "
+                    "(qsize=%d)",
+                    self.queue.qsize(),
+                )
+                while True:
+                    try:
+                        self.queue.get_nowait()
+                    except asyncio.QueueEmpty:
+                        pass
+                    try:
+                        self.queue.put_nowait(event)
+                        return
+                    except asyncio.QueueFull:
+                        continue
+            else:
+                # 队列满时丢弃增量事件 (避免阻塞 agent 循环), 但必须可见。
+                logger.warning(
+                    "event queue full, dropping event type=%s (qsize=%d)",
+                    etype,
+                    self.queue.qsize(),
+                )
 
     # ---- AgentCallbacks 实现 ----
 

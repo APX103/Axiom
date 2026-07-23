@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import uuid
 from typing import TYPE_CHECKING
 
@@ -31,6 +32,8 @@ from .state import RollingSummaryMeta, make_summary_id
 
 if TYPE_CHECKING:
     pass
+
+logger = logging.getLogger(__name__)
 
 SUMMARIZER_SYSTEM = (
     "You are a conversation summarizer. Summarize the given conversation chunk into a concise "
@@ -143,8 +146,18 @@ async def summarize_chunk(
                 if hasattr(b, "text"):
                     raw += b.text
             if not raw.strip():
+                logger.warning(
+                    "summarizer returned empty text (attempt %d/%d)", attempt, GATE_MAX_RETRIES
+                )
                 continue
-        except Exception:
+        except Exception as e:
+            logger.warning(
+                "summarizer LLM call failed (attempt %d/%d): %s: %s",
+                attempt,
+                GATE_MAX_RETRIES,
+                type(e).__name__,
+                e,
+            )
             continue
 
         final_tokens = max(1, len(raw) // CHARS_PER_TOKEN)  # max(1,...) 防止空摘要 token=0
