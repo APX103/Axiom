@@ -973,6 +973,7 @@ def create_app() -> FastAPI:
                     sid, req.prompt, plan_mode=req.plan_mode, deep_review=req.deep_review
                 )
             )
+            logger.info("SSE stream start: session=%s", sid)
             try:
                 while True:
                     event = await queue.get()
@@ -981,10 +982,17 @@ def create_app() -> FastAPI:
                         break
                 # 确保 run 正常结束 (异常会在此抛出, 被外层捕获)
                 await run_task
+                logger.info(
+                    "SSE stream complete: session=%s, kind=%s",
+                    sid,
+                    event.get("kind"),
+                )
             except asyncio.CancelledError:
                 run_task.cancel()
+                logger.warning("SSE stream cancelled by client: session=%s", sid)
                 raise
             except Exception as e:
+                logger.exception("SSE stream error: session=%s", sid)
                 err = _json.dumps(
                     {"type": "error", "message": f"{type(e).__name__}: {e}"},
                     ensure_ascii=False,

@@ -320,6 +320,74 @@ html.dark .floating-input:focus-within {
   box-shadow: var(--shadow-xl), 0 0 0 4px rgb(52 211 153 / 0.14);
 }
 
+/* 运行中: 输入框边框跑马灯 (旋转的锥形渐变光环) */
+@property --halo-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+.floating-input.running {
+  position: relative;
+  border-color: transparent;
+}
+.floating-input.running::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: calc(var(--radius-2xl) + 1px);
+  padding: 2px;
+  background: conic-gradient(
+    from var(--halo-angle),
+    rgb(13 148 136 / 0.95),
+    rgb(20 184 166 / 0.15) 25%,
+    transparent 40%,
+    transparent 60%,
+    rgb(20 184 166 / 0.15) 75%,
+    rgb(13 148 136 / 0.95)
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  animation: halo-spin 2.4s linear infinite;
+  pointer-events: none;
+}
+.floating-input.running::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: calc(var(--radius-2xl) + 6px);
+  background: radial-gradient(closest-side, rgb(13 148 136 / 0.14), transparent);
+  animation: halo-breathe 2.4s ease-in-out infinite;
+  pointer-events: none;
+  z-index: -1;
+}
+html.dark .floating-input.running::before {
+  background: conic-gradient(
+    from var(--halo-angle),
+    rgb(52 211 153 / 0.95),
+    rgb(52 211 153 / 0.15) 25%,
+    transparent 40%,
+    transparent 60%,
+    rgb(52 211 153 / 0.15) 75%,
+    rgb(52 211 153 / 0.95)
+  );
+}
+@keyframes halo-spin {
+  to {
+    --halo-angle: 360deg;
+  }
+}
+@keyframes halo-breathe {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
 /* ---------- 用户消息气泡: 松绿→青玉渐变 ---------- */
 .bg-accent.rounded-br-md {
   background-image: linear-gradient(135deg, var(--accent) 0%, var(--accent-secondary) 115%);

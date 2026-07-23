@@ -26,6 +26,7 @@ from operon.llm.messages import (
     Message,
     StopReason,
     TextBlock,
+    ThinkingBlock,
     TokenUsage,
     ToolResultBlock,
     ToolUseBlock,
@@ -172,6 +173,32 @@ async def test_empty_end_turn_retries(workspace):
 
     assert result.kind == RunResultKind.NATURAL
     assert result.final_text == "这次有内容了"
+
+
+@pytest.mark.asyncio
+async def test_thinking_only_end_turn_retries(workspace):
+    """只含 thinking 的 end_turn 也算空轮, 应重试而非误判为自然完成。
+
+    回归: 推理模型 (step-3.7 等) 长上下文下会只输出 reasoning 就 stop,
+    content 非空 (有 ThinkingBlock) 但无 text/tool_use, 旧守卫 not resp.content
+    不触发 → run 提前收工 (恢复旧 session 续写时高发)。
+    """
+    llm = FakeLLM(
+        [
+            LLMResponse(
+                content=[ThinkingBlock(thinking="我再补一轮检索…")],
+                stop_reason=StopReason.END_TURN,
+                model="fake",
+            ),
+            _text_resp("这次真的继续了"),
+        ]
+    )
+    session = Session(llm=llm, config=SessionConfig(workspace=workspace))
+    result = await session.run("继续")
+
+    assert result.kind == RunResultKind.NATURAL
+    assert result.final_text == "这次真的继续了"
+    assert llm.calls == 2  # thinking-only 那轮被当作空轮重试了
 
 
 # ---------- 5. 达到 max_iterations ----------
