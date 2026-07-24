@@ -77,6 +77,7 @@ function migrateOldConfig(old: Record<string, unknown>): FullConfig {
     skill_extra_dirs: [],
     verification: newVerification(),
     trace: newTrace(),
+    default_template: "article",
   };
 }
 
@@ -109,6 +110,7 @@ export function loadConfig(): FullConfig {
     skill_extra_dirs: [],
     verification: newVerification(),
     trace: newTrace(),
+    default_template: "article",
   };
 }
 
@@ -148,6 +150,7 @@ export function fromApiSettings(raw: Record<string, unknown>): FullConfig {
     skill_extra_dirs: (raw.skill_extra_dirs as string[]) || [],
     verification: (raw.verification as VerificationConfig) || newVerification(),
     trace: (raw.trace as TraceConfig) || newTrace(),
+    default_template: (raw.default_template as string) || "article",
   };
 }
 
@@ -169,16 +172,12 @@ export function SettingsModal({
   onClose,
   onSave,
   templates = [],
-  selectedTemplate,
-  onSelectTemplate,
 }: {
   initial: FullConfig;
   onClose: () => void;
   onSave: (c: FullConfig) => void;
-  // 论文模板 (新建会话时复制进工作区); 选择立即生效, 不随"保存"按钮
+  // 论文模板 (新建会话时复制进工作区); 现在作为配置项保存到 Academic tab
   templates?: TemplateInfo[];
-  selectedTemplate?: string;
-  onSelectTemplate?: (id: string) => void;
 }) {
   const [cfg, setCfg] = useState<FullConfig>(initial);
   const [tab, setTab] = useState<"models" | "mcp" | "skills" | "memory" | "academic" | "general">("models");
@@ -800,6 +799,35 @@ export function SettingsModal({
                   className="mt-1.5 w-full px-3 py-2 bg-page rounded-lg text-sm text-default placeholder:text-faint focus:outline-none input-glow font-mono"
                 />
               </label>
+
+              {/* 论文模板 (从 General 移到 Academic 统一管理) */}
+              {templates.length > 0 && (
+                <div className="p-3 rounded-lg bg-page space-y-2">
+                  <div>
+                    <div className="text-sm text-default">默认论文模板</div>
+                    <div className="text-[10px] text-faint">新建会话时复制进工作区作为 main.tex</div>
+                  </div>
+                  <div className="space-y-1">
+                    {templates.map((t) => (
+                      <button
+                        key={t.id}
+                        onClick={() => setCfg((c) => ({ ...c, default_template: t.id }))}
+                        title={t.description || ""}
+                        className={`w-full flex items-center justify-between px-2.5 py-2 rounded-md text-xs transition-colors ${
+                          t.id === cfg.default_template
+                            ? "bg-accent/15 text-accent font-medium"
+                            : "text-default hover:bg-hover"
+                        }`}
+                      >
+                        <span>
+                          {t.name} ({t.columns}栏)
+                        </span>
+                        {t.id === cfg.default_template && <span>✓</span>}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -813,34 +841,6 @@ export function SettingsModal({
                 </div>
               </div>
 
-              {/* 论文模板 (原侧栏下拉, 移入设置统一管理) */}
-              {templates.length > 0 && (
-                <div className="p-3 rounded-lg bg-page space-y-2">
-                  <div>
-                    <div className="text-sm text-default">论文模板</div>
-                    <div className="text-[10px] text-faint">新建会话时复制进工作区作为 main.tex 模板</div>
-                  </div>
-                  <div className="space-y-1">
-                    {templates.map((t) => (
-                      <button
-                        key={t.id}
-                        onClick={() => onSelectTemplate?.(t.id)}
-                        title={t.description || ""}
-                        className={`w-full flex items-center justify-between px-2.5 py-2 rounded-md text-xs transition-colors ${
-                          t.id === selectedTemplate
-                            ? "bg-accent/15 text-accent font-medium"
-                            : "text-default hover:bg-hover"
-                        }`}
-                      >
-                        <span>
-                          {t.name} ({t.columns}栏)
-                        </span>
-                        {t.id === selectedTemplate && <span>✓</span>}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
               <label className="flex items-center gap-3 cursor-pointer p-3 rounded-lg bg-page">
                 <input
                   type="checkbox"
