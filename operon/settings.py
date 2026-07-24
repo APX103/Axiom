@@ -67,6 +67,8 @@ class AppSettings(BaseModel):
     verification: VerificationConfig = Field(default_factory=VerificationConfig)
     # 结构化 trace 配置 (对应 operon.config.TraceConfig)
     trace: TraceConfig = Field(default_factory=TraceConfig)
+    # 默认论文模板 id (见 GET /api/templates), 新建会话时复制 template.tex 到工作区。
+    default_template: str = "article"
 
 
 # ---- key 脱敏 helpers ----
@@ -202,6 +204,7 @@ def app_settings_to_config_settings(app: AppSettings, data_dir: Path | None = No
         "mcp_servers": mcp_servers,
         "api_keys": app.api_keys,
         "default_model_tier": app.default_model_tier,
+        "default_template": app.default_template or "article",
     }
     if data_dir is not None:
         kwargs["data_dir"] = data_dir
@@ -256,6 +259,7 @@ def config_settings_to_app_settings(settings: Settings) -> AppSettings:
         default_model_tier=settings.default_model_tier,
         verification=settings.verification,
         trace=settings.trace,
+        default_template=settings.default_template,
     )
 
 

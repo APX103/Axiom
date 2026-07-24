@@ -104,9 +104,8 @@ function Workbench() {
   const [projectDropdownOpen, setProjectDropdownOpen] = useState(false);
   // 独立项目管理面板 (新建/重命名/归档/恢复/删除的统一入口)
   const [showProjectManager, setShowProjectManager] = useState(false);
-  // 论文模板 (新建会话时复制进工作区作为 main.tex preamble)
+  // 论文模板列表 (供设置面板选择默认模板)
   const [templates, setTemplates] = useState<TemplateInfo[]>([]);
-  const [selectedTemplate, setSelectedTemplate] = useState<string>("article");
   const scrollRef = useRef<HTMLDivElement>(null);
   const restoredRef = useRef(false);
 
@@ -161,19 +160,14 @@ function Workbench() {
     refreshProjects();
   }, [refreshProjects]);
 
-  // 加载论文模板列表 (供新建会话时选择)
+  // 加载论文模板列表 (供设置面板展示)
   useEffect(() => {
     listTemplates()
       .then((list) => {
-        if (list.length > 0) {
-          setTemplates(list);
-          // 若当前选中的模板不在列表里, 回退到 article
-          if (!list.some((t) => t.id === selectedTemplate)) {
-            setSelectedTemplate(list[0].id);
-          }
-        }
+        console.log("[listTemplates] loaded", list.length, list.map((t) => t.id));
+        if (list.length > 0) setTemplates(list);
       })
-      .catch(() => {});
+      .catch((e) => console.warn("[listTemplates] initial load failed:", e));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 探测后端 + 同步配置 + 恢复会话
@@ -223,6 +217,12 @@ function Workbench() {
                 }
               }
             });
+            // 后端就绪后补拉模板列表; 挂载时可能后端还没 ready 导致失败,静默吞了。
+            listTemplates()
+              .then((list) => {
+                if (list.length > 0) setTemplates(list);
+              })
+              .catch((e) => console.warn("[listTemplates] failed:", e));
           }
         }
       } catch {
@@ -297,7 +297,7 @@ function Workbench() {
     if (config.disabled_skills && config.disabled_skills.length > 0) {
       body.disabled_skills = config.disabled_skills;
     }
-    if (selectedTemplate) body.template = selectedTemplate;
+    if (config.default_template) body.template = config.default_template;
     // Layer A.5: 带 project_id (用当前选中, 后端 fallback 到 proj_default)
     if (currentProjectId) body.project_id = currentProjectId;
     try {
@@ -751,8 +751,6 @@ function Workbench() {
           initial={config}
           onClose={() => setShowSettings(false)}
           templates={templates}
-          selectedTemplate={selectedTemplate}
-          onSelectTemplate={setSelectedTemplate}
           onSave={(c) => {
             setConfig(c);
             setShowSettings(false);

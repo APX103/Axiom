@@ -1,6 +1,6 @@
 [package]
 name = "axiom"
-version = "0.0.19"
+version = "0.0.20"
 description = "Local AI workbench built on operon-py"
 authors = ["operon-py"]
 license = "MIT"

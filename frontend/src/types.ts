@@ -60,6 +60,7 @@ export interface AppSettings {
   skill_extra_dirs: string[];
   verification: VerificationConfig;
   trace: TraceConfig;
+  default_template: string;
 }
 
 export interface SkillInfo {

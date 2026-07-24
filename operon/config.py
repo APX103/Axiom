@@ -179,6 +179,8 @@ class Settings(BaseSettings):
     # MCP servers (搜索 MCP 等)。每项 {name, url, headers}。
     # 前端创建会话时也可传; config.toml 里的作为默认。
     mcp_servers: list[dict[str, Any]] = Field(default_factory=list)
+    # 默认论文模板 id (见 GET /api/templates)。新建会话时复制 template.tex 到工作区。
+    default_template: str = "article"
 
     def db_url(self) -> str:
         path = self.db_path or (self.data_dir / "operon.db")

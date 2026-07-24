@@ -654,8 +654,9 @@ def create_app() -> FastAPI:
         workspace = settings.data_dir / "workspaces" / sid
 
         # 模板: 把选中的 template.tex 复制进工作区作为 main.tex (preamble 已就位)。
-        # 默认 article; 找不到模板时静默跳过 (不阻断建会话)。
-        tpl_id = req.template or "article"
+        # 优先用请求体; 否则用 settings 里的默认模板; 兜底 article。
+        # 找不到模板时静默跳过 (不阻断建会话)。
+        tpl_id = req.template or settings.default_template or "article"
         try:
             from operon.templates import get_template_path
 
