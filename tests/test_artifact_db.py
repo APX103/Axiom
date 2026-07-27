@@ -15,14 +15,14 @@ from pathlib import Path
 
 import pytest
 
-from operon.artifacts.store import ArtifactStore
+from axiom_core.artifacts.store import ArtifactStore
 
 
 @pytest.fixture
 async def db_store(tmp_path: Path) -> ArtifactStore:
     """带 SQLite 的 ArtifactStore。"""
     pytest.importorskip("aiosqlite")
-    from operon.db.session import init_engine, session_factory
+    from axiom_core.db.session import init_engine, session_factory
 
     engine = await init_engine(f"sqlite:///{tmp_path / 'art.db'}")
     factory = session_factory(engine)
@@ -49,7 +49,7 @@ async def test_save_async_persists_artifact_and_version(db_store: ArtifactStore)
     # 直接查 DB
     from sqlalchemy import select
 
-    from operon.db.schema import Artifact, ArtifactVersion
+    from axiom_core.db.schema import Artifact, ArtifactVersion
 
     async with db_store._db() as session:
         arts = (await session.execute(select(Artifact))).scalars().all()
@@ -90,7 +90,7 @@ async def test_save_async_version_chain(db_store: ArtifactStore):
 
     from sqlalchemy import select
 
-    from operon.db.schema import Artifact, ArtifactVersion
+    from axiom_core.db.schema import Artifact, ArtifactVersion
 
     async with db_store._db() as session:
         art = (
@@ -140,7 +140,7 @@ async def test_save_async_persists_dependencies_dag(db_store: ArtifactStore):
 
     from sqlalchemy import select
 
-    from operon.db.schema import ArtifactDependency
+    from axiom_core.db.schema import ArtifactDependency
 
     async with db_store._db() as session:
         deps = (
@@ -164,7 +164,7 @@ async def test_save_async_persists_dependencies_dag(db_store: ArtifactStore):
 @pytest.mark.asyncio
 async def test_load_from_db_replays_to_memory(tmp_path: Path):
     """跨 store 实例: A 存, 新建 B 复用同一 DB, load_from_db 后内存可用。"""
-    from operon.db.session import init_engine, session_factory
+    from axiom_core.db.session import init_engine, session_factory
 
     engine = await init_engine(f"sqlite:///{tmp_path / 'art.db'}")
     factory = session_factory(engine)
@@ -200,7 +200,7 @@ async def test_load_from_db_replays_to_memory(tmp_path: Path):
 @pytest.mark.asyncio
 async def test_load_from_db_filtered_by_project(tmp_path: Path):
     """load_from_db(project_id=...) 只回放该 project。"""
-    from operon.db.session import init_engine, session_factory
+    from axiom_core.db.session import init_engine, session_factory
 
     engine = await init_engine(f"sqlite:///{tmp_path / 'art.db'}")
     factory = session_factory(engine)
@@ -240,7 +240,7 @@ def test_in_memory_mode_still_works(tmp_path: Path):
 @pytest.mark.asyncio
 async def test_topology_after_load_from_db(tmp_path: Path):
     """回放后 get_lineage_topology 仍能遍历 DAG。"""
-    from operon.db.session import init_engine, session_factory
+    from axiom_core.db.session import init_engine, session_factory
 
     engine = await init_engine(f"sqlite:///{tmp_path / 'art.db'}")
     factory = session_factory(engine)

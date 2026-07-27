@@ -17,9 +17,9 @@ from pathlib import Path
 
 import pytest
 
-from operon.observability.logging_setup import setup_logging
-from operon.observability.spans import SpanKind
-from operon.observability.trace import (
+from axiom_core.observability.logging_setup import setup_logging
+from axiom_core.observability.spans import SpanKind
+from axiom_core.observability.trace import (
     TraceRecorder,
     _redact_value,
     cleanup_old_traces,
@@ -171,7 +171,7 @@ def test_summarize_result_dict_serialized():
 
 def test_get_trace_recorder_disabled_returns_null():
     """trace_config.enabled=False 时返回 _NullRecorder (零开销)。"""
-    from operon.config import TraceConfig
+    from axiom_core.config import TraceConfig
 
     config = TraceConfig(enabled=False)
     recorder = get_trace_recorder(config, session_id="s1", data_dir=Path("/tmp"))
@@ -194,7 +194,7 @@ def test_get_trace_recorder_none_returns_null():
 
 def test_get_trace_recorder_enabled_creates_real(tmp_path: Path):
     """enabled=True 时返回真正的 TraceRecorder, 写到 trace_dir。"""
-    from operon.config import TraceConfig
+    from axiom_core.config import TraceConfig
 
     config = TraceConfig(enabled=True, log_dir=tmp_path / "trace")
     recorder = get_trace_recorder(config, session_id="real-session", data_dir=tmp_path)
@@ -215,8 +215,8 @@ async def test_agent_loop_writes_trace(workspace: Path, tmp_path: Path, monkeypa
 
     通过 monkeypatch 让 Session._make_trace_recorder 返回真实 recorder (写到 tmp_path)。
     """
-    from operon.agent.session import Session, SessionConfig
-    from operon.llm.messages import LLMResponse, StopReason, TextBlock, TokenUsage, ToolUseBlock
+    from axiom_core.agent.session import Session, SessionConfig
+    from axiom_core.llm.messages import LLMResponse, StopReason, TextBlock, TokenUsage, ToolUseBlock
     from tests.conftest import FakeLLM
 
     # FakeLLM 脚本: 第 1 轮调 bash, 第 2 轮回复文本结束
@@ -280,8 +280,8 @@ async def test_agent_loop_writes_trace(workspace: Path, tmp_path: Path, monkeypa
 @pytest.mark.asyncio
 async def test_agent_loop_disabled_trace_no_file(workspace: Path):
     """enabled=False 时 trace 目录不应有文件 (零开销)。"""
-    from operon.agent.session import Session, SessionConfig
-    from operon.llm.messages import LLMResponse, StopReason, TextBlock, TokenUsage
+    from axiom_core.agent.session import Session, SessionConfig
+    from axiom_core.llm.messages import LLMResponse, StopReason, TextBlock, TokenUsage
     from tests.conftest import FakeLLM
 
     llm = FakeLLM([
@@ -337,7 +337,7 @@ def test_setup_logging_creates_file_handler(tmp_path: Path):
     for h in logging.getLogger().handlers:
         h.flush()
 
-    log_file = log_dir / "operon.log"
+    log_file = log_dir / "axiom_core.log"
     assert log_file.exists()
     content = log_file.read_text(encoding="utf-8")
     assert "hello-from-test" in content

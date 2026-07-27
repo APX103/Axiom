@@ -11,10 +11,10 @@ from pathlib import Path
 
 import pytest
 
-from operon.agent.runner import RunResultKind
-from operon.agent.states import FrameStatus
-from operon.llm.base import LLMClient
-from operon.llm.messages import (
+from axiom_core.agent.runner import RunResultKind
+from axiom_core.agent.states import FrameStatus
+from axiom_core.llm.base import LLMClient
+from axiom_core.llm.messages import (
     LLMResponse,
     StopReason,
     TextBlock,
@@ -77,11 +77,11 @@ async def test_ask_user_then_resume(workspace):
     1. 第一轮 ask_user → AWAITING_USER_RESPONSE, pending_ask 被设置
     2. 第二轮用户回答 → 清掉 AWAITING 状态回到 PROCESSING, 回答被处理, 正常完成
     """
-    from operon.agent.runner import Agent
-    from operon.frames.service import FrameService
-    from operon.tools.context import ToolContext
-    from operon.tools.registry import ToolRegistry
-    from operon.tools.router import ToolRouter
+    from axiom_core.agent.runner import Agent
+    from axiom_core.frames.service import FrameService
+    from axiom_core.tools.context import ToolContext
+    from axiom_core.tools.registry import ToolRegistry
+    from axiom_core.tools.router import ToolRouter
 
     llm = FakeLLM([
         _ask_user_resp("用哪种模型?", ["GPT", "Claude"]),
@@ -96,7 +96,7 @@ async def test_ask_user_then_resume(workspace):
     )
     router_registry = ToolRegistry()
     # 注册默认工具 (含 ask_user)
-    from operon.tools.builtins import register_all
+    from axiom_core.tools.builtins import register_all
     register_all(router_registry, ctx)
     router = ToolRouter(router_registry)
 

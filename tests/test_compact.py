@@ -14,8 +14,8 @@ import uuid
 
 import pytest
 
-from operon.compact.chunk import should_trigger_l1
-from operon.compact.constants import (
+from axiom_core.compact.chunk import should_trigger_l1
+from axiom_core.compact.constants import (
     CHARS_PER_TOKEN,
     KA_FLOOR,
     KB_RATIO,
@@ -24,20 +24,20 @@ from operon.compact.constants import (
     OUTPUT_CEILING,
     compute_ka,
 )
-from operon.compact.engine import check_rolling_compact
-from operon.compact.projection import (
+from axiom_core.compact.engine import check_rolling_compact
+from axiom_core.compact.projection import (
     compute_projection,
     prepare_messages_for_llm,
     render_summary_block,
 )
-from operon.compact.state import (
+from axiom_core.compact.state import (
     RollingSummaryMeta,
     make_summary_id,
     new_rolling_compact_state,
 )
-from operon.compact.token_est import estimate_message_tokens, estimate_messages_total
-from operon.llm.base import LLMClient
-from operon.llm.messages import LLMResponse, Message, Role, StopReason, TextBlock, TokenUsage
+from axiom_core.compact.token_est import estimate_message_tokens, estimate_messages_total
+from axiom_core.llm.base import LLMClient
+from axiom_core.llm.messages import LLMResponse, Message, Role, StopReason, TextBlock, TokenUsage
 
 # ---------- 1. 常数对照原版 ----------
 

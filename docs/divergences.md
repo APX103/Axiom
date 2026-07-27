@@ -6,7 +6,7 @@
 
 **原版**：`0234.js:16` 硬编码 `dF = {anthropic: {small/medium/large}}`，客户端 `A3` (`0202.js:501`) 只对接 Anthropic API。
 
-**本项目**：`operon/llm/` 提供 Provider 抽象，首版实现 OpenAI 兼容 adapter，通过 `base_url` 适配国内模型（DeepSeek、通义、智谱、Moonshot 等）。
+**本项目**：`axiom_core/llm/` 提供 Provider 抽象，首版实现 OpenAI 兼容 adapter，通过 `base_url` 适配国内模型（DeepSeek、通义、智谱、Moonshot 等）。
 
 **理由**：用户需求是接入国内模型。OpenAI 兼容协议是国内模型的事实标准。
 
@@ -16,7 +16,7 @@
 
 **原版**：Anthropic `tool_use` / `tool_result` content block 格式。
 
-**本项目**：`operon/llm/message_adapter.py` 做双向转换。对外暴露统一的内部消息模型（接近 Anthropic 语义，因为 agent 状态机依赖 tool_use 语义），与 OpenAI 兼容 API 通信时转换。
+**本项目**：`axiom_core/llm/message_adapter.py` 做双向转换。对外暴露统一的内部消息模型（接近 Anthropic 语义，因为 agent 状态机依赖 tool_use 语义），与 OpenAI 兼容 API 通信时转换。
 
 **理由**：保持 agent 状态机对原版的忠实（`_processLlmResponse` 依赖 tool_use 分支），同时适配国内模型。
 
@@ -24,7 +24,7 @@
 
 **原版**：依赖 Anthropic Citations API（`citations_delta` 事件，`0155.js`/`0166.js` 解析），模型自动产出引用。
 
-**本项目**：`operon/citations/refcheck.py` 自建引用闭环——claim 抽取 → grounding 校验 → 三档 verdict（pass/warn/fail）→ 可疑来源分类。
+**本项目**：`axiom_core/citations/refcheck.py` 自建引用闭环——claim 抽取 → grounding 校验 → 三档 verdict（pass/warn/fail）→ 可疑来源分类。
 
 **理由**：国内模型无等价 API。**这反而是改进**——引用闭环不再绑死 provider，且对应 `survey-pipeline-design.html` 中设计的 RefCheck 思路。原版的 `suspect_citations` 隔离逻辑（`0850.js`）会保留并增强。
 
@@ -40,7 +40,7 @@
 
 **原版**：`0808.js:1024` 用 Anthropic 服务端 `web_search_20250305` server tool。
 
-**本项目**：`operon/tools/builtins/web_search.py` 自建，封装搜索 API。
+**本项目**：`axiom_core/tools/builtins/web_search.py` 自建，封装搜索 API。
 
 **理由**：国内模型无等价服务端工具。
 
@@ -48,7 +48,7 @@
 
 **原版**：`2558.js` serve 子命令起 Fastify daemon（端口 8000/8765），桌面壳通过 vsock/stdio 通信。
 
-**本项目**：纯后端库（`import operon`）+ CLI（`operon` 命令）。HTTP server 后置为可选层。
+**本项目**：纯后端库（`import axiom_core`）+ CLI（`axiom` 命令）。HTTP server 后置为可选层。
 
 **理由**：用户明确选择。库形态更易测试、集成、迭代。
 
@@ -72,7 +72,7 @@
 
 **原版**：`dF` 固定 `small=haiku / medium=sonnet / large=opus`，硬编码 Claude snapshot id。
 
-**本项目**：`operon/config.py` 暴露 `small/medium/large` 三档，每档的 `model` 字符串 + `base_url` 可配。默认值留空，由用户填国内模型名。
+**本项目**：`axiom_core/config.py` 暴露 `small/medium/large` 三档，每档的 `model` 字符串 + `base_url` 可配。默认值留空，由用户填国内模型名。
 
 **理由**：适配多 provider。
 
@@ -80,7 +80,7 @@
 
 **原版**：`ArtifactStore`（`0187.js` `_saveArtifactCommon`）始终写 SQLite，三层表 artifacts / artifact_versions / artifact_dependencies（+ content_snapshots 去重）。
 
-**本项目**：`operon/artifacts/store.py` 的 `ArtifactStore` 采用**内存优先**策略——`db_session_factory=None`（缺省）时纯内存 + 工作区文件（向后兼容现有测试与 CLI `run`）；API 服务（`operon serve`）的 lifespan 初始化 SQLite engine 并注入 `SessionManager`，此时 `save_async()` 同步写 DB（artifacts / artifact_versions / artifact_dependencies），`load_from_db()` 启动时回放内存支持断点续会话。
+**本项目**：`axiom_core/artifacts/store.py` 的 `ArtifactStore` 采用**内存优先**策略——`db_session_factory=None`（缺省）时纯内存 + 工作区文件（向后兼容现有测试与 CLI `run`）；API 服务（`axiom serve`）的 lifespan 初始化 SQLite engine 并注入 `SessionManager`，此时 `save_async()` 同步写 DB（artifacts / artifact_versions / artifact_dependencies），`load_from_db()` 启动时回放内存支持断点续会话。
 
 **理由**：
 - 内核（agent 循环、host.lineage/query）只需内存态即可工作，DB 是可选持久层——这让 CLI `run` 和单元测试零 DB 依赖。
@@ -96,7 +96,7 @@
 ## 11. 后置能力（首版不做，非永久偏离）
 
 以下原版能力首版不实现，但架构预留接口，后续阶段按需补：
-- **Biosecurity 轨迹审查**：`0203.js` 异步 trajectory screen + sticky refusal。科研非生物场景可后置；`operon/agent/runner.py` 的 SCREEN 钩子保留。
+- **Biosecurity 轨迹审查**：`0203.js` 异步 trajectory screen + sticky refusal。科研非生物场景可后置；`axiom_core/agent/runner.py` 的 SCREEN 钩子保留。
 - **BYOC / remote compute**：Modal/SSH/infer provider。首版只本地 sandbox。
 - **Skills marketplace + license 门控**：`0795.js`/`skill_license_assents`。首版只本地 skill 加载。
 - **OAuth 订阅登录**：`2321.js` PKCE flow。首版用 API key。

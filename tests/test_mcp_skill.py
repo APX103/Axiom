@@ -7,9 +7,9 @@ from __future__ import annotations
 
 import pytest
 
-from operon.host import make_host
-from operon.mcp.manager import MCPServerManager
-from operon.mcp.skill_gen import generate_mcp_skills, is_mcp_skill, mcp_skill_name
+from axiom_core.host import make_host
+from axiom_core.mcp.manager import MCPServerManager
+from axiom_core.mcp.skill_gen import generate_mcp_skills, is_mcp_skill, mcp_skill_name
 
 
 class FakeManager(MCPServerManager):

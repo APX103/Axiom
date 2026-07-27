@@ -219,7 +219,7 @@ OPENALEX_API_KEY = "..."
 配置优先级：
 
 ```text
-环境变量 (OPERON_*) > ~/.axiom/settings.json > config.toml > 代码默认值
+环境变量 (AXIOM_*) > ~/.axiom/settings.json > config.toml > 代码默认值
 ```
 
 ### APP 内设置面板
@@ -238,10 +238,10 @@ OPENALEX_API_KEY = "..."
 
 | 变量 | 作用 |
 |------|------|
-| `OPERON_DATA_DIR` | 数据目录路径，默认 `~/.axiom` |
-| `OPERON_MODELS__LARGE__API_KEY` | LLM API Key |
-| `OPERON_MODELS__LARGE__BASE_URL` | LLM Base URL |
-| `OPERON_MODELS__LARGE__MODEL` | 模型名 |
+| `AXIOM_DATA_DIR` | 数据目录路径，默认 `~/.axiom` |
+| `AXIOM_MODELS__LARGE__API_KEY` | LLM API Key |
+| `AXIOM_MODELS__LARGE__BASE_URL` | LLM Base URL |
+| `AXIOM_MODELS__LARGE__MODEL` | 模型名 |
 | `OPENALEX_API_KEY` | OpenAlex API Key |
 
 ---
@@ -266,7 +266,7 @@ cd frontend && bun install
 ### 启动后端服务
 
 ```bash
-uv run operon serve
+uv run axiom serve
 ```
 
 ### 启动前端开发服务器
@@ -379,7 +379,7 @@ GitHub Actions 使用干净 runner，一般不会出现此问题。
 
 ```text
 Axiom/
-├── operon/              # Python 后端内核（Agent、API、工具、记忆、验证、存储）
+├── axiom_core/              # Python 后端内核（Agent、API、工具、记忆、验证、存储）
 ├── frontend/            # React + TypeScript + Vite 前端
 ├── src-tauri/           # Tauri v2 桌面壳（Rust）
 ├── skills/              # Agent skills（paper-writing / lit-survey / deli-autoresearch …）
@@ -389,7 +389,7 @@ Axiom/
 ├── docs/                # 设计文档 + ARCHITECTURE.md
 ├── config.example.toml  # 配置模板
 ├── backend_entry.py     # PyInstaller 打包入口
-└── operon-backend.spec  # PyInstaller 规格文件
+└── axiom-backend.spec  # PyInstaller 规格文件
 ```
 
 ---

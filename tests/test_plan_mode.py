@@ -14,11 +14,11 @@ from pathlib import Path
 
 import pytest
 
-from operon.agent.runner import MAX_PLAN_DENIALS, AgentCallbacks, RunResultKind
-from operon.agent.session import Session, SessionConfig
-from operon.agent.states import FrameStatus
-from operon.api.callbacks import WSCallbacks
-from operon.llm.messages import (
+from axiom_core.agent.runner import MAX_PLAN_DENIALS, AgentCallbacks, RunResultKind
+from axiom_core.agent.session import Session, SessionConfig
+from axiom_core.agent.states import FrameStatus
+from axiom_core.api.callbacks import WSCallbacks
+from axiom_core.llm.messages import (
     LLMResponse,
     StopReason,
     TextBlock,
@@ -140,12 +140,12 @@ async def test_generate_plan_emits_live_plan_update(workspace):
 @pytest.mark.asyncio
 async def test_approve_starts_first_step_and_success_closes_plan(workspace):
     """批准后首步进入执行态；Agent 自然成功时不遗留 pending。"""
-    from operon.agent.runner import Agent
-    from operon.frames.service import FrameService
-    from operon.tools.builtins import plan as plan_tools
-    from operon.tools.context import ToolContext
-    from operon.tools.registry import ToolRegistry
-    from operon.tools.router import ToolRouter
+    from axiom_core.agent.runner import Agent
+    from axiom_core.frames.service import FrameService
+    from axiom_core.tools.builtins import plan as plan_tools
+    from axiom_core.tools.context import ToolContext
+    from axiom_core.tools.registry import ToolRegistry
+    from axiom_core.tools.router import ToolRouter
 
     frame_service = FrameService()
     frame = frame_service.create_root_frame(agent_name="MAIN")
@@ -202,7 +202,7 @@ async def test_approve_starts_first_step_and_success_closes_plan(workspace):
 @pytest.mark.asyncio
 async def test_ws_callback_serializes_plan_update_snapshot():
     """SSE/WS 队列中的 plan_update 是完整且与后续突变隔离的快照。"""
-    from operon.tools.context import PlanState
+    from axiom_core.tools.context import PlanState
 
     callbacks = WSCallbacks()
     plan = PlanState(

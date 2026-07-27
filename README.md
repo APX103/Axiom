@@ -47,7 +47,7 @@ In **Settings → Models**, add and enable a provider:
 - **Academic** — OpenAlex API key (required for OpenAlex search; OpenAlex enforces keys from 2026-02).
 - **Template** — pick a paper template for new sessions (article / IEEE / ACM).
 
-Settings persist to `~/.axiom/settings.json`. Developers can also edit a root `config.toml` (gitignored). Priority: `env (OPERON_*) > settings.json > config.toml > defaults`.
+Settings persist to `~/.axiom/settings.json`. Developers can also edit a root `config.toml` (gitignored). Priority: `env (AXIOM_*) > settings.json > config.toml > defaults`.
 
 ---
 
@@ -83,7 +83,7 @@ Requirements: macOS 10.13+, Python 3.11+, [uv](https://docs.astral.sh/uv/), [bun
 ```bash
 uv sync                              # Python deps
 cd frontend && bun install           # Frontend deps
-uv run operon serve                  # Backend (dev)
+uv run axiom serve                  # Backend (dev)
 cd frontend && bun run dev           # Frontend (dev)
 uv run pytest                        # Tests
 ./scripts/build_mac_app.sh           # Build the macOS app

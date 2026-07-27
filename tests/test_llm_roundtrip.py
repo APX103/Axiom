@@ -14,8 +14,8 @@ import json
 import httpx
 import pytest
 
-from operon.llm.messages import Message, Role, TextBlock, ToolResultBlock, ToolUseBlock
-from operon.llm.openai_compat import OpenAICompatClient
+from axiom_core.llm.messages import Message, Role, TextBlock, ToolResultBlock, ToolUseBlock
+from axiom_core.llm.openai_compat import OpenAICompatClient
 
 
 def _make_client(handler) -> OpenAICompatClient:
@@ -100,7 +100,7 @@ async def test_full_tool_call_roundtrip():
             )
 
     client = _make_client(handler)
-    from operon.llm.messages import ToolDefinition
+    from axiom_core.llm.messages import ToolDefinition
 
     tools = [
         ToolDefinition(

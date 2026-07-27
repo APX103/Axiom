@@ -10,9 +10,9 @@ import asyncio
 
 import pytest
 
-from operon.llm.messages import ToolUseBlock
-from operon.tools.registry import ToolRegistry
-from operon.tools.router import ToolRouter
+from axiom_core.llm.messages import ToolUseBlock
+from axiom_core.tools.registry import ToolRegistry
+from axiom_core.tools.router import ToolRouter
 
 
 @pytest.fixture

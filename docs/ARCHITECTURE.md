@@ -4,7 +4,7 @@
 
 ## 一句话概括
 
-Axiom 是一个**本地优先的科研 AI 工作台**：一个 Python agent 内核（`operon`）负责推理、工具调用、记忆、验证；一个 React 前端做对话与论文预览；一个 Tauri 壳把它们打包成 macOS 桌面应用。LLM 推理走云端（兼容 OpenAI 协议），**工具执行与所有数据都留在本地**。
+Axiom 是一个**本地优先的科研 AI 工作台**：一个 Python agent 内核（`axiom_core`）负责推理、工具调用、记忆、验证；一个 React 前端做对话与论文预览；一个 Tauri 壳把它们打包成 macOS 桌面应用。LLM 推理走云端（兼容 OpenAI 协议），**工具执行与所有数据都留在本地**。
 
 ---
 
@@ -22,13 +22,13 @@ Axiom 是一个**本地优先的科研 AI 工作台**：一个 Python agent 内�
 │  - PaperView: TeX(KaTeX) + PDF(PDF.js) 双模预览           │
 │  - 设置: LLM Provider / MCP / 学术 API / 模板选择          │
 ├──────────────────── HTTP+SSE ────────────────────────────┤
-│  FastAPI 层 (operon/api/)                                │
+│  FastAPI 层 (axiom_core/api/)                                │
 │  - /sessions/{sid}/stream-sse  流式运行                   │
 │  - /sessions/{sid}/compile      LaTeX→PDF 编译            │
 │  - /templates                   论文模板                  │
 │  - /files, /health, /settings …                          │
 ├─────────────────────────────────────────────────────────┤
-│  Agent 内核 (operon/agent/)                               │
+│  Agent 内核 (axiom_core/agent/)                               │
 │  - Runner: 主循环 (调 LLM → 工具 → 验证门控)               │
 │  - Frames: 主/子 frame, 状态机 (PROCESSING/AWAITING…)      │
 │  - Session: 工具注册 + 工作区 + 生命周期                    │
@@ -37,7 +37,7 @@ Axiom 是一个**本地优先的科研 AI 工作台**：一个 Python agent 内�
 │  tools/   skills/   memory/   compact/   verify/         │
 │  citations/  artifacts/  templates/  llm/  mcp/          │
 ├─────────────────────────────────────────────────────────┤
-│  存储 (operon/db/)  SQLite: 会话/消息/记忆/artifact/验证    │
+│  存储 (axiom_core/db/)  SQLite: 会话/消息/记忆/artifact/验证    │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -49,7 +49,7 @@ Axiom 是一个**本地优先的科研 AI 工作台**：一个 Python agent 内�
 
 Tauri 主进程（Rust）启动时：
 
-1. 找一个空闲端口，spawn `operon-backend serve --port <port>`（PyInstaller 打包的单文件，或开发时 `python -m operon.cli.main serve`）。
+1. 找一个空闲端口，spawn `axiom-backend serve --port <port>`（PyInstaller 打包的单文件，或开发时 `python -m axiom_core.cli.main serve`）。
 2. 把端口注入 webview 的 `localStorage`，前端据此发请求。
 3. 主窗口关闭时杀掉整个后端进程组（`setpgid` + `killpg`），避免孤儿进程占端口。
 
@@ -57,7 +57,7 @@ Tauri 主进程（Rust）启动时：
 
 ---
 
-## Agent 内核（`operon/agent/`）
+## Agent 内核（`axiom_core/agent/`）
 
 ### Runner 主循环（`runner.py`）
 
@@ -167,7 +167,7 @@ Axiom 借用了 **[Deli Chen 的 auto-research 协议](TODO-补链接)** 的思�
 
 ## 构建与打包
 
-- **后端**：PyInstaller（`operon-backend.spec`）打成单文件 `operon-backend`，skills/ + templates/ 一并塞进 bundle（解压到 `_MEIPASS`）。
+- **后端**：PyInstaller（`axiom-backend.spec`）打成单文件 `axiom-backend`，skills/ + templates/ 一并塞进 bundle（解压到 `_MEIPASS`）。
 - **前端**：`bun run build` → `frontend/dist/`，Tauri 嵌进 webview。
 - **桌面壳**：`bun x @tauri-apps/cli build` 产出 `.app` / `.dmg`，`scripts/build_mac_app.sh` 再做 adhoc 签名 + entitlements。
 

@@ -43,7 +43,7 @@ Codex 的 Layer 1/2 是为通用编程场景调的。Axiom 的 Layer 1/2 是为�
 
 #### 现状
 
-`operon/memory/` 是三层结构：
+`axiom_core/memory/` 是三层结构：
 - `extract.py`: 每轮从对话里抽取记忆条目
 - `recall.py`: BM25 + 关键词召回
 - `store.py`: 存到 SQLite

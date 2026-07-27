@@ -8,15 +8,15 @@ from __future__ import annotations
 
 import pytest
 
-from operon.skills.catalog import (
+from axiom_core.skills.catalog import (
     SkillCatalog,
     load_builtin_skills,
     load_claude_skills,
     load_custom_skills,
     load_project_skills,
 )
-from operon.skills.parser import Skill, parse_skill_md
-from operon.skills.search import expand_query, search_skills, tokenize
+from axiom_core.skills.parser import Skill, parse_skill_md
+from axiom_core.skills.search import expand_query, search_skills, tokenize
 
 # ---------- SKILL.md 解析 ----------
 

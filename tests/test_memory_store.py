@@ -16,8 +16,8 @@ from pathlib import Path
 import pytest
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from operon.db.schema import Base
-from operon.memory.store import MemoryStore, _meta_from_str, _meta_to_str
+from axiom_core.db.schema import Base
+from axiom_core.memory.store import MemoryStore, _meta_from_str, _meta_to_str
 
 
 @pytest.fixture

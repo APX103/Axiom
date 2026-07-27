@@ -35,7 +35,7 @@ function logProcess(name: string, proc: ChildProcess) {
 
 test.beforeAll(async () => {
   // 启动 Python 后端
-  backend = spawn("uv", ["run", "operon", "serve"], {
+  backend = spawn("uv", ["run", "axiom", "serve"], {
     cwd: path.resolve(__dirname, "../.."),
     stdio: "pipe",
   });

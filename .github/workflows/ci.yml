@@ -35,7 +35,7 @@ jobs:
         run: uv sync --extra dev
 
       - name: Lint (ruff)
-        run: uv run ruff check operon tests
+        run: uv run ruff check axiom_core tests
 
       - name: Version consistency
         run: uv run python scripts/check_version.py

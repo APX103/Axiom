@@ -12,7 +12,7 @@ interface ThemeContextValue {
   toggleTheme: () => void;
 }
 
-const STORAGE_KEY = "operon-theme";
+const STORAGE_KEY = "axiom-theme";
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 function getSystemTheme(): "light" | "dark" {

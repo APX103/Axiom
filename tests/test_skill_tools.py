@@ -6,9 +6,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from operon.skills.catalog import SkillCatalog
-from operon.skills.parser import Skill
-from operon.tools.builtins.skills import list_skills
+from axiom_core.skills.catalog import SkillCatalog
+from axiom_core.skills.parser import Skill
+from axiom_core.tools.builtins.skills import list_skills
 
 
 def _make_ctx(skills=None, loaded=None):

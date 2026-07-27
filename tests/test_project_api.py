@@ -17,8 +17,8 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 @pytest.fixture
 def app_and_client(tmp_path: Path):
     """构造 app + TestClient, 用临时 DB。"""
-    from operon.api.app import create_app
-    from operon.db.session import init_engine, session_factory
+    from axiom_core.api.app import create_app
+    from axiom_core.db.session import init_engine, session_factory
 
     db_path = tmp_path / "test.db"
     engine = asyncio.run(init_engine(f"sqlite+aiosqlite:///{db_path}"))
@@ -117,7 +117,7 @@ def test_delete_nonempty_project_without_force_409(app_and_client):
     """非空 project 不带 force 拒绝删除。"""
     _, client, _ = app_and_client
     # 直接往 DB 插一条 SessionRecord 关联到新 project
-    from operon.db.schema import Project, SessionRecord
+    from axiom_core.db.schema import Project, SessionRecord
 
     app, _, engine = app_and_client
     factory = async_sessionmaker(engine, expire_on_commit=False)
@@ -145,7 +145,7 @@ def test_delete_nonempty_project_without_force_409(app_and_client):
 
 def test_delete_nonempty_project_with_force(app_and_client):
     """非空 project 带 force 时 SET NULL session + 删 project。"""
-    from operon.db.schema import Project, SessionRecord
+    from axiom_core.db.schema import Project, SessionRecord
 
     app, client, engine = app_and_client
     factory = async_sessionmaker(engine, expire_on_commit=False)

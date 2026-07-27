@@ -10,10 +10,10 @@ from pathlib import Path
 
 import pytest
 
-from operon.frames.service import FrameService
-from operon.tools.builtins import edit_file as edit_mod
-from operon.tools.builtins import exec as exec_mod
-from operon.tools.context import ToolContext
+from axiom_core.frames.service import FrameService
+from axiom_core.tools.builtins import edit_file as edit_mod
+from axiom_core.tools.builtins import exec as exec_mod
+from axiom_core.tools.context import ToolContext
 
 
 @pytest.fixture
@@ -77,7 +77,7 @@ async def test_edit_file_identical(ctx, tmp_path):
 async def test_python_cwd_is_workspace(ctx, tmp_path):
     """python 工具的 CWD 应是工作区,不是进程 CWD。
 
-    原 bug: 进程内 exec 继承 operon 进程 CWD,导致 agent 脚本相对路径错误。
+    原 bug: 进程内 exec 继承 axiom_core 进程 CWD,导致 agent 脚本相对路径错误。
     """
     (tmp_path / "marker.txt").write_text("found!")
     result = await exec_mod.python(

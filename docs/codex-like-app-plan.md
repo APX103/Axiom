@@ -72,7 +72,7 @@
 ### 3.4 启动流程
 
 1. 用户双击打开 APP。
-2. Tauri 壳先启动，同时后台起一个 Python 进程（`operon serve`）。
+2. Tauri 壳先启动，同时后台起一个 Python 进程（`axiom serve`）。
 3. 等 Python 后端启动成功后，打开窗口。
 4. 窗口里加载 React 页面，页面自动连接 `http://127.0.0.1:8000`。
 5. 用户看到的就是一个长得像 Codex 的本地工具。

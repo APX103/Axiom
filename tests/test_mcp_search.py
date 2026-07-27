@@ -16,12 +16,12 @@ from typing import Any
 
 import pytest
 
-from operon.tools.builtins.mcp_proxy import (
+from axiom_core.tools.builtins.mcp_proxy import (
     register_mcp_search_tools,
     register_mcp_tools,
     tool_name,
 )
-from operon.tools.registry import ToolRegistry
+from axiom_core.tools.registry import ToolRegistry
 
 
 class MockMCPServerManager:
@@ -218,10 +218,10 @@ def test_meta_tools_do_not_conflict_with_builtins():
     """mcp_search / mcp_call 注册后, 内置工具仍能正常注册。"""
     from pathlib import Path
 
-    from operon.frames.model import Frame, FrameStatus
-    from operon.frames.service import FrameService
-    from operon.tools.builtins import register_all
-    from operon.tools.context import ToolContext
+    from axiom_core.frames.model import Frame, FrameStatus
+    from axiom_core.frames.service import FrameService
+    from axiom_core.tools.builtins import register_all
+    from axiom_core.tools.context import ToolContext
 
     tools = [_make_tool("srv", f"t{i}", "desc") for i in range(50)]
     manager = MockMCPServerManager(tools)
