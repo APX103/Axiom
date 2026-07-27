@@ -47,7 +47,7 @@ class MCPClient:
         *,
         headers: dict[str, str] | None = None,
         timeout: float = 60.0,
-        name: str = "operon-py",
+        name: str = "axiom-core",
         version: str = "0.0.1",
         transport: httpx.AsyncBaseTransport | None = None,
     ):

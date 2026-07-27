@@ -1,4 +1,4 @@
-# operon-py 配置文件样板。
+# axiom-core 配置文件样板。
 #
 # 用法: 复制为 config.toml, 填入真实 key, 即可直接 operon serve / operon run。
 # config.toml 已被 .gitignore 忽略 (含 key, 不进 git)。
@@ -8,7 +8,7 @@
 # ---- 服务 ----
 host = "0.0.0.0"        # 0.0.0.0 = 局域网可访问
 port = 8000
-# data_dir = "~/.operon-py"   # SQLite + workspace 默认目录; 不填用默认
+# data_dir = "~/.axiom-core"   # SQLite + workspace 默认目录; 不填用默认
 
 # ---- LLM (必填, OpenAI 兼容协议) ----
 # 国内外模型都行: StepFun / DeepSeek / 通义 / 智谱 / Moonshot / OpenAI 等

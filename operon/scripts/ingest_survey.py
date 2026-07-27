@@ -22,7 +22,7 @@ from typing import Any
 PROJECT_ID = "survey-baijian-zongshu"
 ROOT_FRAME_ID = "frame_survey_root"
 
-# 调研源文件目录 (打包在 operon-py/articles/)
+# 调研源文件目录 (打包在 axiom-core/articles/)
 def _article_dir() -> Path:
     return Path(__file__).resolve().parent.parent.parent / "articles" / "survey-baijian-zongshu"
 

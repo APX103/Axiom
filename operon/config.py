@@ -192,7 +192,7 @@ class Settings(BaseSettings):
 
 
 def _default_config_path() -> Path | None:
-    """默认搜索 config.toml: 当前工作目录 → 包根目录 (operon-py/)。"""
+    """默认搜索 config.toml: 当前工作目录 → 包根目录 (axiom-core/)。"""
     candidates = [
         Path.cwd() / "config.toml",
         Path(__file__).resolve().parent.parent / "config.toml",

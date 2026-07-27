@@ -3,7 +3,7 @@
   "configVersion": 0,
   "workspaces": {
     "": {
-      "name": "operon-py-frontend",
+      "name": "axiom-frontend",
       "dependencies": {
         "@tauri-apps/api": "^2.0.0",
         "@types/katex": "^0.16.8",

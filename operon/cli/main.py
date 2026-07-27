@@ -17,7 +17,7 @@ from operon.config import load_settings
 
 app = typer.Typer(
     name="operon",
-    help="operon-py: Operon 的 Python clean-room 复刻",
+    help="axiom-core: Operon 的 Python clean-room 复刻",
     no_args_is_help=True,
 )
 
@@ -34,7 +34,7 @@ def serve(
     """
     import uvicorn
 
-    typer.secho(f"operon-py API → http://{host}:{port}", fg=typer.colors.GREEN, bold=True)
+    typer.secho(f"axiom-core API → http://{host}:{port}", fg=typer.colors.GREEN, bold=True)
     typer.secho(f"  文档: http://{host}:{port}/docs", fg=typer.colors.CYAN)
     typer.secho(f"  WS:   ws://{host}:{port}/api/sessions/{{sid}}/stream", fg=typer.colors.CYAN)
     uvicorn.run("operon.api.app:app", host=host, port=port, reload=reload)
@@ -43,7 +43,7 @@ def serve(
 @app.command()
 def version() -> None:
     """打印版本。"""
-    typer.echo(f"operon-py {__version__}")
+    typer.echo(f"axiom-core {__version__}")
 
 
 @app.command()

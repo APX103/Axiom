@@ -560,7 +560,7 @@
         <span class="brand-dot"></span>
         Axiom 架构解析
       </a>
-      <span class="header-meta">本地科研 AI 工作台 · operon-py 内核</span>
+      <span class="header-meta">本地科研 AI 工作台 · axiom-core 内核</span>
     </div>
   </header>
 
@@ -609,7 +609,7 @@
         <strong>Axiom</strong> 是一个<strong>本地优先的科研 AI 工作台</strong>。它把 LLM 的推理能力、学术数据检索、代码执行、文件编辑和版本化管理，打包成一个可以运行在 macOS 桌面上的应用。
       </p>
       <p>
-        它的后端内核是 <code>operon-py</code>（对原版 Operon 的 clean-room Python 重实现），前端是 React + Vite，桌面壳用 Tauri v2（Rust）把前后端打包成一个可分发应用。所有会话、工作区文件、SQLite 数据库都保存在本地机器上，LLM 调用则走兼容 OpenAI 协议的云端或本地模型。
+        它的后端内核是 <code>axiom-core</code>（对原版 Operon 的 clean-room Python 重实现），前端是 React + Vite，桌面壳用 Tauri v2（Rust）把前后端打包成一个可分发应用。所有会话、工作区文件、SQLite 数据库都保存在本地机器上，LLM 调用则走兼容 OpenAI 协议的云端或本地模型。
       </p>
 
       <div class="feature-grid">
@@ -683,7 +683,7 @@ graph TB
       F[React 工作台]
     end
 
-    subgraph 后端 operon-py
+    subgraph 后端 axiom-core
       A[FastAPI / WebSocket]
       B[Agent Runner]
       C[Tool Registry]

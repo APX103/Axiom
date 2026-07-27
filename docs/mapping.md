@@ -1,10 +1,10 @@
-# 原版文件 ↔ operon-py 模块对照表
+# 原版文件 ↔ axiom-core 模块对照表
 
 反编译源码位于 `claude-science-decompiled/03-decoded/`。本表维护原版混淆文件 → 本项目 Python 模块的对应关系，是"对照原版"原则的索引。行号针对反编译产物。
 
 ## 核心架构
 
-| 原版文件 | 原版符号/职责 | operon-py 模块 | 说明 |
+| 原版文件 | 原版符号/职责 | axiom-core 模块 | 说明 |
 |---|---|---|---|
 | `00-runtime.js` | Bun 模块注册/懒加载入口 | （无对应，Python 原生 import） | Python 无需此层 |
 | `0221.js` (711KB) | 业务大脑：host SDK、provenance、Python kernel worker | `operon/tools/host.py`、`operon/kernel/worker.py`、`operon/citations/` | 拆分；provenance → citations |
@@ -12,7 +12,7 @@
 
 ## Agent 状态机（阶段 1）
 
-| 原版文件 | 原版符号/职责 | operon-py 模块 |
+| 原版文件 | 原版符号/职责 | axiom-core 模块 |
 |---|---|---|
 | `0871.js` (106KB) | `Ki` 类 — 会话编排器、主循环 `_runLoop`、所有门控、biosecurity、plan-mode | `operon/agent/runner.py` |
 | `0858.js` (128KB) | `x$_` 类 — 单次 LLM 调用包装、rolling-compact 执行、checkpoint 用量 | `operon/agent/conversation.py` |
@@ -22,7 +22,7 @@
 
 ## Frame 树（阶段 1）
 
-| 原版文件 | 原版符号/职责 | operon-py 模块 |
+| 原版文件 | 原版符号/职责 | axiom-core 模块 |
 |---|---|---|
 | `0110.js:51-133` | `frames` 表定义 (Drizzle `P`) | `operon/db/schema.py::Frame`、`operon/frames/model.py` |
 | `0125.js:55,83` | createRootFrame / createChildFrame | `operon/frames/service.py` |
@@ -32,7 +32,7 @@
 
 ## Rolling Compact（阶段 2）
 
-| 原版文件 | 原版符号/职责 | operon-py 模块 |
+| 原版文件 | 原版符号/职责 | axiom-core 模块 |
 |---|---|---|
 | `0848.js` (72KB) | `newRollingCompactState`/`checkRollingCompact`/`abortRollingCompact` | `operon/compact/engine.py`、`operon/compact/state.py` |
 | `0836.js:417` | `d8 = 4` (CHARS_PER_TOKEN) | `operon/compact/constants.py` |
@@ -42,7 +42,7 @@
 
 ### Rolling Compact 常数对照（已逐条核实）
 
-| 常数 | 原版值 (0848.js) | operon-py |
+| 常数 | 原版值 (0848.js) | axiom-core |
 |---|---|---|
 | `CHARS_PER_TOKEN` (d8) | `4` (0836.js:417) | `CHARS_PER_TOKEN = 4` |
 | `OUTPUT_CEILING` (aSz) | `32000` (2356) | `OUTPUT_CEILING = 32000` |
@@ -58,7 +58,7 @@
 
 ## 验证 Harness（阶段 3）
 
-| 原版文件 | 原版符号/职责 | operon-py 模块 |
+| 原版文件 | 原版符号/职责 | axiom-core 模块 |
 |---|---|---|
 | `0850.js` (139KB) | `oL_` Verifier — checkpoint/shadow/dispatcher | `operon/verify/verifier.py` |
 | `0850.js:2023` | `spawnReviewersAndAwait` | `operon/verify/reviewer.py` |
@@ -70,7 +70,7 @@
 
 ## Artifact 版本（阶段 4）
 
-| 原版文件 | 原版符号/职责 | operon-py 模块 |
+| 原版文件 | 原版符号/职责 | axiom-core 模块 |
 |---|---|---|
 | `0187.js:47-169` | `_saveArtifactCommon` 乐观并发 | `operon/artifacts/store.py` |
 | `0110.js:302-419` | `artifacts` + `artifact_versions` 表 | `operon/db/schema.py` |
@@ -80,7 +80,7 @@
 
 ## 提示词
 
-| 原版文件 | 原版符号/职责 | operon-py 模块 |
+| 原版文件 | 原版符号/职责 | axiom-core 模块 |
 |---|---|---|
 | `0195.js` (98KB) | 提示词常量宝库 (KtO/qtO/ytO/RULES_* 等) | `operon/prompts/rules/*.py` |
 | `0198.js:7` | `AtO` 注册表 + `cz()`/`wV_()` 模板 | `operon/prompts/registry.py` |
@@ -90,7 +90,7 @@
 
 ## 模型与配置
 
-| 原版文件 | 原版符号/职责 | operon-py 模块 |
+| 原版文件 | 原版符号/职责 | axiom-core 模块 |
 |---|---|---|
 | `0234.js:16` | `dF` 模型分级 (haiku/sonnet/opus) | `operon/config.py` (改为 small/medium/large 通用名) |
 | `0039.js` | Zod 配置 schema | `operon/config.py` (Pydantic) |
@@ -99,7 +99,7 @@
 
 ## 工具面
 
-| 原版文件 | 工具 | operon-py 模块 |
+| 原版文件 | 工具 | axiom-core 模块 |
 |---|---|---|
 | `0861.js:21-47` | `YEz` 工具注册集 | `operon/tools/registry.py` |
 | `0336.js` | bash/python/r/repl/compute_provider | `operon/tools/builtins/exec.py` |

@@ -1,8 +1,8 @@
 [package]
 name = "axiom"
 version = "0.0.20"
-description = "Local AI workbench built on operon-py"
-authors = ["operon-py"]
+description = "Local AI workbench built on axiom-core"
+authors = ["axiom-core"]
 license = "MIT"
 edition = "2021"
 rust-version = "1.77"

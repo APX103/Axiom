@@ -1,4 +1,4 @@
-"""operon-py: Operon 的 Python clean-room 复刻。
+"""axiom-core: Operon 的 Python clean-room 复刻。
 
 公开 API:
     from operon import Settings, OpenAICompatClient

@@ -21,7 +21,7 @@ _OPENALEX_BASE = "https://api.openalex.org"
 
 def _headers(ctx: ToolContext) -> dict[str, str]:
     """OpenAlex 请求头。有 api_key 用 api_key,否则用 mailto(OpenAlex 礼仪)。"""
-    h = {"User-Agent": "operon-py/0.0.1 (https://github.com/operon-py)"}
+    h = {"User-Agent": "axiom-core/0.0.1 (https://github.com/axiom-core)"}
     key = ctx.api_keys.get("OPENALEX_API_KEY") or ctx.api_keys.get("openalex")
     if key:
         h["Authorization"] = f"Bearer {key}"

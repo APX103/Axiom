@@ -123,7 +123,7 @@ def create_app() -> FastAPI:
             manager.db_session_factory = db_factory
             app.state.db_engine = engine
             app.state.db_factory = db_factory
-            logger.info("operon-py DB ready: %s", settings.db_url())
+            logger.info("axiom-core DB ready: %s", settings.db_url())
         except Exception as e:
             # DB 初始化失败不阻断 API 启动 (退化为纯内存 ArtifactStore)
             logger.warning("DB init failed, falling back to in-memory: %s", e)
@@ -137,7 +137,7 @@ def create_app() -> FastAPI:
             except Exception:
                 pass
 
-    app = FastAPI(title="operon-py API", version=operon.__version__, lifespan=lifespan)
+    app = FastAPI(title="axiom-core API", version=operon.__version__, lifespan=lifespan)
     # 允许前端跨域 (开发时前端在 5173,后端在 8000)
     app.add_middleware(
         CORSMiddleware,

@@ -1,10 +1,10 @@
 [project]
-name = "operon-py"
+name = "axiom-core"
 version = "0.0.20"
 description = "Python clean-room reimplementation of Operon core logic"
 readme = "README.md"
 requires-python = ">=3.11"
-authors = [{ name = "operon-py" }]
+authors = [{ name = "axiom-core" }]
 license = { text = "MIT" }
 
 dependencies = [

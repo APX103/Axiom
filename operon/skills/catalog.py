@@ -101,10 +101,10 @@ def _load_skills_from_dir(root: Path, source: str) -> list[Skill]:
 
 
 def load_builtin_skills() -> list[Skill]:
-    """加载内置 skill — 从 operon-py/skills/ 目录的真实 SKILL.md。
+    """加载内置 skill — 从 axiom-core/skills/ 目录的真实 SKILL.md。
 
     对照原版: 原版内置 skill 在 44MB assets.tar 里 (./skills/<name>/SKILL.md)。
-    本项目从原版提取了通用 skill 到 operon-py/skills/。
+    本项目从原版提取了通用 skill 到 axiom-core/skills/。
     每个含真实指令 + 可选 kernel.py sidecar。
 
     路径解析 (两种部署形态都要支持):

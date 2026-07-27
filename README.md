@@ -2,7 +2,7 @@
 
 > **Languages:** **English** · [简体中文](README.zh.md)
 
-Axiom is a **local-first research AI workbench**. Built on the `operon-py` kernel, it supports literature surveys, data analysis, mathematical modeling, and code experiments — with all execution and data staying on your machine. The autonomous long-horizon research loop borrows from [Deli Chen's auto-research protocol](TODO-add-link).
+Axiom is a **local-first research AI workbench**. Built on the `axiom-core` kernel, it supports literature surveys, data analysis, mathematical modeling, and code experiments — with all execution and data staying on your machine. The autonomous long-horizon research loop borrows from [Deli Chen's auto-research protocol](TODO-add-link).
 
 - **Local-first** — sessions, workspace files, and the SQLite database all live on your machine.
 - **Cloud inference, local execution** — the LLM call goes to any OpenAI-compatible provider; tool execution, file I/O, and code runs happen locally.
