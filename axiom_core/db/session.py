@@ -7,6 +7,9 @@
 from __future__ import annotations
 
 import logging
+import os
+from pathlib import Path
+from urllib.parse import urlparse
 
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
@@ -24,6 +27,24 @@ DEFAULT_PROJECT_ID = "proj_default"
 DEFAULT_PROJECT_NAME = "默认项目"
 
 
+def _maybe_migrate_operon_db(db_url: str) -> None:
+    """重命名旧版 operon.db -> axiom_core.db,保证升级不丢记录。"""
+    if not db_url.startswith("sqlite"):
+        return
+    parsed = urlparse(db_url)
+    # sqlite:///absolute/path -> path 以 / 开头;去掉前导 / 得到绝对路径
+    current = Path(parsed.path)
+    if current.exists():
+        return
+    old = current.with_name("operon.db")
+    if old.exists():
+        try:
+            os.rename(old, current)
+            logger.info("migrated old database: %s -> %s", old, current)
+        except OSError as e:
+            logger.warning("failed to migrate old database %s -> %s: %s", old, current, e)
+
+
 async def init_engine(db_url: str, *, echo: bool = False) -> AsyncEngine:
     """初始化引擎并建表。
 
@@ -32,6 +53,7 @@ async def init_engine(db_url: str, *, echo: bool = False) -> AsyncEngine:
 
     db_url 若为裸 sqlite:/// 会被规范化为 sqlite+aiosqlite:/// (async driver)。
     """
+    _maybe_migrate_operon_db(db_url)
     if db_url.startswith("sqlite:///") and "+" not in db_url.split("sqlite", 2)[1]:
         db_url = db_url.replace("sqlite:///", "sqlite+aiosqlite:///", 1)
     # sqlite 需开启外键约束 (原版默认开)
