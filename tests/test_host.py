@@ -1,6 +1,6 @@
 """host 对象测试。
 
-对照原版 0221.js _OperonSDK + 0814.js dispatcher。
+对照原版 0221.js SDK + 0814.js dispatcher。
 测试: lineage/artifact_path/current_model/artifacts/query + llm (mock)。
 """
 
@@ -11,10 +11,10 @@ from pathlib import Path
 
 import pytest
 
-from operon.artifacts.store import ArtifactStore
-from operon.host import Host, make_host
-from operon.llm.base import LLMClient
-from operon.llm.messages import LLMResponse, StopReason, TextBlock, TokenUsage
+from axiom_core.artifacts.store import ArtifactStore
+from axiom_core.host import Host, make_host
+from axiom_core.llm.base import LLMClient
+from axiom_core.llm.messages import LLMResponse, StopReason, TextBlock, TokenUsage
 
 
 class MockLLM(LLMClient):
@@ -217,11 +217,11 @@ def test_host_injected_to_python_namespace(tmp_path):
 
     # 清理可能的污染
     sys.modules.pop("host", None)
-    sys.modules.pop("operon", None)
+    sys.modules.pop("axiom_core", None)
 
-    from operon.frames.service import FrameService
-    from operon.tools.builtins import exec as exec_mod
-    from operon.tools.context import ToolContext
+    from axiom_core.frames.service import FrameService
+    from axiom_core.tools.builtins import exec as exec_mod
+    from axiom_core.tools.context import ToolContext
 
     svc = FrameService()
     frame = svc.create_root_frame()

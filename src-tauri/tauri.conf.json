@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Axiom",
-  "version": "0.0.20",
-  "identifier": "com.operonpy.axiom",
+  "version": "0.0.21",
+  "identifier": "com.axiom-core.axiom",
   "build": {
     "beforeDevCommand": "cd ../frontend && bun run dev",
     "beforeBuildCommand": "true",
@@ -43,7 +43,7 @@
       "icons/icon.ico"
     ],
     "resources": {
-      "../dist/operon-backend": "operon-backend"
+      "../dist/axiom-backend": "axiom-backend"
     }
   }
 }

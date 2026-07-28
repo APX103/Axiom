@@ -15,9 +15,9 @@ import pytest
 
 pytest.importorskip("aiosqlite")
 
-from operon.api.sessions import SessionManager, _serialize_content
-from operon.llm.messages import Message, Role, TextBlock, ThinkingBlock, ToolUseBlock
-from operon.tools.context import PlanState
+from axiom_core.api.sessions import SessionManager, _serialize_content
+from axiom_core.llm.messages import Message, Role, TextBlock, ThinkingBlock, ToolUseBlock
+from axiom_core.tools.context import PlanState
 
 # ---------- _serialize_content 单测 ----------
 
@@ -53,13 +53,13 @@ def test_serialize_plain_string_passthrough():
 @pytest.fixture
 async def manager(tmp_path: Path) -> SessionManager:
     """带 SQLite 的 SessionManager (内存态为空, 仅测落库/读回)。"""
-    from operon.db.session import init_engine, session_factory
+    from axiom_core.db.session import init_engine, session_factory
 
     engine = await init_engine(f"sqlite:///{tmp_path / 'sessions.db'}")
     factory = session_factory(engine)
     mgr = SessionManager(db_session_factory=factory)
     # session_messages.session_id 外键引用 sessions.id, 先插一条 session 记录兜底
-    from operon.db.schema import SessionRecord
+    from axiom_core.db.schema import SessionRecord
 
     async with factory() as db:
         db.add(
@@ -200,13 +200,13 @@ async def test_restore_session_from_db_and_continue(tmp_path: Path, monkeypatch)
     """
     import sys
 
-    import operon.config  # noqa: F401
-    import operon.settings  # noqa: F401
-    from operon.config import ModelsConfig, ModelTier, RollingCompactConfig, Settings
-    from operon.db.session import init_engine, session_factory
-    from operon.llm.base import LLMClient
-    from operon.llm.messages import LLMResponse, StopReason, TokenUsage
-    from operon.settings import AppSettings
+    import axiom_core.config  # noqa: F401
+    import axiom_core.settings  # noqa: F401
+    from axiom_core.config import ModelsConfig, ModelTier, RollingCompactConfig, Settings
+    from axiom_core.db.session import init_engine, session_factory
+    from axiom_core.llm.base import LLMClient
+    from axiom_core.llm.messages import LLMResponse, StopReason, TokenUsage
+    from axiom_core.settings import AppSettings
 
     class FakeLLM(LLMClient):
         async def chat(
@@ -249,10 +249,10 @@ async def test_restore_session_from_db_and_continue(tmp_path: Path, monkeypatch)
         ),
     )
     monkeypatch.setattr(
-        sys.modules["operon.config"], "load_settings", lambda _path=None: settings
+        sys.modules["axiom_core.config"], "load_settings", lambda _path=None: settings
     )
     monkeypatch.setattr(
-        sys.modules["operon.settings"], "get_app_settings", lambda _dd: AppSettings()
+        sys.modules["axiom_core.settings"], "get_app_settings", lambda _dd: AppSettings()
     )
 
     engine = await init_engine(f"sqlite:///{tmp_path / 'sessions.db'}")

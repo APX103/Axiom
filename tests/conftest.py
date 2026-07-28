@@ -12,8 +12,8 @@ from pathlib import Path
 
 import pytest
 
-from operon.llm.base import LLMClient
-from operon.llm.messages import (
+from axiom_core.llm.base import LLMClient
+from axiom_core.llm.messages import (
     LLMResponse,
     Message,
     StopReason,

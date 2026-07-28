@@ -7,7 +7,7 @@
 
 from __future__ import annotations
 
-from operon.settings import (
+from axiom_core.settings import (
     mask_header_value,
     mask_key,
     unmask_from_candidates,

@@ -6,8 +6,8 @@
 
 from __future__ import annotations
 
-from operon.artifacts.store import make_marker
-from operon.citations.provenance import (
+from axiom_core.artifacts.store import make_marker
+from axiom_core.citations.provenance import (
     ProvenanceRecorder,
     auto_extract_lineage,
     get_recorder,
@@ -20,7 +20,7 @@ def test_enabled_by_default():
 
 
 def test_disabled_via_env(monkeypatch):
-    monkeypatch.setenv("OPERON_PROVENANCE_OFF", "1")
+    monkeypatch.setenv("AXIOM_PROVENANCE_OFF", "1")
     assert provenance_enabled() is False
 
 

@@ -191,14 +191,14 @@ fn ensure_data_dir() -> PathBuf {
 }
 
 /// 查找后端可执行文件路径。
-/// 生产环境: Tauri bundle 的 Resources/operon-backend
-/// 开发环境:  fallback 到 python3 -m operon.cli.main serve
+/// 生产环境: Tauri bundle 的 Resources/axiom-backend
+/// 开发环境:  fallback 到 python3 -m axiom_core.cli.main serve
 fn resolve_backend_binary(app_handle: &tauri::AppHandle) -> (PathBuf, Vec<String>) {
     let resource_dir = app_handle
         .path()
         .resource_dir()
         .unwrap_or_else(|_| PathBuf::from("."));
-    let bundled = resource_dir.join("operon-backend");
+    let bundled = resource_dir.join("axiom-backend");
     if bundled.is_file() {
         return (bundled, vec!["serve".to_string()]);
     }
@@ -208,7 +208,7 @@ fn resolve_backend_binary(app_handle: &tauri::AppHandle) -> (PathBuf, Vec<String
         PathBuf::from("python3"),
         vec![
             "-m".to_string(),
-            "operon.cli.main".to_string(),
+            "axiom_core.cli.main".to_string(),
             "serve".to_string(),
         ],
     )
@@ -280,11 +280,11 @@ async fn start_backend(app_handle: &tauri::AppHandle, port: u16) -> std::io::Res
     let mut cmd = Command::new(&bin);
     let data_dir = ensure_data_dir();
     // 让 Tauri 主进程也持有相同的数据目录，后续 Rust 命令（如打开文件位置）能直接读取
-    std::env::set_var("OPERON_DATA_DIR", &data_dir);
+    std::env::set_var("AXIOM_DATA_DIR", &data_dir);
     cmd.args(&args)
         .current_dir(&work_dir)
-        .env("OPERON_DATA_DIR", {
-            eprintln!("[axiom] OPERON_DATA_DIR = {:?}", data_dir);
+        .env("AXIOM_DATA_DIR", {
+            eprintln!("[axiom] AXIOM_DATA_DIR = {:?}", data_dir);
             data_dir
         })
         .stdout(Stdio::inherit())

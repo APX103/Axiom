@@ -10,7 +10,7 @@
 
 from __future__ import annotations
 
-from operon.memory.recall import BM25Index, build_index, recall, render_recall_block
+from axiom_core.memory.recall import BM25Index, build_index, recall, render_recall_block
 
 
 def _make_memory(

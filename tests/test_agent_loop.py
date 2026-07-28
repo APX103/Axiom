@@ -18,10 +18,10 @@ from pathlib import Path
 
 import pytest
 
-from operon.agent.runner import RunResultKind
-from operon.agent.session import Session, SessionConfig
-from operon.llm.base import LLMClient
-from operon.llm.messages import (
+from axiom_core.agent.runner import RunResultKind
+from axiom_core.agent.session import Session, SessionConfig
+from axiom_core.llm.base import LLMClient
+from axiom_core.llm.messages import (
     LLMResponse,
     Message,
     StopReason,

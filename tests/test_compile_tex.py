@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from operon.tools.builtins.latex import _find_failing_env, compile_tex
+from axiom_core.tools.builtins.latex import _find_failing_env, compile_tex
 
 # tectonic 可能没装 (CI/其他机器), 没装就跳过实际编译测试。
 TECTONIC = shutil.which("tectonic")

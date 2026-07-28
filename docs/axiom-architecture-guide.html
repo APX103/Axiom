@@ -560,7 +560,7 @@
         <span class="brand-dot"></span>
         Axiom 架构解析
       </a>
-      <span class="header-meta">本地科研 AI 工作台 · operon-py 内核</span>
+      <span class="header-meta">本地科研 AI 工作台 · axiom-core 内核</span>
     </div>
   </header>
 
@@ -609,7 +609,7 @@
         <strong>Axiom</strong> 是一个<strong>本地优先的科研 AI 工作台</strong>。它把 LLM 的推理能力、学术数据检索、代码执行、文件编辑和版本化管理，打包成一个可以运行在 macOS 桌面上的应用。
       </p>
       <p>
-        它的后端内核是 <code>operon-py</code>（对原版 Operon 的 clean-room Python 重实现），前端是 React + Vite，桌面壳用 Tauri v2（Rust）把前后端打包成一个可分发应用。所有会话、工作区文件、SQLite 数据库都保存在本地机器上，LLM 调用则走兼容 OpenAI 协议的云端或本地模型。
+        它的后端内核是 <code>axiom-core</code>（对原版 Operon 的 clean-room Python 重实现），前端是 React + Vite，桌面壳用 Tauri v2（Rust）把前后端打包成一个可分发应用。所有会话、工作区文件、SQLite 数据库都保存在本地机器上，LLM 调用则走兼容 OpenAI 协议的云端或本地模型。
       </p>
 
       <div class="feature-grid">
@@ -661,7 +661,7 @@
             </tr>
             <tr>
               <td><strong>后端内核</strong></td>
-              <td><code>operon/</code></td>
+              <td><code>axiom_core/</code></td>
               <td>Python 3.11 + FastAPI + SQLAlchemy 2.0</td>
               <td>Agent 状态机、工具系统、LLM 适配、Artifact/记忆/验证</td>
             </tr>
@@ -683,7 +683,7 @@ graph TB
       F[React 工作台]
     end
 
-    subgraph 后端 operon-py
+    subgraph 后端 axiom-core
       A[FastAPI / WebSocket]
       B[Agent Runner]
       C[Tool Registry]
@@ -722,7 +722,7 @@ graph TB
     <section id="agent-loop">
       <h2>3. Agent 主循环：一次请求的生命周期</h2>
       <p>
-        当用户在工作台输入一句话（例如“帮我写一份关于 LLM 推理时计算的综述”），后端会启动一次 <strong>Agent Run</strong>。它的核心在 <span class="file-pill">operon/agent/runner.py</span> 的 <code>Agent._run_loop()</code>。
+        当用户在工作台输入一句话（例如“帮我写一份关于 LLM 推理时计算的综述”），后端会启动一次 <strong>Agent Run</strong>。它的核心在 <span class="file-pill">axiom_core/agent/runner.py</span> 的 <code>Agent._run_loop()</code>。
       </p>
 
       <div class="steps">
@@ -805,7 +805,7 @@ sequenceDiagram
 
       <div class="callout tip">
         <div class="callout-title">Rolling Compact</div>
-        <p>当上下文接近模型窗口上限时，<code>operon/compact/</code> 会对历史消息做 L1/L2 折叠与摘要，避免爆窗。它会在每轮调 LLM 前检查并触发。</p>
+        <p>当上下文接近模型窗口上限时，<code>axiom_core/compact/</code> 会对历史消息做 L1/L2 折叠与摘要，避免爆窗。它会在每轮调 LLM 前检查并触发。</p>
       </div>
     </section>
 
@@ -833,7 +833,7 @@ sequenceDiagram
           <tbody>
             <tr>
               <td><strong>OpenAlex</strong></td>
-              <td><span class="file-pill">operon/tools/builtins/openalex.py</span></td>
+              <td><span class="file-pill">axiom_core/tools/builtins/openalex.py</span></td>
               <td><code>search_papers</code> 关键词检索；<code>fetch_paper</code> 按 DOI 取详情。支持 relevance / cited_by_count / publication_date 排序。</td>
             </tr>
             <tr>
@@ -843,12 +843,12 @@ sequenceDiagram
             </tr>
             <tr>
               <td><strong>Web 搜索</strong></td>
-              <td><span class="file-pill">operon/tools/builtins/web.py</span></td>
+              <td><span class="file-pill">axiom_core/tools/builtins/web.py</span></td>
               <td><code>web_search</code> / <code>fetch_url</code> 基于 DuckDuckGo，补充最新网页或灰色文献。</td>
             </tr>
             <tr>
               <td><strong>MCP 连接器</strong></td>
-              <td><span class="file-pill">operon/mcp/</span></td>
+              <td><span class="file-pill">axiom_core/mcp/</span></td>
               <td>可接入 PubMed、Semantic Scholar、bioRxiv、ClinicalTrials.gov 等外部学术 MCP server。</td>
             </tr>
           </tbody>
@@ -1059,7 +1059,7 @@ Early work on attention \citep{vaswani2017attention} established ...
             </tr>
             <tr>
               <td><code>Verifier.terminal_barrier</code></td>
-              <td><span class="file-pill">operon/verify/verifier.py</span></td>
+              <td><span class="file-pill">axiom_core/verify/verifier.py</span></td>
               <td>用独立 reviewer LLM 终审，检测 fabricated citation、claim contradiction 等。</td>
             </tr>
           </tbody>
@@ -1075,7 +1075,7 @@ Early work on attention \citep{vaswani2017attention} established ...
     <section id="artifacts">
       <h2>7. Artifact 版本化存储</h2>
       <p>
-        生成的综述文章不是普通文件，而是 <strong>Artifact</strong>。核心实现在 <span class="file-pill">operon/artifacts/store.py</span>。
+        生成的综述文章不是普通文件，而是 <strong>Artifact</strong>。核心实现在 <span class="file-pill">axiom_core/artifacts/store.py</span>。
       </p>
       <p>
         ArtifactStore 是三层结构：

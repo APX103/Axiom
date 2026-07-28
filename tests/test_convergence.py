@@ -13,12 +13,12 @@ from __future__ import annotations
 
 import pytest
 
-from operon.frames.service import FrameService
-from operon.llm.base import LLMClient
-from operon.llm.messages import LLMResponse, Message, Role, StopReason, TokenUsage, ToolUseBlock
-from operon.tools.builtins import plan as plan_tools
-from operon.tools.context import PlanState, ToolContext
-from operon.verify.verifier import VerificationConfig, Verifier
+from axiom_core.frames.service import FrameService
+from axiom_core.llm.base import LLMClient
+from axiom_core.llm.messages import LLMResponse, Message, Role, StopReason, TokenUsage, ToolUseBlock
+from axiom_core.tools.builtins import plan as plan_tools
+from axiom_core.tools.context import PlanState, ToolContext
+from axiom_core.verify.verifier import VerificationConfig, Verifier
 
 # ---------- 1. plan 锚点存取 ----------
 

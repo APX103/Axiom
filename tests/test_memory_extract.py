@@ -16,16 +16,16 @@ from pathlib import Path
 import pytest
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from operon.db.schema import Base
-from operon.llm.base import LLMClient
-from operon.llm.messages import LLMResponse, Message, StopReason, TextBlock, TokenUsage
-from operon.memory.extract import (
+from axiom_core.db.schema import Base
+from axiom_core.llm.base import LLMClient
+from axiom_core.llm.messages import LLMResponse, Message, StopReason, TextBlock, TokenUsage
+from axiom_core.memory.extract import (
     _clamp_confidence,
     _validate_append,
     apply_extraction,
     extract_memories,
 )
-from operon.memory.store import MemoryStore
+from axiom_core.memory.store import MemoryStore
 
 
 class FakeLLM(LLMClient):
@@ -172,7 +172,7 @@ async def test_extract_memories_parses_layer_a_json():
     })
     llm = FakeLLM(response_json)
 
-    from operon.llm.messages import Role
+    from axiom_core.llm.messages import Role
     ops = await extract_memories(
         [Message(role=Role.USER, content="we found kinase 142 is catalytic")],
         existing=[],
@@ -200,7 +200,7 @@ async def test_extract_memories_handles_markdown_fence():
     )
     llm = FakeLLM(fenced)
 
-    from operon.llm.messages import Role
+    from axiom_core.llm.messages import Role
     ops = await extract_memories(
         [Message(role=Role.USER, content="conversation")],
         existing=[],
@@ -214,7 +214,7 @@ async def test_extract_memories_handles_markdown_fence():
 async def test_extract_memories_invalid_json_returns_empty():
     """LLM 返回非 JSON 时返回空 ops, 不抛异常。"""
     llm = FakeLLM("this is not json at all")
-    from operon.llm.messages import Role
+    from axiom_core.llm.messages import Role
 
     ops = await extract_memories(
         [Message(role=Role.USER, content="x")],
@@ -246,7 +246,7 @@ async def test_extract_memories_filters_empty_body():
         "remove": [],
     })
     llm = FakeLLM(response_json)
-    from operon.llm.messages import Role
+    from axiom_core.llm.messages import Role
 
     ops = await extract_memories(
         [Message(role=Role.USER, content="x")], existing=[], llm=llm,

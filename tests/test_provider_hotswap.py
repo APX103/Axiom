@@ -9,8 +9,8 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-import operon.config
-from operon.api.sessions import SessionManager
+import axiom_core.config
+from axiom_core.api.sessions import SessionManager
 
 
 class _Tier:
@@ -48,7 +48,7 @@ def _fake_active(model: str, base_url: str, api_key: str) -> SimpleNamespace:
 
 
 def _patch_settings(monkeypatch, tier: _Tier):
-    monkeypatch.setattr(operon.config, "load_settings", lambda *a, **k: _Settings(tier))
+    monkeypatch.setattr(axiom_core.config, "load_settings", lambda *a, **k: _Settings(tier))
 
 
 def test_hot_swap_on_provider_change(monkeypatch):
@@ -100,7 +100,7 @@ def test_no_swap_when_client_replaced_externally(monkeypatch):
 def test_no_crash_without_models(monkeypatch):
     """settings 无 models 配置时静默跳过, 不影响 run。"""
     monkeypatch.setattr(
-        operon.config,
+        axiom_core.config,
         "load_settings",
         lambda *a, **k: SimpleNamespace(models=None, default_model_tier="large"),
     )
@@ -116,7 +116,7 @@ def test_no_crash_on_settings_error(monkeypatch):
     def _boom(*a, **k):
         raise RuntimeError("disk gone")
 
-    monkeypatch.setattr(operon.config, "load_settings", _boom)
+    monkeypatch.setattr(axiom_core.config, "load_settings", _boom)
     active = _fake_active("model-A", "https://a.example/v1", "real-A")
 
     mgr = SessionManager()

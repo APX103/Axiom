@@ -8,9 +8,9 @@ from __future__ import annotations
 
 import pytest
 
-from operon.frames.model import Frame
-from operon.tools.builtins.boundary import boundary
-from operon.tools.context import ToolContext
+from axiom_core.frames.model import Frame
+from axiom_core.tools.builtins.boundary import boundary
+from axiom_core.tools.context import ToolContext
 
 
 @pytest.fixture

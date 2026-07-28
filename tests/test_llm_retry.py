@@ -9,8 +9,8 @@ from unittest.mock import AsyncMock
 import httpx
 import pytest
 
-from operon.llm.messages import Message, Role
-from operon.llm.openai_compat import OpenAICompatClient
+from axiom_core.llm.messages import Message, Role
+from axiom_core.llm.openai_compat import OpenAICompatClient
 
 
 def _make_client(*, max_retries: int = 3, retry_backoff: float = 0.01) -> OpenAICompatClient:

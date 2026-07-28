@@ -1,6 +1,6 @@
 """WebSocket 事件协议的契约测试。"""
 
-from operon.api.events import CompleteEvent, StartEvent
+from axiom_core.api.events import CompleteEvent, StartEvent
 
 
 def test_start_event_matches_callback_payload() -> None:

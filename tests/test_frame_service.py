@@ -7,8 +7,8 @@ from __future__ import annotations
 
 import pytest
 
-from operon.agent.states import NEEDS_INPUT, SUCCESSFUL, TERMINAL, FrameStatus
-from operon.frames.service import FrameService
+from axiom_core.agent.states import NEEDS_INPUT, SUCCESSFUL, TERMINAL, FrameStatus
+from axiom_core.frames.service import FrameService
 
 
 def test_create_root_frame():

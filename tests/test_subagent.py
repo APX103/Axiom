@@ -14,10 +14,10 @@ from pathlib import Path
 
 import pytest
 
-from operon.agent.runner import Agent, AgentCallbacks
-from operon.frames.service import FrameService
-from operon.llm.base import LLMClient
-from operon.llm.messages import (
+from axiom_core.agent.runner import Agent, AgentCallbacks
+from axiom_core.frames.service import FrameService
+from axiom_core.llm.base import LLMClient
+from axiom_core.llm.messages import (
     LLMResponse,
     Message,
     Role,
@@ -26,10 +26,10 @@ from operon.llm.messages import (
     TokenUsage,
     ToolUseBlock,
 )
-from operon.tools.builtins import register_all
-from operon.tools.context import ToolContext
-from operon.tools.registry import ToolRegistry
-from operon.tools.router import ToolRouter
+from axiom_core.tools.builtins import register_all
+from axiom_core.tools.context import ToolContext
+from axiom_core.tools.registry import ToolRegistry
+from axiom_core.tools.router import ToolRouter
 
 
 class FakeLLM(LLMClient):
@@ -207,7 +207,7 @@ async def test_delegate_depth_limit(workspace: Path):
     register_all(registry, ctx)
     ctx.registry = registry
 
-    from operon.tools.builtins.delegate import delegate
+    from axiom_core.tools.builtins.delegate import delegate
 
     result = await delegate(ctx, task="再套一层")
     assert result["status"] == "error"
@@ -219,7 +219,7 @@ async def test_delegate_depth_limit(workspace: Path):
 
 def test_child_tool_whitelist_excludes_delegate(workspace: Path):
     """默认子工具白名单不含 delegate (防递归)。"""
-    from operon.tools.builtins.delegate import _DEFAULT_CHILD_TOOLS
+    from axiom_core.tools.builtins.delegate import _DEFAULT_CHILD_TOOLS
 
     assert "delegate" not in _DEFAULT_CHILD_TOOLS
     assert "submit_output" in _DEFAULT_CHILD_TOOLS

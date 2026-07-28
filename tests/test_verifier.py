@@ -13,9 +13,9 @@ from __future__ import annotations
 
 import pytest
 
-from operon.frames.service import FrameService
-from operon.llm.base import LLMClient
-from operon.llm.messages import (
+from axiom_core.frames.service import FrameService
+from axiom_core.llm.base import LLMClient
+from axiom_core.llm.messages import (
     LLMResponse,
     Message,
     Role,
@@ -24,8 +24,8 @@ from operon.llm.messages import (
     ToolResultBlock,
     ToolUseBlock,
 )
-from operon.verify.dispositions import Verdict
-from operon.verify.verifier import VerificationConfig, Verifier
+from axiom_core.verify.dispositions import Verdict
+from axiom_core.verify.verifier import VerificationConfig, Verifier
 
 
 class MockReviewerLLM(LLMClient):

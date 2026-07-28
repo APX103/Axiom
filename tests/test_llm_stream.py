@@ -11,8 +11,8 @@ from typing import Any
 
 import pytest
 
-from operon.llm.message_adapter import StreamAggregator
-from operon.llm.messages import StopReason, ToolUseBlock
+from axiom_core.llm.message_adapter import StreamAggregator
+from axiom_core.llm.messages import StopReason, ToolUseBlock
 
 # ---------- StreamAggregator ----------
 
@@ -114,8 +114,8 @@ class _FakeSSEStream:
 @pytest.mark.asyncio
 async def test_chat_stream_parses_sse(monkeypatch):
     """chat_stream 解析 OpenAI SSE 格式, yield text 增量 + final。"""
-    from operon.llm.messages import Message, Role
-    from operon.llm.openai_compat import OpenAICompatClient
+    from axiom_core.llm.messages import Message, Role
+    from axiom_core.llm.openai_compat import OpenAICompatClient
 
     def sse(data: dict[str, Any]) -> str:
         return f"data: {json.dumps(data)}"

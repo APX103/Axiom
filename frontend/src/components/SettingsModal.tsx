@@ -6,7 +6,7 @@ import { saveSettings, listSkills, getMcpTools, listMemories, deleteMemory } fro
 import { version as CURRENT_VERSION } from "../../package.json";
 import type { AppSettings, LLMProvider, MCPServer, SkillInfo, McpServerStatus, MemoryInfo, VerificationConfig, TraceConfig, TemplateInfo } from "../types";
 
-const STORAGE_KEY = "operon-py-app-config";
+const STORAGE_KEY = "axiom-core-app-config";
 
 export type FullConfig = AppSettings;
 
@@ -87,7 +87,7 @@ export function loadConfig(): FullConfig {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) return JSON.parse(raw);
     // 旧格式迁移
-    const oldRaw = localStorage.getItem("operon-py-model-config");
+    const oldRaw = localStorage.getItem("axiom-core-model-config");
     if (oldRaw) {
       const migrated = migrateOldConfig(JSON.parse(oldRaw));
       localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));

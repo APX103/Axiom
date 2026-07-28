@@ -11,11 +11,11 @@ from pathlib import Path
 
 import pytest
 
-from operon.agent.runner import Agent, RunResultKind
-from operon.agent.session import Session, SessionConfig
-from operon.agent.states import TERMINAL, FrameStatus
-from operon.frames.service import FrameService
-from operon.tools.router import ToolRouter
+from axiom_core.agent.runner import Agent, RunResultKind
+from axiom_core.agent.session import Session, SessionConfig
+from axiom_core.agent.states import TERMINAL, FrameStatus
+from axiom_core.frames.service import FrameService
+from axiom_core.tools.router import ToolRouter
 
 
 def test_frame_service_reopen_resets_terminal():

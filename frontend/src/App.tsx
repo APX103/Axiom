@@ -18,7 +18,7 @@ import { PaperView } from "./components/PaperView";
 import { UpdateBanner } from "./components/UpdateBanner";
 import type { ProjectInfo, SessionInfo, TemplateInfo } from "./types";
 
-const SID_KEY = "operon-py-active-sid";
+const SID_KEY = "axiom-core-active-sid";
 
 type BackendStatus = "checking" | "waiting" | "online" | "offline";
 

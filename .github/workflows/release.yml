@@ -71,7 +71,7 @@ jobs:
         run: uv sync
 
       - name: Build Python backend
-        run: uv run pyinstaller operon-backend.spec --clean --noconfirm
+        run: uv run pyinstaller axiom-backend.spec --clean --noconfirm
 
       - name: Build frontend
         run: |

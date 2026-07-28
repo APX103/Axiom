@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from operon.artifacts.store import (
+from axiom_core.artifacts.store import (
     ArtifactStore,
     extract_markers,
     make_marker,

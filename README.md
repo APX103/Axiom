@@ -2,7 +2,7 @@
 
 > **Languages:** **English** · [简体中文](README.zh.md)
 
-Axiom is a **local-first research AI workbench**. Built on the `operon-py` kernel, it supports literature surveys, data analysis, mathematical modeling, and code experiments — with all execution and data staying on your machine. The autonomous long-horizon research loop borrows from [Deli Chen's auto-research protocol](TODO-add-link).
+Axiom is a **local-first research AI workbench**. Built on the `axiom-core` kernel, it supports literature surveys, data analysis, mathematical modeling, and code experiments — with all execution and data staying on your machine. The autonomous long-horizon research loop borrows from [Deli Chen's auto-research protocol](TODO-add-link).
 
 - **Local-first** — sessions, workspace files, and the SQLite database all live on your machine.
 - **Cloud inference, local execution** — the LLM call goes to any OpenAI-compatible provider; tool execution, file I/O, and code runs happen locally.
@@ -47,7 +47,7 @@ In **Settings → Models**, add and enable a provider:
 - **Academic** — OpenAlex API key (required for OpenAlex search; OpenAlex enforces keys from 2026-02).
 - **Template** — pick a paper template for new sessions (article / IEEE / ACM).
 
-Settings persist to `~/.axiom/settings.json`. Developers can also edit a root `config.toml` (gitignored). Priority: `env (OPERON_*) > settings.json > config.toml > defaults`.
+Settings persist to `~/.axiom/settings.json`. Developers can also edit a root `config.toml` (gitignored). Priority: `env (AXIOM_*) > settings.json > config.toml > defaults`.
 
 ---
 
@@ -83,7 +83,7 @@ Requirements: macOS 10.13+, Python 3.11+, [uv](https://docs.astral.sh/uv/), [bun
 ```bash
 uv sync                              # Python deps
 cd frontend && bun install           # Frontend deps
-uv run operon serve                  # Backend (dev)
+uv run axiom serve                  # Backend (dev)
 cd frontend && bun run dev           # Frontend (dev)
 uv run pytest                        # Tests
 ./scripts/build_mac_app.sh           # Build the macOS app

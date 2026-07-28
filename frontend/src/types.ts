@@ -1,5 +1,5 @@
 // 前后端共享的事件/数据契约。
-// 对应 operon/api/events.py + sessions.py 的输出结构。
+// 对应 axiom_core/api/events.py + sessions.py 的输出结构。
 
 export interface ModelConfig {
   base_url: string;
@@ -30,7 +30,7 @@ export interface VerificationConfig {
   enabled: boolean;
   reviewer_model?: string;
   reviewer_max_iterations?: number;
-  reviewer_operon_budget?: number;
+  reviewer_axiom_budget?: number;
   shadow_reviewer?: boolean;
   bookmarks_enabled?: boolean;
   max_consecutive_bounces?: number;
@@ -146,7 +146,7 @@ export interface ProjectInfo {
   archived: boolean;
 }
 
-// WebSocket 事件 (对应 operon/api/callbacks.py 发出的 dict)
+// WebSocket 事件 (对应 axiom_core/api/callbacks.py 发出的 dict)
 export type WSEvent =
   | { type: "start"; frame_id: string; task_summary: string }
   | { type: "iteration"; n: number }

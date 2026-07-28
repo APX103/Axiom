@@ -17,15 +17,15 @@ cd "$(dirname "$0")/.."
 ROOT=$(pwd)
 
 echo "[build] cleaning old artifacts..."
-rm -rf "${ROOT}/dist/operon-backend"
-rm -rf "${ROOT}/build/operon-backend"
+rm -rf "${ROOT}/dist/axiom-backend"
+rm -rf "${ROOT}/build/axiom-backend"
 rm -rf "${ROOT}/frontend/dist"
 
 echo "[build] syncing dependencies..."
 uv sync
 
 echo "[build] building Python backend with PyInstaller..."
-uv run pyinstaller operon-backend.spec --clean --noconfirm
+uv run pyinstaller axiom-backend.spec --clean --noconfirm
 
 echo "[build] building frontend..."
 cd "${ROOT}/frontend"
@@ -37,10 +37,10 @@ cd "${ROOT}/src-tauri"
 bun x @tauri-apps/cli build
 
 echo "[build] signing with entitlements..."
-# 给 operon-backend 和整个 APP 用 adhoc 签名 + entitlements
+# 给 axiom-backend 和整个 APP 用 adhoc 签名 + entitlements
 # 未签名 APP 通过 open 启动时, macOS 会限制子进程网络绑定
 codesign --force --sign - --entitlements "${ROOT}/src-tauri/entitlements.plist" \
-  "${ROOT}/src-tauri/target/release/bundle/macos/Axiom.app/Contents/Resources/operon-backend" 2>&1
+  "${ROOT}/src-tauri/target/release/bundle/macos/Axiom.app/Contents/Resources/axiom-backend" 2>&1
 codesign --force --deep --sign - --entitlements "${ROOT}/src-tauri/entitlements.plist" \
   "${ROOT}/src-tauri/target/release/bundle/macos/Axiom.app" 2>&1
 

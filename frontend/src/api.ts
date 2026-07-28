@@ -1,4 +1,4 @@
-// API 客户端。对应 operon/api/app.py 的 REST 端点。
+// API 客户端。对应 axiom_core/api/app.py 的 REST 端点。
 // 开发时 Vite proxy /api → http://127.0.0.1:8000
 // Tauri 桌面壳会把后端端口注入到 window.__BACKEND_PORT__
 

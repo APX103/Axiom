@@ -16,7 +16,7 @@ import json
 
 import pytest
 
-from operon import (
+from axiom_core import (
     CHARS_PER_TOKEN,
     Message,
     OpenAICompatClient,
@@ -28,8 +28,8 @@ from operon import (
     ToolUseBlock,
     estimate_tokens,
 )
-from operon.llm.message_adapter import messages_to_openai, response_from_openai, tools_to_openai
-from operon.llm.token_counter import TokenCounter
+from axiom_core.llm.message_adapter import messages_to_openai, response_from_openai, tools_to_openai
+from axiom_core.llm.token_counter import TokenCounter
 
 # ---------- 1. import 链 ----------
 
@@ -200,14 +200,14 @@ def test_response_from_openai_bad_arguments():
 @pytest.mark.asyncio
 async def test_db_schema_creates_tables(tmp_path):
     """四张核心表能建表。对照原版 0110.js。"""
-    from operon.db.schema import (
+    from axiom_core.db.schema import (
         Artifact,
         ArtifactVersion,
         Frame,
         Project,
         VerificationCheck,
     )
-    from operon.db.session import init_engine, session_factory
+    from axiom_core.db.session import init_engine, session_factory
 
     db_url = f"sqlite:///{tmp_path / 'test.db'}"
     engine = await init_engine(db_url)
@@ -289,7 +289,7 @@ def test_rolling_compact_constants_match_original():
 
     任何常数改动都应在 docs/divergences.md 记录理由。
     """
-    from operon.config import RollingCompactConfig
+    from axiom_core.config import RollingCompactConfig
 
     cfg = RollingCompactConfig()
     # 逐条对照原版 (mapping.md 常数表)
