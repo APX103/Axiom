@@ -19,7 +19,15 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from axiom_core.config import ModelsConfig, ModelTier, Settings, TraceConfig, VerificationConfig
+from axiom_core.config import (
+    A2AConfig,
+    ModelsConfig,
+    ModelTier,
+    RegistryConfig,
+    Settings,
+    TraceConfig,
+    VerificationConfig,
+)
 
 
 class LLMProvider(BaseModel):
@@ -69,6 +77,10 @@ class AppSettings(BaseModel):
     trace: TraceConfig = Field(default_factory=TraceConfig)
     # 默认论文模板 id (见 GET /api/templates), 新建会话时复制 template.tex 到工作区。
     default_template: str = "article"
+    # Agent Registry (能力目录服务) 配置 (对应 axiom_core.config.RegistryConfig)
+    registry: RegistryConfig = Field(default_factory=RegistryConfig)
+    # A2A 调用配置 (对应 axiom_core.config.A2AConfig)
+    a2a: A2AConfig = Field(default_factory=A2AConfig)
 
 
 # ---- key 脱敏 helpers ----
@@ -129,11 +141,15 @@ def mask_app_settings(settings: AppSettings) -> AppSettings:
         masked_headers = {k: mask_header_value(v) for k, v in s.headers.items()}
         masked_mcps.append(s.model_copy(update={"headers": masked_headers}))
     masked_api_keys = {k: mask_key(v) for k, v in settings.api_keys.items()}
+    masked_registry = settings.registry.model_copy(
+        update={"api_key": mask_key(settings.registry.api_key)}
+    )
     return settings.model_copy(
         update={
             "llm_providers": masked_providers,
             "mcp_servers": masked_mcps,
             "api_keys": masked_api_keys,
+            "registry": masked_registry,
         }
     )
 
@@ -158,11 +174,16 @@ def unmask_app_settings(incoming: AppSettings, existing: AppSettings) -> AppSett
     old_api_keys = existing.api_keys
     merged_api_keys = {k: unmask_key(v, old_api_keys.get(k)) for k, v in incoming.api_keys.items()}
 
+    merged_registry = incoming.registry.model_copy(
+        update={"api_key": unmask_key(incoming.registry.api_key, existing.registry.api_key)}
+    )
+
     return incoming.model_copy(
         update={
             "llm_providers": providers,
             "mcp_servers": mcps,
             "api_keys": merged_api_keys,
+            "registry": merged_registry,
         }
     )
 
@@ -213,6 +234,8 @@ def app_settings_to_config_settings(app: AppSettings, data_dir: Path | None = No
 
     kwargs["verification"] = app.verification
     kwargs["trace"] = app.trace
+    kwargs["registry"] = app.registry
+    kwargs["a2a"] = app.a2a
 
     return Settings(**kwargs)
 
@@ -260,6 +283,8 @@ def config_settings_to_app_settings(settings: Settings) -> AppSettings:
         verification=settings.verification,
         trace=settings.trace,
         default_template=settings.default_template,
+        registry=settings.registry,
+        a2a=settings.a2a,
     )
 
 

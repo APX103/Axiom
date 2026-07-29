@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { saveSettings, listSkills, getMcpTools, listMemories, deleteMemory } from "../api";
 import { version as CURRENT_VERSION } from "../../package.json";
-import type { AppSettings, LLMProvider, MCPServer, SkillInfo, McpServerStatus, MemoryInfo, VerificationConfig, TraceConfig, TemplateInfo } from "../types";
+import type { AppSettings, LLMProvider, MCPServer, SkillInfo, McpServerStatus, MemoryInfo, VerificationConfig, TraceConfig, RegistryConfig, A2AConfig, TemplateInfo } from "../types";
 
 const STORAGE_KEY = "axiom-core-app-config";
 
@@ -39,6 +39,14 @@ function newVerification(): VerificationConfig {
 
 function newTrace(): TraceConfig {
   return { enabled: false };
+}
+
+function newRegistry(): RegistryConfig {
+  return { enabled: false, url: "", api_key: "" };
+}
+
+function newA2A(): A2AConfig {
+  return { default_timeout: 120 };
 }
 
 function migrateOldConfig(old: Record<string, unknown>): FullConfig {
@@ -78,6 +86,8 @@ function migrateOldConfig(old: Record<string, unknown>): FullConfig {
     verification: newVerification(),
     trace: newTrace(),
     default_template: "article",
+    registry: newRegistry(),
+    a2a: newA2A(),
   };
 }
 
@@ -85,7 +95,13 @@ export function loadConfig(): FullConfig {
   try {
     // 新格式
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const parsed = JSON.parse(raw) as FullConfig;
+      // 旧缓存可能缺后加的字段, 补默认值
+      parsed.registry = parsed.registry || newRegistry();
+      parsed.a2a = parsed.a2a || newA2A();
+      return parsed;
+    }
     // 旧格式迁移
     const oldRaw = localStorage.getItem("axiom-core-model-config");
     if (oldRaw) {
@@ -111,6 +127,8 @@ export function loadConfig(): FullConfig {
     verification: newVerification(),
     trace: newTrace(),
     default_template: "article",
+    registry: newRegistry(),
+    a2a: newA2A(),
   };
 }
 
@@ -151,6 +169,9 @@ export function fromApiSettings(raw: Record<string, unknown>): FullConfig {
     verification: (raw.verification as VerificationConfig) || newVerification(),
     trace: (raw.trace as TraceConfig) || newTrace(),
     default_template: (raw.default_template as string) || "article",
+    // registry.api_key 后端已脱敏; 回传 mask 值时后端保留旧值 (同 llm_providers 机制)
+    registry: (raw.registry as RegistryConfig) || newRegistry(),
+    a2a: (raw.a2a as A2AConfig) || newA2A(),
   };
 }
 
@@ -164,6 +185,8 @@ export function toApiSettings(c: FullConfig): Record<string, unknown> {
     })),
     verification: c.verification,
     trace: c.trace,
+    registry: c.registry,
+    a2a: c.a2a,
   };
 }
 
@@ -610,6 +633,85 @@ export function SettingsModal({
               >
                 + 添加 MCP Server
               </button>
+
+              {/* Agent Registry (能力目录服务) */}
+              <div className="p-3 rounded-lg bg-page space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-sm text-default">Agent Registry</div>
+                    <div className="text-[10px] text-faint">
+                      外部能力目录: 发现 A2A agent / MCP server / skill, 启用后自动注入 agent-registry 搜索工具
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={cfg.registry.enabled}
+                    onChange={(e) =>
+                      setCfg((c) => ({
+                        ...c,
+                        registry: { ...c.registry, enabled: e.target.checked },
+                      }))
+                    }
+                    className="w-4 h-4 rounded"
+                    style={{ accentColor: "var(--accent)" }}
+                  />
+                </div>
+                <label className="block">
+                  <span className="text-[10px] text-faint">Registry URL</span>
+                  <input
+                    type="text"
+                    value={cfg.registry.url}
+                    placeholder="https://registry.example.com"
+                    onChange={(e) =>
+                      setCfg((c) => ({
+                        ...c,
+                        registry: { ...c.registry, url: e.target.value },
+                      }))
+                    }
+                    className="mt-1 w-full px-2.5 py-1.5 bg-card rounded-md text-xs font-mono text-default placeholder:text-faint focus:outline-none input-glow border border-border"
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-[10px] text-faint">API Key</span>
+                  <input
+                    type="password"
+                    value={cfg.registry.api_key}
+                    placeholder="ar-..."
+                    onChange={(e) =>
+                      setCfg((c) => ({
+                        ...c,
+                        registry: { ...c.registry, api_key: e.target.value },
+                      }))
+                    }
+                    className="mt-1 w-full px-2.5 py-1.5 bg-card rounded-md text-xs font-mono text-default placeholder:text-faint focus:outline-none input-glow border border-border"
+                  />
+                </label>
+              </div>
+
+              {/* A2A (调用远端 agent) */}
+              <div className="p-3 rounded-lg bg-page space-y-3">
+                <div>
+                  <div className="text-sm text-default">A2A (调用远端 agent)</div>
+                  <div className="text-[10px] text-faint">
+                    call_agent 工具调用 Registry 里发现的远端 agent 时的默认等待上限
+                  </div>
+                </div>
+                <label className="block">
+                  <span className="text-[10px] text-faint">默认超时 (秒)</span>
+                  <input
+                    type="number"
+                    value={cfg.a2a.default_timeout}
+                    placeholder="120"
+                    onChange={(e) =>
+                      setCfg((c) => ({
+                        ...c,
+                        a2a: { ...c.a2a, default_timeout: Number(e.target.value) || 120 },
+                      }))
+                    }
+                    className="mt-1 w-full px-2.5 py-1.5 bg-card rounded-md text-xs font-mono text-default placeholder:text-faint focus:outline-none input-glow border border-border"
+                  />
+                </label>
+              </div>
             </div>
           )}
 

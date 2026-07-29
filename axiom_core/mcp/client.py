@@ -11,6 +11,7 @@ MCP streamable HTTP 协议:
 - 认证: Authorization: Bearer <key> (或自定义 header)
 
 生命周期: initialize → (initialized notification) → tools/list → tools/call
+另支持 resources/list + resources/read (如 Agent Registry 的 agent:// skill:// 详情)。
 """
 
 from __future__ import annotations
@@ -199,10 +200,52 @@ class MCPClient:
         result = await self._request("tools/call", {"name": name, "arguments": arguments or {}})
         return _extract_tool_content(result)
 
+    async def list_resources(self) -> list[dict[str, Any]]:
+        """拉取 server 的 resource 列表 (JSON-RPC resources/list)。"""
+        if not self._initialized:
+            await self.connect()
+        result = await self._request("resources/list", {})
+        return result.get("resources", []) if isinstance(result, dict) else []
+
+    async def read_resource(self, uri: str) -> str:
+        """读取一个 resource (JSON-RPC resources/read)。返回提取后的文本。"""
+        if not self._initialized:
+            await self.connect()
+        result = await self._request("resources/read", {"uri": uri})
+        return _extract_resource_content(result)
+
     async def close(self) -> None:
         if self._client is not None:
             await self._client.aclose()
             self._client = None
+
+
+def _extract_resource_content(result: Any) -> str:
+    """从 MCP resources/read 结果提取文本。
+
+    MCP resources/read 返回格式: {contents: [{uri, mimeType, text} | {uri, mimeType, blob}]}
+    转成纯文本字符串 (给 agent 看); blob (二进制) 内容用占位符代替。
+    """
+    if isinstance(result, str):
+        return result
+    if isinstance(result, dict):
+        contents = result.get("contents")
+        if isinstance(contents, list):
+            parts = []
+            for c in contents:
+                if isinstance(c, dict):
+                    if "text" in c:
+                        parts.append(c.get("text", ""))
+                    elif "blob" in c:
+                        parts.append("[binary content omitted]")
+                    else:
+                        parts.append(str(c))
+                else:
+                    parts.append(str(c))
+            return "\n".join(parts)
+        if "text" in result:
+            return result["text"]
+    return json.dumps(result, ensure_ascii=False, default=str)
 
 
 def _extract_tool_content(result: Any) -> str:
