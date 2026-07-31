@@ -13,10 +13,13 @@ from . import (
     artifact_tool,
     ask_user,
     boundary,
+    call_agent,
     files,
+    mcp_read_resource,
     memory,
     openalex,
     plan,
+    registry_connect,
     summary_query,
     web,
 )
@@ -89,6 +92,24 @@ def register_all(registry: ToolRegistry, ctx: ToolContext) -> None:
     )
     registry.register(
         **web.FETCH_URL_SPEC, handler=lambda **kw: web.fetch_url(ctx, **kw)
+    )
+
+    # MCP resource 读取 (通用; 配合 MCP 搜索工具拿摘要后读详情)
+    registry.register(
+        **mcp_read_resource.MCP_READ_RESOURCE_SPEC,
+        handler=lambda **kw: mcp_read_resource.mcp_read_resource(ctx, **kw),
+    )
+
+    # Agent Registry: 动态挂载发现的 MCP server
+    registry.register(
+        **registry_connect.REGISTRY_CONNECT_MCP_SERVER_SPEC,
+        handler=lambda **kw: registry_connect.registry_connect_mcp_server(ctx, **kw),
+    )
+
+    # Agent Registry: A2A 协议调用远端 agent
+    registry.register(
+        **call_agent.CALL_AGENT_SPEC,
+        handler=lambda **kw: call_agent.call_agent(ctx, **kw),
     )
 
     # 学术论文检索 (OpenAlex)

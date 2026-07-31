@@ -44,9 +44,13 @@ class MCPServerManager:
         """连接一个 MCP server。成功返回 True。
 
         连接失败不抛 (不影响其他 server),返回 False。
+        会话运行中可动态调用 (单事件循环, dict 操作安全);
+        同名 server 已连接时幂等返回 True (避免泄漏旧 client)。
         """
         if not config.enabled:
             return False
+        if config.name in self._servers:
+            return True
         client = MCPClient(config.url, headers=config.headers)
         try:
             await client.connect()
@@ -94,6 +98,31 @@ class MCPServerManager:
             return await client.call_tool(tool_name, arguments)
         except MCPError as e:
             return f"Error calling MCP {server_name}.{tool_name}: {e}"
+
+    async def list_resources(self, server_name: str) -> list[dict[str, Any]]:
+        """拉取对应 server 的 resource 列表。server 未连接或失败时返回空列表。"""
+        client = self._servers.get(server_name)
+        if client is None:
+            logger.warning("MCP server '%s' not connected, list_resources skipped", server_name)
+            return []
+        try:
+            return await client.list_resources()
+        except MCPError as e:
+            logger.warning("MCP %s resources/list failed: %s", server_name, e)
+            return []
+
+    async def read_resource(self, server_name: str, uri: str) -> str:
+        """路由 resource 读取到对应 server。"""
+        client = self._servers.get(server_name)
+        if client is None:
+            return (
+                f"Error: MCP server '{server_name}' not connected. Available: "
+                f"{list(self._servers.keys())}"
+            )
+        try:
+            return await client.read_resource(uri)
+        except MCPError as e:
+            return f"Error reading MCP resource {server_name}.{uri}: {e}"
 
     def is_connected(self, server_name: str) -> bool:
         return server_name in self._servers

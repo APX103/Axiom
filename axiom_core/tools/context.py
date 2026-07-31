@@ -95,6 +95,9 @@ class ToolContext:
     # 根 agent 在 Session.prepare() / sessions.py 构造时填入; 子 agent 复用父的。
     llm: Any = None
     registry: Any = None
+    # MCP server 管理器 (连接了 MCP server 时由 Session.prepare() 填入)。
+    # None 时 mcp_read_resource 等 MCP 相关工具返回未连接错误。
+    mcp_manager: Any = None
     # Layer A: 来源 session id, 用于记忆的跨会话溯源。
     # api/sessions.py 设置; 不设置时 fallback 到 frame.id (一个 frame = 一次 agent run)。
     session_id: str | None = None

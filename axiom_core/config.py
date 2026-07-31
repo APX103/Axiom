@@ -129,6 +129,27 @@ class McpConfig(BaseModel):
     search_threshold: int = 30
 
 
+class RegistryConfig(BaseModel):
+    """Agent Registry (能力目录服务) 配置。
+
+    registry 的发现层是一个标准 MCP Server (Streamable HTTP, POST {url}/mcp,
+    Authorization: Bearer <api_key>), 暴露 search_* 工具 (摘要) 和
+    agent:// mcp:// skill:// resources (完整信息)。
+    enabled 且 url 非空时, 自动作为名为 "agent-registry" 的 MCP server
+    注入会话的 MCP 连接流程 (见 axiom_core.mcp.registry)。
+    """
+
+    enabled: bool = False
+    url: str = ""
+    api_key: str = ""
+
+
+class A2AConfig(BaseModel):
+    """A2A (Agent2Agent) 调用配置。供 call_agent 工具调用远端 agent 用。"""
+
+    default_timeout: int = 120  # message/stream 聚合等待上限 (秒)
+
+
 class InvalidationConfig(BaseModel):
     """invalidation loop 配置。对照原版 0233.js:49 Ls_=2。"""
 
@@ -172,6 +193,8 @@ class Settings(BaseSettings):
     sandbox: SandboxConfig = Field(default_factory=SandboxConfig)
     trace: TraceConfig = Field(default_factory=TraceConfig)
     mcp: McpConfig = Field(default_factory=McpConfig)
+    registry: RegistryConfig = Field(default_factory=RegistryConfig)
+    a2a: A2AConfig = Field(default_factory=A2AConfig)
     # 数据源 API keys (OpenAlex / Semantic Scholar / 搜索 API 等)。
     #
     # 工具通过 ctx.api_keys.get("OPENALEX_API_KEY") 等读取。

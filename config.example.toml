@@ -33,6 +33,22 @@ url = "https://open.bigmodel.cn/api/mcp/web_search_prime/mcp"
 [mcp_servers.headers]
 Authorization = "Bearer 在这里填MCP的token"
 
+# ---- Agent Registry 能力目录服务 (可选) ----
+# 发现层是标准 MCP Server (Streamable HTTP)。enabled 后自动作为名为
+# "agent-registry" 的 MCP server 注入所有会话, 工具形如
+# mcp__agent-registry__search_resources (只返回摘要);
+# 配合内置 mcp_read_resource 工具读取 agent:// mcp:// skill:// resource 详情。
+# 与 [[mcp_servers]] 中同名的用户配置去重 (用户配置优先)。
+# [registry]
+# enabled = false
+# url = "https://registry.example.com"   # 实际请求 {url}/mcp
+# api_key = "ar_在这里填你的key"          # 作为 Authorization: Bearer 头
+
+# ---- A2A 调用远端 agent (可选) ----
+# call_agent 工具用: 经 registry 发现 agent 后, 以 A2A 协议 (JSON-RPC + SSE) 调用。
+# [a2a]
+# default_timeout = 120   # message/stream 聚合等待上限 (秒)
+
 # ---- 审稿 / 收敛审查 (可选) ----
 # 开启后 agent 长任务会触发 reviewer checkpoint, 自动检查 fabricated citation /
 # 后半段跑偏等问题。reviewer_model 不填则使用 [models].reviewer, 仍不填则用主模型。

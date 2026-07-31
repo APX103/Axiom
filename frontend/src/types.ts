@@ -46,6 +46,16 @@ export interface TraceConfig {
   log_tool_result_summary?: boolean;
 }
 
+export interface RegistryConfig {
+  enabled: boolean;
+  url: string;
+  api_key: string;
+}
+
+export interface A2AConfig {
+  default_timeout: number; // 秒
+}
+
 export interface AppSettings {
   version: number;
   llm_providers: LLMProvider[];
@@ -61,6 +71,8 @@ export interface AppSettings {
   verification: VerificationConfig;
   trace: TraceConfig;
   default_template: string;
+  registry: RegistryConfig;
+  a2a: A2AConfig;
 }
 
 export interface SkillInfo {

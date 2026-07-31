@@ -221,7 +221,13 @@ class Session:
         ctx.project_id = frame.project_id
 
         # 连接 MCP server + 注册 MCP 工具 (双轨)
-        if config.mcp_servers:
+        # 注入 Agent Registry (发现层): enabled 时作为 "agent-registry" MCP server
+        # 接入, 与用户显式配置的同名 server 去重 (用户配置优先)。覆盖所有
+        # mcp_servers 生效路径 (CLI / POST /api/sessions 透传 / config 兜底)。
+        from axiom_core.mcp.registry import inject_registry_server
+
+        mcp_servers = inject_registry_server(config.mcp_servers)
+        if mcp_servers:
             from axiom_core.mcp.manager import MCPServerManager
             from axiom_core.mcp.skill_gen import generate_mcp_skills
             from axiom_core.tools.builtins.mcp_proxy import (
@@ -230,7 +236,7 @@ class Session:
             )
 
             self.mcp_manager = MCPServerManager()
-            for srv in config.mcp_servers:
+            for srv in mcp_servers:
                 await self.mcp_manager.add_server(srv)
 
             # 轨道 1: MCP 工具注册成 agent 工具
@@ -253,6 +259,8 @@ class Session:
             # host 对象回填 mcp_manager (使 host.mcp 可用)
             if ctx.host is not None:
                 ctx.host._mcp_manager = self.mcp_manager
+            # ctx 回填 mcp_manager (使 mcp_read_resource 工具可用)
+            ctx.mcp_manager = self.mcp_manager
         return ctx
 
     @staticmethod

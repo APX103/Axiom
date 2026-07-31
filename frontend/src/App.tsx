@@ -14,7 +14,7 @@ import { ConfirmDialog } from "./components/ConfirmDialog";
 import { ProjectFormModal } from "./components/ProjectFormModal";
 import { ProjectManagerModal, type ProjectManagerEvent } from "./components/ProjectManagerModal";
 import { SettingsModal, fromApiSettings, loadConfig, type FullConfig } from "./components/SettingsModal";
-import { PaperView } from "./components/PaperView";
+import { ArtifactPreview } from "./components/ArtifactPreview";
 import { UpdateBanner } from "./components/UpdateBanner";
 import type { ProjectInfo, SessionInfo, TemplateInfo } from "./types";
 
@@ -31,17 +31,7 @@ function loadSid(): string | null {
   return localStorage.getItem(SID_KEY);
 }
 
-function usePaperRoute(): string | null {
-  if (typeof window === "undefined") return null;
-  const m = window.location.pathname.match(/^\/paper\/([^/]+)/);
-  return m ? m[1] : null;
-}
-
 export default function App() {
-  const paperSid = usePaperRoute();
-  if (paperSid) {
-    return <PaperView sid={paperSid} onClose={() => window.history.back()} />;
-  }
   return <Workbench />;
 }
 
@@ -56,7 +46,8 @@ function Workbench() {
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
   const [config, setConfig] = useState<FullConfig>(loadConfig());
   const [showSettings, setShowSettings] = useState(false);
-  const [showPaper, setShowPaper] = useState(false);
+  // 预览浮窗目标文件: null=关闭; {path}=打开该文件的预览
+  const [previewTarget, setPreviewTarget] = useState<{ path: string } | null>(null);
   const [backendStatus, setBackendStatus] = useState<BackendStatus>("checking");
   const backendStatusRef = useRef(backendStatus);
   useEffect(() => {
@@ -538,7 +529,7 @@ function Workbench() {
                     </div>
                   )
                 ) : (
-                  <ProjectTree sid={sid} />
+                  <ProjectTree sid={sid} onPreviewFile={(p) => setPreviewTarget({ path: p })} />
                 )}
               </div>
 
@@ -728,7 +719,7 @@ function Workbench() {
                     <WorkspacePanel
                       artifacts={session.artifacts}
                       sid={sid}
-                      onViewPaper={() => setShowPaper(true)}
+                      onPreviewFile={(p) => setPreviewTarget({ path: p })}
                     />
                   }
                   bottom={
@@ -796,7 +787,13 @@ function Workbench() {
         />
       )}
 
-      {showPaper && sid && <PaperView sid={sid} onClose={() => setShowPaper(false)} />}
+      {previewTarget && sid && (
+        <ArtifactPreview
+          sid={sid}
+          path={previewTarget.path}
+          onClose={() => setPreviewTarget(null)}
+        />
+      )}
     </div>
   );
 }
@@ -951,7 +948,7 @@ function SessionItem({
   );
 }
 
-function ProjectTree({ sid }: { sid: string | null }) {
+function ProjectTree({ sid, onPreviewFile }: { sid: string | null; onPreviewFile: (path: string) => void }) {
   const [files, setFiles] = useState<{ path: string; size: number; name: string }[]>([]);
   const [refreshTick, setRefreshTick] = useState(0);
   const [hovered, setHovered] = useState<string | null>(null);
@@ -1002,7 +999,7 @@ function ProjectTree({ sid }: { sid: string | null }) {
         <div
           key={f.path}
           className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-hover cursor-pointer text-xs"
-          onClick={() => window.open(`${apiBase()}/sessions/${sid}/files/${encodeURIComponent(f.path)}`, "_blank")}
+          onClick={() => onPreviewFile(f.path)}
           onMouseEnter={() => setHovered(f.path)}
           onMouseLeave={() => setHovered(null)}
         >

@@ -1,7 +1,7 @@
 {
   "name": "axiom-frontend",
   "private": true,
-  "version": "0.0.21",
+  "version": "0.0.22",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -12,6 +12,7 @@
     "tauri:build": "tauri build"
   },
   "dependencies": {
+    "3dmol": "^2.5.5",
     "@tauri-apps/api": "^2.0.0",
     "@types/katex": "^0.16.8",
     "katex": "^0.17.0",
