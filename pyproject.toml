@@ -1,6 +1,6 @@
 [project]
 name = "axiom-core"
-version = "0.0.21"
+version = "0.0.22"
 description = "Python backend for Axiom"
 readme = "README.md"
 requires-python = ">=3.11"

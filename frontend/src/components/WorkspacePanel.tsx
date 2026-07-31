@@ -1,5 +1,5 @@
 // 工作区面板: 展示 agent 产出的文件 (artifacts) + 实际工作区文件。
-// .tex/.pdf 可点击查看/下载/删除。
+// 点击任意文件弹出 ArtifactPreview 浮窗预览 (不再 window.open 新标签页)。
 import { useEffect, useState } from "react";
 import { deleteFile, apiBase, openInFileManager } from "../api";
 import { ConfirmDialog } from "./ConfirmDialog";
@@ -8,11 +8,11 @@ import type { ArtifactInfo } from "../types";
 export function WorkspacePanel({
   artifacts,
   sid,
-  onViewPaper,
+  onPreviewFile,
 }: {
   artifacts: Record<string, ArtifactInfo>;
   sid: string | null;
-  onViewPaper: () => void;
+  onPreviewFile: (path: string) => void;
 }) {
   const [files, setFiles] = useState<{ path: string; size: number; name: string }[]>([]);
   const [refreshTick, setRefreshTick] = useState(0);
@@ -48,8 +48,6 @@ export function WorkspacePanel({
     setRefreshTick((n) => n + 1);
   };
 
-  const hasTex = files.some((f) => f.path.endsWith(".tex")) || entries.some(([p]) => p.endsWith(".tex"));
-
   return (
     <div className="h-full flex flex-col">
       <div className="px-4 py-3 flex items-center justify-between">
@@ -60,14 +58,6 @@ export function WorkspacePanel({
           </h2>
           <p className="text-[10px] text-faint mt-0.5">{files.length || entries.length} 个文件</p>
         </div>
-        {hasTex && sid && (
-          <button
-            onClick={onViewPaper}
-            className="text-[10px] px-2.5 py-1.5 rounded-lg bg-accent hover:bg-accent-hover text-inverse font-medium transition-colors"
-          >
-            查看论文
-          </button>
-        )}
       </div>
       <div className="flex-1 overflow-y-auto p-2">
         {files.length === 0 && entries.length === 0 ? (
@@ -82,6 +72,7 @@ export function WorkspacePanel({
                     size={f.size}
                     sid={sid}
                     onDelete={setPendingDelete}
+                    onPreview={onPreviewFile}
                   />
                 ))
               : entries.map(([path, info]) => (
@@ -91,6 +82,7 @@ export function WorkspacePanel({
                     size={info.size}
                     sid={sid}
                     onDelete={setPendingDelete}
+                    onPreview={onPreviewFile}
                   />
                 ))}
           </ul>
@@ -115,16 +107,18 @@ function FileItem({
   size,
   sid,
   onDelete,
+  onPreview,
 }: {
   path: string;
   size: number;
   sid: string | null;
   onDelete: (path: string) => void;
+  onPreview: (path: string) => void;
 }) {
-  const isViewable = /\.(tex|md|txt|py|csv|json|bib|js|ts|tsx|jsx|html|css|yaml|yml|xml|sh)$/.test(path);
   const isDoc = /\.(tex|pdf)$/.test(path);
   const view = () => {
-    if (sid && isViewable) window.open(`${apiBase()}/sessions/${sid}/files/${encodeURIComponent(path)}`, "_blank");
+    // 所有文件都可点击预览; ArtifactPreview 内部按类型分发, 未知类型走代码视图兜底。
+    onPreview(path);
   };
   const openDir = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -141,9 +135,7 @@ function FileItem({
   };
   return (
     <li
-      className={`group flex items-center justify-between px-2.5 py-1.5 rounded-lg ${
-        isViewable ? "hover:bg-hover cursor-pointer" : ""
-      }`}
+      className="group flex items-center justify-between px-2.5 py-1.5 rounded-lg hover:bg-hover cursor-pointer"
       onClick={view}
     >
       <div className="flex items-center gap-2 min-w-0">

@@ -42,3 +42,9 @@
 - Run `uv run pytest -q` for Python changes.
 - Run `uv run ruff check ...` for linting.
 - Run `cd frontend && bun run build` for frontend changes.
+
+## Testing & Delivery Workflow
+
+- The maintainer tests by **installing the built macOS app**, not by running the frontend/backend dev servers. So after any user-facing change (frontend or backend), **default to building the full app** with `bash scripts/build_mac_app.sh` and report the `.app` / `.dmg` paths — do not suggest `bun run dev` / `uv run axiom serve` as the way to verify.
+- Always run the build's own validation first (`cd frontend && bun run build` for TS compile + Vite, `uv run pytest -q` for Python regression) so a broken build doesn't waste a multi-minute `build_mac_app.sh` run.
+- Don't bump the version or tag for routine iteration builds — only bump on an actual release (see Versioning).
